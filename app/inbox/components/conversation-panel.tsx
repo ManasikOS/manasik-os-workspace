@@ -684,7 +684,7 @@ export default function ConversationPanel({
                         </span>
                       )}
                       {placement.showMeta && (
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
                             {entry.item.actor_kind === "AI" && (
                               <Sparkles className="size-3" aria-hidden="true" />
