@@ -31,4 +31,5 @@ Manual verification:
 4. Run `supabase db push --dry-run`. Expect nothing to apply except migrations that are genuinely new.
 
 ## Status
-Draft: the script is written and has not been run. Update to Done once step 3 above has been observed on staging.
+Done. Run on staging (`klognjpwmqwlgeibvanf`) on 2026-10-04: `renamed = 9`. `supabase migration list --linked` then showed all 231 local files matched
+to a remote version, with nothing pending and no remote-only rows.
