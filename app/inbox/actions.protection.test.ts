@@ -32,8 +32,14 @@ vi.mock("@/lib/data/identity-graph-repository", () => ({ confirmIdentityLink: vi
 vi.mock("@/app/(main)/leads/copilot-actions", () => ({ saveQuoteDraftAction: vi.fn() }));
 
 const rpc = vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({ error: null }));
-const conversationRow = { id: "c1", channel: "WHATSAPP", state: "HUMAN_ACTIVE", service_window_expires_at: null, assigned_to_id: null as string | null, assigned_to_name: null as string | null };
-const conversationUpdates: Array<Record<string, unknown>> = [];
+const conversationRow = { 
+  id: "c1", 
+  channel: "WHATSAPP", 
+  state: "HUMAN_ACTIVE", 
+  service_window_expires_at: (null as unknown) as string | null, 
+  assigned_to_id: null as string | null, 
+  assigned_to_name: null as string | null 
+};const conversationUpdates: Array<Record<string, unknown>> = [];
 /** Every `.eq(column, value)` a `.select(...)` read chained, in order — so a test can confirm a query was scoped
  * by `agency_id` at the query itself, not only by the value the caller happened to pass in. */
 const conversationReadFilters: Array<{ column: string; value: unknown }> = [];
