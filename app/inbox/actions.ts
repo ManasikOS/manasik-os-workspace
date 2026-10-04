@@ -2161,7 +2161,10 @@ export async function sendStaffMessage(
   if (!hasChannelAdapter(conversation.channel as ChannelProvider)) {
     return { ok: false, error: "Replying on this channel isn't available yet. You can read the conversation here." };
   }
+  // Email has no provider reply window (resolveChannelPolicyState allows a free-form reply at any time), so a stored
+  // service_window_expires_at must never block it; the 24h rule below is Meta's alone.
   if (
+    conversation.channel !== "GMAIL" &&
     conversation.service_window_expires_at &&
     new Date(conversation.service_window_expires_at as string).getTime() < Date.now()
   ) {

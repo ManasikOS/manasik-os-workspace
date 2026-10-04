@@ -132,6 +132,8 @@ beforeEach(() => {
   conversationUpdates.length = 0;
   conversationReadFilters.length = 0;
   conversationRow.state = "HUMAN_ACTIVE";
+  conversationRow.channel = "WHATSAPP";
+  conversationRow.service_window_expires_at = null;
   conversationRow.assigned_to_id = null;
   conversationRow.assigned_to_name = null;
   loadProtectionContext.mockReset();
@@ -300,6 +302,19 @@ describe("sendStaffMessage — email subject/cc/bcc (docs/inbox/email-channel-im
   it("sends null for every email field on a plain reply, never an empty string or array", async () => {
     await sendStaffMessage(CONVERSATION, "Hello");
     expect(rpc).toHaveBeenCalledWith("enqueue_inbox_text_message", expect.objectContaining({ p_subject: null, p_cc: null, p_bcc: null }));
+  });
+
+  it("sends an email reply even when the stored service window is long past: email has no 24h reply window", async () => {
+    conversationRow.channel = "GMAIL";
+    conversationRow.service_window_expires_at = new Date(Date.now() - 72 * 3_600_000).toISOString();
+    expect(await sendStaffMessage(CONVERSATION, "Hello")).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith("enqueue_inbox_text_message", expect.anything());
+  });
+
+  it("still refuses a WhatsApp reply outside its 24h window", async () => {
+    conversationRow.service_window_expires_at = new Date(Date.now() - 3_600_000).toISOString();
+    expect(await sendStaffMessage(CONVERSATION, "Hello")).toMatchObject({ ok: false });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid Cc address before it reaches the RPC", async () => {
