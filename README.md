@@ -11,6 +11,24 @@ Built on Next.js (App Router) with Supabase for auth, database and storage.
 - **Anthropic API** — the AI Document Agent (`lib/data/documents-ai.ts`)
 - **Tailwind CSS v4**, shadcn-derived UI components
 
+## Production DB
+
+supabase link --project-ref bidmihfsljrurlnraqmf
+supabase migration list --linked
+supabase db push --dry-run
+
+## Staging DB
+
+supabase link --project-ref klognjpwmqwlgeibvanf
+supabase migration list --linked
+supabase db push --dry-run
+
+supabase link --project-ref bidmihfsljrurlnraqmf # asks for the production DB password
+supabase db push --dry-run # shows what WOULD run. Read it.
+supabase db push # applies it. Answer Y.
+supabase migration list --linked # all rows should now match
+supabase link --project-ref klognjpwmqwlgeibvanf # IMPORTANT: point back at staging
+
 ## Getting started
 
 1. Install dependencies:
@@ -51,7 +69,7 @@ Every module gates access through a per-role capability matrix in
 (`getCurrentStaffRole()` in `lib/data/departure-groups.ts`). The same role
 set is enforced again in the database via Row Level Security
 (`supabase/migrations/20260822090000_rls_hardening.sql`) — the application
-layer decides what's *rendered*, RLS decides what's ever *fetchable*, so
+layer decides what's _rendered_, RLS decides what's ever _fetchable_, so
 neither is the sole line of defence.
 
 The first user created via `20260820090000_team_access.sql`'s backfill (or
