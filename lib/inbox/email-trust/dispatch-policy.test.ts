@@ -1,0 +1,4 @@
+import { describe, expect, it } from "vitest";
+import { evaluateEmailDispatchPolicy } from "./dispatch-policy";
+const safe = { connectionState: "READY", senderState: "VERIFIED", recipientState: "VALID", suppressionState: "NOT_SUPPRESSED", dnsRiskState: "CLEAR", quotaState: "AVAILABLE" } as const;
+describe("evaluateEmailDispatchPolicy", () => { it("allows a ready verified unsuppressed recipient", () => expect(evaluateEmailDispatchPolicy(safe)).toMatchObject({ decision: "ALLOW" })); it("blocks a permanent suppression before SMTP", () => expect(evaluateEmailDispatchPolicy({ ...safe, suppressionState: "SUPPRESSED" })).toMatchObject({ decision: "BLOCK", diagnosticCodes: ["RECIPIENT_SUPPRESSED"] })); it("requires acknowledgement for DNS risk", () => expect(evaluateEmailDispatchPolicy({ ...safe, dnsRiskState: "WARNING" })).toMatchObject({ decision: "WARN", requiresAcknowledgement: true })); });

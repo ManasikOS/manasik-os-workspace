@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { classifyEmailDeliveryStatus } from "./delivery-status";
+describe("classifyEmailDeliveryStatus", () => { it("recognizes an RFC permanent bounce", () => expect(classifyEmailDeliveryStatus({ from: "MAILER-DAEMON@example.test", subject: "Delivery Status Notification (Failure)", body: "Status: 5.1.1" })).toBe("PERMANENT_BOUNCE")); it("does not suppress a temporary failure or auto reply", () => { expect(classifyEmailDeliveryStatus({ from: "postmaster@example.test", subject: "Delivery delayed", body: "Status: 4.2.0" })).toBe("TEMPORARY_FAILURE"); expect(classifyEmailDeliveryStatus({ from: "person@example.test", subject: "Out of office", body: "Automatic reply" })).toBe("AUTO_REPLY"); }); });

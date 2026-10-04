@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1 {
+        font-size: 285.267px;
+        font-family: "Noto Kufi Arabic";
+      }
+
+      .cls-1, .cls-3, .cls-4, .cls-5 {
+        fill: #35b5ff;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        text-anchor: middle;
+      }
+
+      .cls-1, .cls-2 {
+        font-weight: 500;
+      }
+
+      .cls-1, .cls-3 {
+        text-transform: uppercase;
+      }
+
+      .cls-2 {
+        font-size: 155.783px;
+        fill: #f5f7fa;
+      }
+
+      .cls-2, .cls-3 {
+        font-family: "Plus Jakarta Sans";
+      }
+
+      .cls-3 {
+        font-size: 140.465px;
+        font-weight: 700;
+      }
+
+      .cls-5 {
+        fill-rule: evenodd;
+      }
+    </style>
+  </defs>
+  <text id="مناسك" class="cls-1" transform="matrix(1.267, 0, 0, 1.267, 546.683, 742.686)"><tspan x="0">مناسك</tspan></text>
+  <text id="Manasik" class="cls-2" transform="matrix(1.16, 0, 0, 1.16, 423.645, 945.752)"><tspan x="0">Manasik</tspan></text>
+  <text id="OS" class="cls-3" transform="matrix(1.143, 0, 0, 1.143, 884.886, 947.844)"><tspan x="0">OS</tspan></text>
+  <circle class="cls-4" cx="539.469" cy="135.5" r="19.281"/>
+  <circle class="cls-4" cx="539.469" cy="241.484" r="19.281"/>
+  <circle class="cls-4" cx="539.469" cy="347.469" r="19.281"/>
+  <path class="cls-5" d="M655.087,116.227A19.271,19.271,0,1,1,635.816,135.5,19.271,19.271,0,0,1,655.087,116.227Z"/>
+  <path class="cls-5" d="M655.087,222.214a19.271,19.271,0,1,1-19.271,19.271A19.271,19.271,0,0,1,655.087,222.214Z"/>
+  <path class="cls-5" d="M655.087,328.2a19.27,19.27,0,1,1-19.271,19.27A19.27,19.27,0,0,1,655.087,328.2Z"/>
+  <path class="cls-5" d="M423.842,328.2a19.27,19.27,0,1,1-19.271,19.27A19.269,19.269,0,0,1,423.842,328.2Z"/>
+</svg>

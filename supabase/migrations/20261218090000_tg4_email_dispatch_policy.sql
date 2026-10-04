@@ -1,0 +1,9 @@
+create table public.email_dispatch_reservations (id uuid primary key default gen_random_uuid(), agency_id uuid not null references public.agencies(id) on delete cascade, outbox_message_id uuid not null, reserved_at timestamptz not null default now(), settled_at timestamptz, unique (agency_id, outbox_message_id));
+create index email_dispatch_reservations_agency_reserved_idx on public.email_dispatch_reservations (agency_id, reserved_at desc) where settled_at is null;
+create table public.email_recipient_suppressions (id uuid primary key default gen_random_uuid(), agency_id uuid not null references public.agencies(id) on delete cascade, recipient_hash text not null, reason text not null check (reason in ('PERMANENT_BOUNCE','MANUAL')), created_at timestamptz not null default now(), restored_at timestamptz, unique (agency_id, recipient_hash));
+create index email_recipient_suppressions_active_idx on public.email_recipient_suppressions (agency_id, recipient_hash) where restored_at is null;
+alter table public.email_dispatch_reservations enable row level security; alter table public.email_recipient_suppressions enable row level security;
+revoke all on public.email_dispatch_reservations, public.email_recipient_suppressions from anon;
+grant select, insert, update on public.email_dispatch_reservations, public.email_recipient_suppressions to authenticated;
+create policy "staff manage own email dispatch reservations" on public.email_dispatch_reservations for all to authenticated using (agency_id = public.current_agency_id()) with check (agency_id = public.current_agency_id());
+create policy "staff manage own email suppressions" on public.email_recipient_suppressions for all to authenticated using (agency_id = public.current_agency_id()) with check (agency_id = public.current_agency_id());

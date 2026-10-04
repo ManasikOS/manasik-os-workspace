@@ -1,0 +1,28 @@
+# Applies to worker/Dockerfile only. Anything not copied by an explicit COPY line cannot enter the image, but this keeps the build
+# context small and, more importantly, keeps secrets and local material out of the context entirely.
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+certificates
+tmp
+
+# Dependencies and build output are produced inside the image
+node_modules
+.next
+dist-worker
+coverage
+
+# Not part of the worker
+.git
+.github
+docs
+tests
+public
+supabase
+scripts
+components
+hooks

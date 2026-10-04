@@ -1,0 +1,595 @@
+{
+  "capturedAt": "2026-09-16T05:36:42.608Z",
+  "scope": "Aggregate counts only, privileged API identity. Not a tenant-isolation test.",
+  "localMigrations": [
+    {
+      "file": "20260808090000_create_packages.sql",
+      "sha256": "cc7090781fab168ec933f41179616ca960fa5313f493c05395faeb077e194384"
+    },
+    {
+      "file": "20260809090000_create_departure_groups.sql",
+      "sha256": "f7347d5165d234428a849f918ddddc1e15eb43f77fb316bcb4848ed58d2219be"
+    },
+    {
+      "file": "20260810090000_departure_groups_supabase_fixes.sql",
+      "sha256": "95810c3f84a55cb1d039d2cb344011a716dbe549616473e6e4c11741c4b525c9"
+    },
+    {
+      "file": "20260811090000_departure_groups_documents_lifecycle.sql",
+      "sha256": "c1d1a4ca187d592dc359fd1144f1218024a826583a515e1a7c2f323bf7ddc94b"
+    },
+    {
+      "file": "20260812090000_packages_module_v2.sql",
+      "sha256": "bce916cce8167f624d80f6a3ff676aaff4b3e10114f2c6cec6f771380c458ad5"
+    },
+    {
+      "file": "20260812100000_create_leads.sql",
+      "sha256": "43f6a9ea43f17017bfb111452b8b6050333bf3e9b4fefc42b05ae3def4944d71"
+    },
+    {
+      "file": "20260813090000_create_pilgrims.sql",
+      "sha256": "5b60e36846e9852d0829349f77ee0bcf3289537274b40e637d099c53331e1e14"
+    },
+    {
+      "file": "20260814090000_documents_operations.sql",
+      "sha256": "7c4fc450cb5f805cb0f6fa3d7409cca3dbc9cf881b9acf0d49646a008ad9bc01"
+    },
+    {
+      "file": "20260815090000_visa_operations.sql",
+      "sha256": "ed6af49ad9e786560ceae910389f100d6e1a04f138e8ca675121cd4ac796179c"
+    },
+    {
+      "file": "20260817090000_supplier_directory.sql",
+      "sha256": "7b731106e29a1c5baece969a9a97c0fbf3cde08ffc668663f36c4b87cda237fb"
+    },
+    {
+      "file": "20260818090000_finance_payments.sql",
+      "sha256": "4d22d7925a308e707d9507cec5199da1f60871be71c48ea5787491ca5c834900"
+    },
+    {
+      "file": "20260819090000_reports.sql",
+      "sha256": "2d388a5d70ba8fa93fe3a42b48ff67eeef414ea94371a7e810f31d5fd95c7aeb"
+    },
+    {
+      "file": "20260820090000_team_access.sql",
+      "sha256": "2763eeceeda4f841f9741e38af54354de3efb794d31faf0b1a3aaf845c2014d8"
+    },
+    {
+      "file": "20260821090000_agency_settings.sql",
+      "sha256": "4762b972de1388bec31499edf48e837c1b0b142f1f6a7ed78a859606ffcb1f0f"
+    },
+    {
+      "file": "20260822090000_rls_hardening.sql",
+      "sha256": "6872c33704a8be4328881cb2dd174e87bbfb773e82f971cc8a456c4fb083e25a"
+    },
+    {
+      "file": "20260823090000_pilgrim_customisation.sql",
+      "sha256": "b02f966057adec4592b0120072a473380961708523d64a36a32b404fcdc3fb3c"
+    },
+    {
+      "file": "20260824090000_tenancy.sql",
+      "sha256": "0348f731858289cbdedc868488cdc17e697542a20c55122e5627c0b0faf0456b"
+    },
+    {
+      "file": "20260825090000_whatsapp_channel.sql",
+      "sha256": "271e4cc4e8668095f89fc4c1733f41063110b39d2ae6b116e0822edea3d01a80"
+    },
+    {
+      "file": "20260826090000_ai_agent.sql",
+      "sha256": "b7e3bea164b6bf62e18e15663044b54ad3f46c7536f8bfcec4db359e30eedade"
+    },
+    {
+      "file": "20260827090000_tenant_storage_isolation.sql",
+      "sha256": "f3d92999a832e30b7f47a9cbcb7011ec44b55dadb4c8a86d91bc73d88b5514dd"
+    },
+    {
+      "file": "20260828090000_tenant_uniqueness.sql",
+      "sha256": "fa9c0f048a2a7c641c921e263e0bb8056c5589d98d4a8497a8346872fa84bbc6"
+    },
+    {
+      "file": "20260829090000_agency_membership.sql",
+      "sha256": "c249e834ac07f2a6775b336b05b2ca33b71ff0ad46052da6a36cabf6ba8299af"
+    },
+    {
+      "file": "20260830090000_platform_admin.sql",
+      "sha256": "a2e53247c517644561c892cee9c0cdd4097e1b9e89672eb835f734ba51aba5b0"
+    },
+    {
+      "file": "20260831090000_agency_signup.sql",
+      "sha256": "a1bfa9c5ead353813175d3fc5d0affc69745ce116a6f5c57740785242c3bacb2"
+    },
+    {
+      "file": "20260901090000_activity_log_charge_deviation_types.sql",
+      "sha256": "f5c3920f62a614e3c837cca99e78dbdac77ac1b984419b04dd41ee31187c46e7"
+    },
+    {
+      "file": "20260902090000_departure_group_room_capacity.sql",
+      "sha256": "ce9aa5296d0eea96acdf8e26b34b6f4c57ef03bab4a151dcc093020e6b2044a7"
+    },
+    {
+      "file": "20260903090000_departure_group_guide_scoping.sql",
+      "sha256": "988253024a98d11ce19c068e0f7b8e1d0165bfd51819508dd4e123e0f4323a6c"
+    },
+    {
+      "file": "20260904090000_departure_group_bookings_row_version.sql",
+      "sha256": "c0a5ab3e08f6e0c21db89f10393b6efc7f61bf71cdc69aba6a02ac2c28a672ac"
+    },
+    {
+      "file": "20260905090000_departure_group_guide_scoping_parent_keyed.sql",
+      "sha256": "dd05299c76140fb8f1b8f8be38d4665a61311ace4e34780f99287be944e1d8c6"
+    },
+    {
+      "file": "20260906090000_payments_pending_allocations.sql",
+      "sha256": "7ab2312a1d3c2fa0882c1fa4e9585f41aecffa4bf0cff8858adce2c49dcebd03"
+    },
+    {
+      "file": "20260907090000_tenancy_repair.sql",
+      "sha256": "ade880223187b23446d93624c74589d179e8bec5e32f7c6fe40f2f7aac9df741"
+    },
+    {
+      "file": "20260908090000_departure_group_pricing.sql",
+      "sha256": "2c0a2451d823041e793fb4b155796d76d56dbbb5caf91369702c532daf0ccbf8"
+    },
+    {
+      "file": "20260909090000_departure_group_costing.sql",
+      "sha256": "f28f76800fea8ecd72c6427263f0984ea164a145d79746fd4c3de4e90e89e2be"
+    },
+    {
+      "file": "20260910090000_departure_group_nusuk_fields.sql",
+      "sha256": "3d0db15c0e20e563a507d52743b4cfd11aa722adc91cb352f0d2749d2f815f49"
+    },
+    {
+      "file": "20260911090000_departure_group_supplier_references.sql",
+      "sha256": "9a4b85634fff357a3bfe7047b9da87b2d44d87fb8ecf5ee60c23cb99382d2d92"
+    },
+    {
+      "file": "20260912090000_reset_agency_business_data.sql",
+      "sha256": "8c2ac26eac4c4183d6ceab6fc1d6059f52a7b48fe6b12807fde45ebbe7c5761c"
+    },
+    {
+      "file": "20260913090000_fix_reset_agency_pilgrim_order.sql",
+      "sha256": "598b39af11331ffa13861d39828f67f1bdabaaee0604fb0db0ae6be4bf061d6f"
+    },
+    {
+      "file": "20260914090000_package_template_field_realignment.sql",
+      "sha256": "e2eaedb5435521a3d1ba1215a29ab8258a2ea0a5043533aed4e3341ef9df2894"
+    },
+    {
+      "file": "20260915090000_room_assignments_per_accommodation.sql",
+      "sha256": "0a4463c9faa1bba82dc2bbc9f8cead9eada10daa9fd45b0aa457d3e932ad4189"
+    },
+    {
+      "file": "20260918090000_ticket_visa_ai_review.sql",
+      "sha256": "eadc934f8f2f23d6d1e966c811f3d393db91d99a9cd15149c935a607cfb87b4a"
+    },
+    {
+      "file": "20260919090000_departure_operations_agent.sql",
+      "sha256": "439bd61aceadb114220ea7fe39a82e34448260f664c3522aac629c582b215431"
+    },
+    {
+      "file": "20260920090000_agent_proposals_approval_rls.sql",
+      "sha256": "a77aa2a2a97e37d9dc04aa0e1adbb03f993c21172127a5ca9dbf1592b82c2eab"
+    },
+    {
+      "file": "20260921090000_departure_ops_scheduler.sql",
+      "sha256": "ff11fce805230e30529615dd736f4632f2001d5109975bfea7641434dc2b6f5c"
+    },
+    {
+      "file": "20260922090000_departure_ops_metrics.sql",
+      "sha256": "318229bdd5c4d4ff3a9baa07c23e781463e99f1f80187f7fa200a265cd25e921"
+    },
+    {
+      "file": "20260923090000_team_invitation_repair.sql",
+      "sha256": "db975d234796d7c0c88c7da300a97ff3b7010226a9219c0df0fc5699cb321c84"
+    },
+    {
+      "file": "20260924090000_dynamic_roles_permissions.sql",
+      "sha256": "c085598ac0b5b404012f355edebd4245d0dc36361a00d5c6cc682b8c640ec26e"
+    },
+    {
+      "file": "20260925090000_whatsapp_connection_modes.sql",
+      "sha256": "24c8b8341d7441c77d5387385c58711b96b23fe3c05aae8d7a0eb630de98acf3"
+    },
+    {
+      "file": "20260926090000_whatsapp_billing.sql",
+      "sha256": "b38e22059c8affad2d07ed25640efd9dcc85470a0172354e3b04dfaebd2c1a54"
+    },
+    {
+      "file": "20260927090000_cron_jobs.sql",
+      "sha256": "ed85f8efb3ee701f60aea9d677c3cffc15b65fa8c6d3f7becb4b379507752e59"
+    },
+    {
+      "file": "20260928090000_whatsapp_webhook_rate_limit.sql",
+      "sha256": "9a799bf8558fc44744ae58bbb68223fd3b7a3c2aa1d95a6095cfa2e37e17e457"
+    },
+    {
+      "file": "20260929090000_whatsapp_secret_race_fix.sql",
+      "sha256": "aed1ba78be6621b68e00fe086b082604787369bd86782cc211b480a7b7b1975b"
+    },
+    {
+      "file": "20260930090000_leads_sales_intelligence.sql",
+      "sha256": "55b0d61d44961cf41dd3ce5a652b586ed5bfdd25fe65fa60ac2e9eeaeff2c3de"
+    },
+    {
+      "file": "20261001090000_staff_notifications.sql",
+      "sha256": "4aba3207ddc873d61d5b7232d2c4c4f0bbc0e1e3fc6866a205f2860bacbdc949"
+    },
+    {
+      "file": "20261002090000_fix_seed_agent_state_security_definer.sql",
+      "sha256": "e7708ea8a1b906593159cdaf78b4f6b8e8f55f1a96410a317c963aa0a9d960b8"
+    },
+    {
+      "file": "20261003090000_supplier_numbers_reconciliation.sql",
+      "sha256": "3216189c35a6786402013c9d490fb029098dceddbd36ded2c86e1f569dc9e983"
+    },
+    {
+      "file": "20261004090000_supplier_refunds.sql",
+      "sha256": "b40ea5ae4e8ae49722a45faeec072ce8992eae6daaacc14a314910a8ae301e83"
+    },
+    {
+      "file": "20261005090000_packages_lifecycle_rls_hardening.sql",
+      "sha256": "4ac943c89d0896d3555ffac35d1c1fe9a00e32bafbd06b657a903a46ef43cf67"
+    },
+    {
+      "file": "20261006090000_packages_lifecycle_phase1.sql",
+      "sha256": "75f6fe1c503570b8c86562d987c5c4d83952ff26fdb04e380a4ad127b256ba57"
+    },
+    {
+      "file": "20261007090000_packages_versioning_and_snapshot.sql",
+      "sha256": "a72962305607893bd528db31b363fafebd5dcdcc71f9e95ac87fe400096aa76f"
+    },
+    {
+      "file": "20261008090000_packages_drop_deprecated_columns.sql",
+      "sha256": "b916d1aff3dd3208fe3c1e2a360f8ebd016aaa89d1f8394d2e6f8762eed952f9"
+    },
+    {
+      "file": "20261010090000_packages_list_with_usage_rpc.sql",
+      "sha256": "83fb6b48d72f4e466558751ce2872bd059319d70ae2d7153c7bd6e9d145babe4"
+    },
+    {
+      "file": "20261011090000_itinerary_services.sql",
+      "sha256": "77fa4ebc4750f44c4e6808f900b562c3a9e3b44139d44cf916ac4ba6a3c3fc19"
+    },
+    {
+      "file": "20261012090000_consent_and_contactability.sql",
+      "sha256": "2b9d3707a194885868eef90e4106750703e3f8910f64258c6a07070e5f2d2d88"
+    },
+    {
+      "file": "20261013090000_campaigns.sql",
+      "sha256": "6fbefe21e5222d96723915768b0309f8f539c9dde7d9a8bbcf1e0dae7050247f"
+    },
+    {
+      "file": "20261014090000_audiences.sql",
+      "sha256": "e8e9280623211eebea493637e370c3635180bc3242876949b3ad7af33de00cfe"
+    },
+    {
+      "file": "20261015090000_content_items.sql",
+      "sha256": "89fd4d774717edd615352adb2c55530d99493925d0737ec6f257b57faffa5fa9"
+    },
+    {
+      "file": "20261016090000_referrals.sql",
+      "sha256": "c3ddbef28e23061e263895574766f88bbabd0f547dd82e30742801a4d0e19ee1"
+    },
+    {
+      "file": "20261017090000_announcements.sql",
+      "sha256": "7b10eec2bba583289b5fae501b2e2ed7779f502b6bfc12437021360a095ff8b2"
+    },
+    {
+      "file": "20261018090000_pilgrim_portal_access.sql",
+      "sha256": "9da8ac9e55e0e603f95977bd7ad686aeebd57e6bebb1dc8a19bca631245480be"
+    },
+    {
+      "file": "20261019090000_feedback_surveys.sql",
+      "sha256": "1542296c0ad34612124712c911bd2debd1769c7705c1a647229fc8d1d8c662fa"
+    },
+    {
+      "file": "20261020090000_loyalty.sql",
+      "sha256": "06d9fab1d98e456c956c96a47c3198e443a81acd17305bf5cef62f3d44de9350"
+    },
+    {
+      "file": "20261021090000_agent_portal.sql",
+      "sha256": "8bacbd6b00c2adcf0c11711a07873e56a17824d666265c7c9e7a51c2c99417a2"
+    },
+    {
+      "file": "20261022090000_ai_insights.sql",
+      "sha256": "d8a05fe256bcdebb736148aec4217cb91c4f70a3f50baca27c5f20a434d01cbe"
+    },
+    {
+      "file": "20261023090000_announcements_whatsapp_dispatch.sql",
+      "sha256": "0662e069b3de629633f128f72a8e3b331fa659c713351bf885e1643cc92c248a"
+    },
+    {
+      "file": "20261024090000_guide_field_team.sql",
+      "sha256": "f92d81419f3af211c8ddfff8476dfba708cedbda2d616e1971d51defb99d91a8"
+    },
+    {
+      "file": "20261025090000_flight_manifests_and_rooming_board.sql",
+      "sha256": "b9dc8445d9b88e096bf4c6a3c02b79980adc0468718d9494faee874e1787cb3f"
+    },
+    {
+      "file": "20261026090000_pilgrim_portal_auth.sql",
+      "sha256": "4f1a5aa7c188a1ef347982d0fcb881f3fb5264e91da54cbf43514d3a20a32707"
+    },
+    {
+      "file": "20261027090000_campaigns_command_center.sql",
+      "sha256": "da133fb0ef085866f5f5033cda652361e08368449f164ca542e303270a731893"
+    },
+    {
+      "file": "20261028090000_itinerary_attendance_and_vouchers.sql",
+      "sha256": "cc2d5140c978d4121061463c601c1a7b2390913ab2608380f7dada2db653a370"
+    },
+    {
+      "file": "20261029090000_campaigns_ad_platform_integrations.sql",
+      "sha256": "ae413844f71944c20b5af14e848ffb446307dd2ebe54c69876048a79aefc519d"
+    },
+    {
+      "file": "20261029090001_whatsapp_campaign_attribution.sql",
+      "sha256": "5fc69aa7d312faf0239fcb9848dccb33a2db89db293aba209f98c266772b9148"
+    },
+    {
+      "file": "20261030090000_agent_portal_auth.sql",
+      "sha256": "4b4338a92d818b31c81eef91e44329764685615be248baaf3ab56b9e9679baae"
+    },
+    {
+      "file": "20261031090000_booking_payer_and_traveller_relationships.sql",
+      "sha256": "499a3cd01f254d74475a1a8cafd77db017c9ea40fed90fc6c602df65dde791aa"
+    },
+    {
+      "file": "20261101090000_bank_reconciliation.sql",
+      "sha256": "cb36a659a1d2a8ea1d0fa63bf7f0c0030256096edd6138f7402fb1c6f0ace32d"
+    },
+    {
+      "file": "20261102090000_support_case_management.sql",
+      "sha256": "5925f2e08c70b7161a3b26a02efc4e241e4470372a68eaec4d043a2bb8062aa1"
+    },
+    {
+      "file": "20261103090000_support_case_attachments.sql",
+      "sha256": "0c54b9d411d93af4fc4be93a2ec2a5b518011f6ce0e6d95a06c5147770e5bf84"
+    },
+    {
+      "file": "20261104090000_ai_runs.sql",
+      "sha256": "0f6de4e668f064997a63c3ab962db82b770d1e860c95d0fe1f694cf5569d41ea"
+    },
+    {
+      "file": "20261105090000_agent_proposals_subject_scope.sql",
+      "sha256": "e1acdae37183519ed99f502090575e64ad5ebc52084d7e0fe8fd87af80ab4394"
+    },
+    {
+      "file": "20261106090000_rbac_new_modules.sql",
+      "sha256": "8d5199e4fc40170423bca5013c6a89359422a692a2566560c6b09210e5807540"
+    },
+    {
+      "file": "20261107090000_insights_v2.sql",
+      "sha256": "9790d6253115378403af3c6a584d5bc285ea698b96088346fb38ba5d28f227bb"
+    },
+    {
+      "file": "20261108090000_ai_surface_settings.sql",
+      "sha256": "0bcb90e535e450b6d028b90794f48d8c538ea021b9aa86b4821730bf7839743e"
+    },
+    {
+      "file": "20261109090000_p1_2_payment_plans_risk.sql",
+      "sha256": "6b9da4b47f86bb73d13469fe1631dd5dbe53df69ff3a63ddc6404dc0b7698fe1"
+    },
+    {
+      "file": "20261110090000_agency_smtp_settings.sql",
+      "sha256": "49e569b5c9d9de277598fc452c96beaba24f89776d1d3583277635d57d20067c"
+    },
+    {
+      "file": "20261110090001_p1_3_reconciliation_v2.sql",
+      "sha256": "28ac5297d5a7914f39d99de23d9ca2b7ee782ce22fa41678ffb6f23717323b08"
+    },
+    {
+      "file": "20261111090000_p1_4_quotes_lifecycle.sql",
+      "sha256": "86ed28ee60a500d47faa1c04007bb859c0a4e5eb079dc0dea311c85df1349f6e"
+    },
+    {
+      "file": "20261112090000_p1_5_bookings_canonical.sql",
+      "sha256": "83318189587d8bee0a94df4ed1b6eb47b499cd32cc63c127112535826276af0e"
+    },
+    {
+      "file": "20261113090000_p1_6_invoices.sql",
+      "sha256": "3966f30936a598e3e805f1124c2ae5243f4f738b0fb67ff8257067ec34dacb3c"
+    },
+    {
+      "file": "20261114090000_p1_7_finance_ops_agent.sql",
+      "sha256": "23f911bffc54bff2298efceed8ad1a6df6b6cce3c9acf3d155dffc67488246db"
+    },
+    {
+      "file": "20261114090001_pilgrim_service_customisation.sql",
+      "sha256": "8bf5d7ccbd43b575c196ab744e2a7c1b20b90e609ff8d4a0693424b9fc4dd137"
+    },
+    {
+      "file": "20261115090000_phase_b_booking_finance_invariants.sql",
+      "sha256": "8740ec39a62e21630c336ef112e270ecc9463080ebef213e47e1ad45c5943b72"
+    },
+    {
+      "file": "20261116090000_phase_b_backfill_booking_finance_projection.sql",
+      "sha256": "8343fa4c4ce2722669b8bad1c1818dadd6794a76b3ac8a6a84833a2fbcfaa16b"
+    },
+    {
+      "file": "20261117090000_finance_booking_currency_invariant.sql",
+      "sha256": "3a781b4ce6a7dee0e521e8befc7fd009015cbd1feece71c5fea71b64f5c2963a"
+    },
+    {
+      "file": "20261118090000_costing_view_security_invoker.sql",
+      "sha256": "1b1406882c156964c9f595c8f813de1b76b5e2a9143a917b87de4345c045ff0e"
+    },
+    {
+      "file": "20261119090000_cancellation_refund_link.sql",
+      "sha256": "78bf15eeee00ce0be95b41808a39eab73e97158978821c4434157750bcb9bcf8"
+    },
+    {
+      "file": "20261120090000_departure_booking_capacity_guard.sql",
+      "sha256": "8ec8ed8af4b44554ed657d3a6dfd51bf9e25cd2c90caaaac71f138f7e0b3612c"
+    },
+    {
+      "file": "20261121090000_finance_atomic_payment_rpc.sql",
+      "sha256": "76a9891630784a2d964a383a1d60958e77168c3e65c832bcef07f7af751b33fd"
+    },
+    {
+      "file": "20261121090001_finance_atomic_payment_rpc_grants.sql",
+      "sha256": "6386d5e22217fb451a09dc789205e4d8455dcceee2f62bf0c143680037598e4f"
+    },
+    {
+      "file": "20261122090000_departure_store_atomic_rpc.sql",
+      "sha256": "4a0686e30dd0c7f7f52f3008e27fdb2f7d58a803184120c1222110b7ac3752d5"
+    },
+    {
+      "file": "20261122090001_departure_store_apply_rpc.sql",
+      "sha256": "dc5a5173de7f92b7a6aa4a575c67c8017b8a2e9220060e06d76079ef2ad3cad2"
+    },
+    {
+      "file": "20261122090002_departure_store_apply_rpc_grants.sql",
+      "sha256": "e9227ae984568ae7269c7934dfd30d8dc88963683544009bf9152e22d3a30b18"
+    },
+    {
+      "file": "20261123090000_reports_currency_aggregation_drop.sql",
+      "sha256": "fe439d89ce7a41b3ef03741673cc125f6c29dd53c658683b7cb6f677b7f0ef8a"
+    },
+    {
+      "file": "20261123090001_reports_currency_aggregation_view.sql",
+      "sha256": "92b6ca06c3dfca241a3a89e84ce235667a318a4a3088b111947554d7018b4911"
+    },
+    {
+      "file": "20261123090002_reports_currency_aggregation_options.sql",
+      "sha256": "b99564b9d8fa29133b93711dd742e985be6db321d867bdefdda77e0991b8573e"
+    }
+  ],
+  "apiInventory": [
+    {
+      "table": "departure_groups",
+      "httpStatus": 200,
+      "count": 1,
+      "verified": true
+    },
+    {
+      "table": "departure_group_bookings",
+      "httpStatus": 200,
+      "count": 1,
+      "verified": true
+    },
+    {
+      "table": "departure_group_pricing",
+      "httpStatus": 200,
+      "count": 1,
+      "verified": true
+    },
+    {
+      "table": "departure_group_pilgrims",
+      "httpStatus": 200,
+      "count": 1,
+      "verified": true
+    },
+    {
+      "table": "departure_group_pilgrim_charges",
+      "httpStatus": 200,
+      "count": 1,
+      "verified": true
+    },
+    {
+      "table": "departure_group_room_assignments",
+      "httpStatus": 200,
+      "count": 0,
+      "verified": true
+    },
+    {
+      "table": "departure_group_flights",
+      "httpStatus": 200,
+      "count": 2,
+      "verified": true
+    },
+    {
+      "table": "booking_payment_milestones",
+      "httpStatus": 200,
+      "count": 1,
+      "verified": true
+    },
+    {
+      "table": "pilgrim_payment_milestones",
+      "httpStatus": 200,
+      "count": 2,
+      "verified": true
+    },
+    {
+      "table": "payments",
+      "httpStatus": 200,
+      "count": 0,
+      "verified": true
+    },
+    {
+      "table": "payment_allocations",
+      "httpStatus": 200,
+      "count": 0,
+      "verified": true
+    },
+    {
+      "table": "invoices",
+      "httpStatus": 200,
+      "count": 0,
+      "verified": true
+    },
+    {
+      "table": "invoice_line_items",
+      "httpStatus": 200,
+      "count": 0,
+      "verified": true
+    },
+    {
+      "table": "refund_requests",
+      "httpStatus": 200,
+      "count": 0,
+      "verified": true
+    },
+    {
+      "table": "supplier_commitments",
+      "httpStatus": 200,
+      "count": 0,
+      "verified": true
+    },
+    {
+      "table": "supplier_payments",
+      "httpStatus": 200,
+      "count": 0,
+      "verified": true
+    },
+    {
+      "table": "departure_group_costing",
+      "httpStatus": 200,
+      "count": 1,
+      "verified": true
+    }
+  ],
+  "reconciliation": {
+    "verified": true,
+    "counts": {
+      "missing_active_milestones": 0,
+      "schedule_value_mismatch": 0,
+      "multiple_payment_currencies": 0,
+      "booking_ledger_mismatch": 1,
+      "cancelled_booking_has_debt": 0,
+      "refund_flag_request_mismatch": 0,
+      "refund_exceeds_held_money": 0,
+      "cancellation_refund_projection_mismatch": 0,
+      "seat_counter_mismatch": 0,
+      "outbound_ticket_counter_candidate": 0,
+      "payment_group_or_tenant_candidate": 0,
+      "milestone_group_or_tenant_candidate": 0,
+      "refund_group_or_tenant_candidate": 0,
+      "invoice_group_or_tenant_candidate": 0,
+      "room_counter_mismatch": 0,
+      "invoice_without_lines": 0,
+      "invoice_header_line_mismatch": 0,
+      "allocation_booking_mismatch": 0,
+      "allocation_exceeds_payment": 0
+    },
+    "consistency": "Sequential API reads, not a transaction snapshot. Confirm candidates with the SQL audit."
+  },
+  "unverified": [
+    "applied migrations",
+    "view ownership/options",
+    "SQL grants/policies/triggers",
+    "numeric precision/defaults/constraints",
+    "tenant/role isolation",
+    "SQL reconciliation counts"
+  ]
+}

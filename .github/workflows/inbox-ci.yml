@@ -1,0 +1,56 @@
+name: Inbox CI
+
+# TASK-028 P1.1. Gates every pull request on typecheck, an Inbox lint ratchet and the full unit-test suite.
+#
+# It runs on every pull request, with no path filter, on purpose: a required status check that is skipped by a path
+# filter never reports, and GitHub then blocks the merge forever. The suite takes well under two minutes, so the
+# simplicity is worth more than the saving. Make "Inbox CI / inbox-ci" a required check in the branch protection
+# settings; that step is done in GitHub, not in this file.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: inbox-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  inbox-ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # The Inbox CSP test drives a real Chromium, so the browser must exist or that test fails for the wrong reason.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck
+        run: npm run typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+      # A ratchet, not the goal: 13 warnings exist in these paths today (unused `_`-prefixed parameters). The step
+      # fails on any new warning or error. Lower the number whenever warnings are cleaned up; never raise it.
+      - name: Lint (Inbox paths, no new warnings)
+        run: >
+          npx eslint
+          app/inbox
+          "app/api/cron/inbox-*/**/*.ts"
+          app/api/webhooks
+          lib/inbox
+          lib/channels
+          lib/ai/surfaces/inbox
+          "lib/data/inbox-*.ts"
+          "lib/access/inbox-access*.ts"
+          --max-warnings=13
+
+      - name: Unit tests
+        run: npm test

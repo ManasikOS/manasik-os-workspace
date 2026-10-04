@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { deriveEmailDeliveryFeedback } from "./delivery-feedback";
+describe("deriveEmailDeliveryFeedback", () => { it("distinguishes a bad address from an unsent email", () => { expect(deriveEmailDeliveryFeedback({ outboxStatus: "SENT", deliveryStatus: "PERMANENT_BOUNCE", dnsRisk: false }).state).toBe("WRONG_ADDRESS"); expect(deriveEmailDeliveryFeedback({ outboxStatus: "FAILED", deliveryStatus: null, dnsRisk: false }).state).toBe("NOT_SENT"); }); it("does not claim spam placement without recipient evidence", () => expect(deriveEmailDeliveryFeedback({ outboxStatus: "SENT", deliveryStatus: null, dnsRisk: true })).toMatchObject({ state: "DELIVERY_RISK" })); });

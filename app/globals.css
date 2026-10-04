@@ -1,0 +1,343 @@
+/* All type in the app is self-hosted via next/font in app/layout.tsx —
+   Geist, Inter, Roboto Mono, Noto Kufi Arabic, Playfair Display and Plus
+   Jakarta Sans. A CSS @import of eight Google Fonts families used to sit
+   here too: five of them (DM Sans, Lato, Montserrat, Poppins, Raleway)
+   were never referenced by any token below, and the other three duplicated
+   fonts next/font already self-hosts — pure dead network weight on every
+   page load. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --opacity-2: 0.02;
+
+  --spacing: 0.25rem;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-plusJakartaSans), sans-serif;
+  
+  --font-heading: var(--font-plusJakartaSans), sans-serif;
+  --font-number: "Roboto Mono", monospace;
+  --font-playfair: "Playfair Display", serif;
+  --font-arabic: var(--font-arabic), "Noto Kufi Arabic", serif;
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: #10b981;
+  --primary-hover: #0da271;
+  --primary-light: #E8F9E5;
+
+  --primary-foreground: oklch(0.985 0 0);
+  /* A cool slate, not a second green — badges/buttons using `secondary`
+     read as "muted emphasis" rather than "a slightly different brand
+     green" sitting next to `primary`. */
+  --secondary: #0F172A;
+  --secondary-hover: #0F172A;
+  --secondary-light: #F8FAFC;
+  --secondary-medium: #CBD5E1;
+  --secondary-foreground: #FFF;
+
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: #14B8A6;
+  --accent-soft: #E6FFFA;
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(100% 0.00011 271.152 / 0);
+  --chart-1: oklch(67.795% 0.1798 247.372);
+  --chart-2: oklch(67.795% 0.1798 247.372 / 0.808);
+  --chart-3: oklch(67.795% 0.1798 247.372 / 0.668);
+  --chart-4: oklch(61.518% 0.2109 256.116 / 0.462);
+  --chart-5: oklch(67.795% 0.1798 247.372 / 0.425);
+  --radius: 0.625rem;
+  --sidebar: oklch(100% 0.00011 271.152);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #0F172A;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(98.30% 0.003 145.55);
+  --foreground: oklch(0.145 0 0);
+  --scroll-bar: oklch(78.261% 0.00009 271.152);
+  --chart-new: 210 20% 80%;
+  /* #CBD5E1 */
+  --chart-qualified: 112 71% 45%;
+  /* #35C722 */
+  --chart-applied: 150 57% 44%;
+  /* #2FAF7A */
+  --chart-offer: 105 46% 43%;
+  /* #4A9F3A */
+
+}
+
+.dark {
+  --chart-new: 215 20% 65%;
+  /* Darker for visibility */
+  --chart-qualified: 112 65% 55%;
+  /* Slightly brighter */
+  --chart-applied: 150 50% 55%;
+  --chart-offer: 105 40% 55%;
+  --background: oklch(21.192% 0.00246 145.945);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(22.213% 0.00003 271.152);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  /* Same hues as light mode, pulled back a step in saturation/lightness —
+     the light-mode hex values read as neon against a dark ground rather
+     than as a controlled dark palette. */
+  --primary: #1FAE7E;
+  --primary-foreground: oklch(0.205 0 0);
+  --primary-hover: #29C591;
+  --primary-light: #16342A;
+  --secondary: #1E293B;
+  --secondary-hover: #273449;
+  --secondary-light: #111827;
+  --secondary-medium: #334155;
+  --secondary-foreground: #F8FAFC;
+
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: #2FA79A;
+  --accent-soft: #163330;
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(68.586% 0.20309 24.187 / 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(100% 0.00011 271.152 / 0);
+  --scroll-bar: oklch(0.269 0 0);
+
+}
+
+::selection {
+  background-color: var(--primary);
+  color: var(--color-white);
+}
+
+@layer utilities {
+
+  input:-webkit-autofill,
+  textarea:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus {
+
+    -webkit-text-fill-color: currentColor !important;
+    caret-color: currentColor !important;
+
+    /* Make autofill background fully transparent */
+    -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+    box-shadow: 0 0 0 1000px transparent inset !important;
+
+    transition: background-color 9999s ease-in-out 0s;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  @keyframes theme-reveal {
+    from {
+      clip-path: circle(0% at var(--vt-x) var(--vt-y));
+    }
+
+    to {
+      clip-path: circle(var(--vt-r) at var(--vt-x) var(--vt-y));
+    }
+  }
+
+  ::view-transition-new(root) {
+    animation: theme-reveal 500ms ease-in-out;
+  }
+
+  ::view-transition-old(root) {
+    animation: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-new(root) {
+      animation: none;
+    }
+  }
+
+  .custom-scroll::-webkit-scrollbar {
+    width: 4px;
+    height: 5px;
+  }
+
+  .custom-scroll::-webkit-scrollbar-thumb {
+    background: var(--scroll-bar);
+    border-radius: 9999px;
+  }
+
+  .custom-scroll::-webkit-scrollbar-thumb:hover {
+    background: #444;
+  }
+}
+
+/* Hide scrollbars completely for any element with .no-scrollbar */
+.no-scrollbar,
+.no-scrollbar *,
+[class*="no-scrollbar"],
+[class*="no-scrollbar"] * {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar,
+.no-scrollbar *::-webkit-scrollbar,
+[class*="no-scrollbar"]::-webkit-scrollbar,
+[class*="no-scrollbar"] *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* ── Route progress bar ─────────────────────────────────────────────────
+   Thin top bar shown for every client navigation (see
+   components/route-progress-bar.tsx). Uses the existing --primary token. */
+#nprogress {
+  pointer-events: none;
+}
+
+#nprogress .bar {
+  position: fixed;
+  z-index: 300;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: var(--primary);
+}
+
+#nprogress .peg {
+  display: block;
+  position: absolute;
+  right: 0;
+  width: 100px;
+  height: 100%;
+  opacity: 1;
+  box-shadow: 0 0 10px var(--primary), 0 0 5px var(--primary);
+  transform: rotate(3deg) translate(0, -4px);
+}
+
+
+/* ── Success pulse — a confirmation, not another spinner ── */
+.success-pulse-badge {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  box-shadow: 0 8px 24px -4px rgba(20, 184, 166, 0.45);
+  animation: success-pulse-pop 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.success-pulse-echo {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  animation: success-pulse-echo 700ms ease-out both;
+}
+
+@keyframes success-pulse-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes success-pulse-echo {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .success-pulse-badge,
+  .success-pulse-echo {
+    animation: none;
+  }
+}

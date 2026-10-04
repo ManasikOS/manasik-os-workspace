@@ -1,0 +1,85 @@
+name: Packages CI
+
+# Scoped to the Packages module (docs/modules/packages-production-readiness-plan.md,
+# Phase 5 item 2), not the whole app — the rest of the codebase still carries
+# pre-existing warnings this gate isn't meant to police.
+on:
+  pull_request:
+    paths:
+      - "app/(main)/packages/**"
+      - "app/(main)/departure-groups/**"
+      - "lib/data/packages-repository.ts"
+      - "lib/types/packages.ts"
+      - "lib/types/database.ts"
+      - "lib/validations/packages.ts"
+      - "lib/access/packages-access.ts"
+      - "lib/utils.ts"
+      - "lib/csv.ts"
+      - "lib/xlsx.ts"
+      - "supabase/migrations/**"
+  workflow_dispatch:
+
+jobs:
+  packages-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install
+
+      - name: Typecheck
+        run: npm run typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+      # The plan's original target is zero warnings, but the module carries
+      # 61 pre-existing ones today (mostly leftover unused imports in the
+      # wizard step forms, plus a couple of real "is this dead or does it
+      # need wiring up" judgment calls — e.g. `onSaveDraft` in
+      # step-7-review-publish.tsx, a prop the dialog needs to pass but that
+      # component doesn't currently call). Gating at 0 today would make this
+      # workflow red on its first run for reasons unrelated to whatever PR
+      # triggered it. 61 is a ratchet, not the goal — it fails on any new
+      # warning, and should be lowered as the existing ones are cleaned up
+      # in their own pass.
+      - name: Lint (Packages module, no new warnings)
+        run: npx eslint "app/(main)/packages/**/*.{ts,tsx}" --max-warnings=61
+
+      - name: Unit tests
+        run: npm test
+
+      # A deliberately narrow list: only column names dropped by
+      # 20261008090000_packages_drop_deprecated_columns.sql that are
+      # distinctive enough to grep safely (zero legitimate hits anywhere in
+      # app/ or lib/ as of the migration landing). The generic ones this
+      # migration also dropped (`currency`, `airline`, `season`,
+      # `quad_price`, and the other per-occupancy price columns) are
+      # deliberately left out — they're legitimately reused today for
+      # `departure_group_pricing` and per-departure flight-leg data, so a
+      # bare keyword grep on them is nothing but false positives (see
+      # docs/modules/packages-production-readiness-plan.md, Phase 3's own note on
+      # why this needed a real call-site review instead of a keyword grep).
+      # This step catches the unambiguous case — a new reference to a column
+      # that has no reason to exist anywhere — not the full deprecation
+      # surface.
+      - name: No reads of unambiguously-dropped package columns
+        run: |
+          NAMES="departure_origin arrival_gateway return_gateway flights_included outbound_route return_route preferred_airlines routing_preference departure_airport arrival_airport departure_time arrival_time transit_airport transit_arrival_time transit_departure_time flight_routes flight_options makkah_hotel_rating makkah_distance makkah_exact_notes madinah_distance madinah_exact_notes price_valid_until"
+          FOUND=0
+          for name in $NAMES; do
+            hits=$(grep -rnw "$name" --include="*.ts" --include="*.tsx" app lib 2>/dev/null | grep -v -E "supabase/migrations|\.test\.(ts|tsx)$" || true)
+            if [ -n "$hits" ]; then
+              echo "::error::Found a reference to dropped column '$name':"
+              echo "$hits"
+              FOUND=1
+            fi
+          done
+          exit $FOUND
