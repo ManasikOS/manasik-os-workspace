@@ -6,6 +6,8 @@
 >
 > **Scope:** the current Inbox UI and its connected channel, Copilot, media, workflow, routing, SLA, retention, and CRM code
 
+> **Newer, plain-language version:** for staff who are not technical, use the [Everyday User Guide](everyday-user-guide.md). It was re-checked against the screens on 2026-10-05; a few statements below are out of date (see [the review record](../../progress/2026-10-05-inbox-usage-review.md), items D1–D10).
+
 ## 1. What the Inbox is meant to achieve
 
 Manasik Inbox is the agency's shared workspace for WhatsApp, Messenger, Instagram, and email conversations. It is not only a message reader. It turns incoming conversations into an ordered work queue, adds evidence-backed assistance, and connects the customer's words to the agency's operational records.

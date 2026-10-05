@@ -16,6 +16,7 @@ import { canBeVisaOfficer } from "@/lib/inbox/visa-officer";
 import { insertVisaEvent, updateVisaFields } from "@/lib/data/visa-repository";
 import { dialableDigits } from "@/lib/inbox/new-chat-lead-match";
 import { assignmentNotification, canTakeInboxConversations, OWNER_CHANGED_EVENT_KIND, ownerChangedEventData, planConversationAssignment } from "@/lib/inbox/assignment";
+import { decideStartOnExistingConversation, type ExistingConversationForStart } from "@/lib/inbox/start-conversation-guard";
 import { insertReviewEvent } from "@/lib/data/documents-repository";
 import { INBOX_ATTACHMENT_BUCKET } from "@/lib/inbox/media/handlers";
 import { markInboxAttachmentPromoted } from "@/lib/inbox/retention/promote-attachment";
@@ -951,6 +952,24 @@ export async function lookUpLeadForNumberAction(rawNumber: unknown): Promise<Loo
   return { ok: true, matches: ((data ?? []) as Array<{ full_name: string; reference: string }>).map((row) => ({ name: row.full_name, reference: row.reference })) };
 }
 
+/** The conversation this contact already has on this channel, null when there is none, or "UNREADABLE" when the lookup failed (never guessed as "none"). */
+async function findExistingConversationForStart(
+  supabase: Awaited<ReturnType<typeof db>>,
+  agencyId: string,
+  channel: "WHATSAPP" | "GMAIL",
+  externalId: string,
+): Promise<(ExistingConversationForStart & { contact_name: string | null }) | null | "UNREADABLE"> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, state, assigned_to_id, assigned_to_name, contact_name")
+    .eq("agency_id", agencyId)
+    .eq("channel", channel)
+    .eq("external_conversation_id", externalId)
+    .maybeSingle();
+  if (error) return "UNREADABLE";
+  return (data as (ExistingConversationForStart & { contact_name: string | null }) | null) ?? null;
+}
+
 export async function startWhatsAppChat(rawInput: {
   phoneNumber: string;
   contactName?: string;
@@ -972,6 +991,12 @@ export async function startWhatsAppChat(rawInput: {
 
   const supabase = await db();
   const admin = createAdminClient();
+  // The number may already have a conversation. Check before anything is sent, so a colleague's chat is never taken over.
+  const existingChat = await findExistingConversationForStart(supabase, agencyId, "WHATSAPP", to);
+  if (existingChat === "UNREADABLE") return { ok: false, error: "Could not check whether this number already has a conversation. Try again." };
+  const startDecision = decideStartOnExistingConversation({ existing: existingChat, currentStaffId: staffId, contactNoun: "number" });
+  if (!startDecision.ok) return startDecision;
+
   const sent = await sendApprovedTemplate({
     db: admin,
     agencyId,
@@ -983,7 +1008,8 @@ export async function startWhatsAppChat(rawInput: {
   const { template, bodyParameters, externalMessageId } = sent;
 
   const now = new Date().toISOString();
-  const contactName = input.contactName?.trim() || `+${to}`;
+  // A name typed now wins; otherwise keep the name the existing conversation already has instead of replacing it with the number.
+  const contactName = input.contactName?.trim() || existingChat?.contact_name?.trim() || `+${to}`;
   const { data: conversation, error: conversationError } = await supabase
     .from("conversations")
     .upsert(
@@ -1092,6 +1118,10 @@ export async function startEmailConversation(rawInput: {
   }
 
   const supabase = await db();
+  const existingChat = await findExistingConversationForStart(supabase, agencyId, "GMAIL", recipient);
+  if (existingChat === "UNREADABLE") return { ok: false, error: "Could not check whether this address already has a conversation. Try again." };
+  const startDecision = decideStartOnExistingConversation({ existing: existingChat, currentStaffId: staffId, contactNoun: "email address" });
+  if (!startDecision.ok) return startDecision;
   const now = new Date().toISOString();
   const { data: conversation, error: conversationError } = await supabase
     .from("conversations")
@@ -1100,7 +1130,7 @@ export async function startEmailConversation(rawInput: {
         agency_id: agencyId,
         channel: "GMAIL",
         external_conversation_id: recipient,
-        contact_name: recipient,
+        contact_name: existingChat?.contact_name?.trim() || recipient,
         connection_id: connection.id,
         state: "HUMAN_ACTIVE",
         assigned_to_id: staffId,

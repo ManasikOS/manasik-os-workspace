@@ -46,14 +46,23 @@ vi.mock("@/lib/inbox/lead-linking", () => ({ linkConversationToLead: (...args: u
 const rpc = vi.fn<(...args: unknown[]) => Promise<{ error: { message: string } | null }>>(async () => ({ error: null }));
 const conversationRow = { id: "conv-email-1" };
 let conversationError: { message: string } | null = null;
+let existingConversation: { id: string; state: string; assigned_to_id: string | null; assigned_to_name: string | null; contact_name: string | null } | null = null;
+const upsertSpy = vi.fn();
 vi.mock("@/utils/supabase/server", () => ({
   createClient: () => ({
     from: () => ({
-      upsert: () => ({
+      select: () => {
+        const chain: { eq: () => typeof chain; maybeSingle: () => Promise<{ data: typeof existingConversation; error: null }> } = { eq: () => chain, maybeSingle: async () => ({ data: existingConversation, error: null }) };
+        return chain;
+      },
+      upsert: (row: unknown) => {
+        upsertSpy(row);
+        return {
         select: () => ({
           single: async () => (conversationError ? { data: null, error: conversationError } : { data: conversationRow, error: null }),
         }),
-      }),
+        };
+      },
     }),
     rpc: (...args: unknown[]) => rpc(...args),
   }),
@@ -88,6 +97,8 @@ beforeEach(() => {
     provider_metadata: { imapHost: "imap.example.com", imapPort: 993, imapSecurity: "TLS" },
   };
   conversationError = null;
+  existingConversation = null;
+  upsertSpy.mockClear();
 });
 
 describe("startEmailConversation", () => {
@@ -102,6 +113,22 @@ describe("startEmailConversation", () => {
     expect(rpc).toHaveBeenCalledWith("enqueue_inbox_text_message", expect.objectContaining({
       p_conversation_id: "conv-email-1", p_body: "Hello there", p_subject: "Your Umrah package", p_cc: null, p_bcc: null,
     }));
+  });
+
+  it("refuses an address a colleague already owns, without sending or reassigning anything", async () => {
+    existingConversation = { id: "conv-existing", state: "HUMAN_ACTIVE", assigned_to_id: "someone-else", assigned_to_name: "Nadeesha", contact_name: "Amina" };
+    const result = await startEmailConversation(input);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("Nadeesha");
+    expect(upsertSpy).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("reuses a closed conversation and keeps the contact name it already has", async () => {
+    existingConversation = { id: "conv-existing", state: "CLOSED", assigned_to_id: "someone-else", assigned_to_name: "Nadeesha", contact_name: "Amina" };
+    const result = await startEmailConversation(input);
+    expect(result.ok).toBe(true);
+    expect(upsertSpy).toHaveBeenCalledWith(expect.objectContaining({ contact_name: "Amina" }));
   });
 
   it("lowercases and trims the recipient address before it reaches any downstream call", async () => {
