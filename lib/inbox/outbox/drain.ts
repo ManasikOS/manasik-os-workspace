@@ -5,6 +5,7 @@ import type { ChannelProvider } from "@/lib/inbox/contracts";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { recordAutomatedSendDecision, type AutomatedReplySource } from "@/lib/inbox/autonomy/runtime";
 import { authorizeProviderSend, type ProviderSendAuthor } from "@/lib/inbox/outbound/authorize-provider-send";
+import { outboundGateText } from "@/lib/inbox/risk/outbound-gate-text";
 import { channelAcceptsAttachment, isStagedPathFor } from "@/lib/inbox/attachments/staff-attachment";
 
 const ATTACHMENT_BUCKET = "inbox-attachments";
@@ -137,7 +138,9 @@ async function deliverRow(db: ReturnType<typeof createAdminClient>, row: OutboxR
     if (signed.error || !signed.data?.signedUrl) throw new Error("The attachment could not be read from storage.");
     fileToSend = { kind, url: signed.data.signedUrl, filename: mediaPart.filename || "file" };
   }
-  const authorization = await authorizeProviderSend(db, { agencyId: row.agency_id, conversationId: row.conversation_id, text, author });
+  // The protection gate reads everything the customer will see: the email subject and the file name as well as the text.
+  const gateText = outboundGateText({ subject: row.command.subject, body: text, filename: mediaPart && "filename" in mediaPart ? mediaPart.filename : null });
+  const authorization = await authorizeProviderSend(db, { agencyId: row.agency_id, conversationId: row.conversation_id, text, gateText, author });
   if (!authorization.allowed) {
     if (source && authorization.automatedAuthorization) {
       await recordAutomatedSendDecision(db, { agencyId: row.agency_id, conversationId: row.conversation_id, messageId: row.message_id, authorization: authorization.automatedAuthorization, source, decision: "REFUSED" }).catch((cause) => console.error("Could not audit the refused outbox send:", cause));

@@ -19,6 +19,8 @@ const role = { value: "MARKETING" as string };
 
 vi.mock("@/lib/dal", () => ({ requireUser: async () => ({ id: ME }) }));
 vi.mock("@/lib/data/departure-groups", () => ({ getCurrentStaffRole: async () => ({ role: role.value, agencyId: AGENCY, staffId: ME, name: "Me" }), createGroupBooking: vi.fn() }));
+const loadProtectionContext = vi.fn();
+vi.mock("@/lib/data/inbox-risk-repository", () => ({ loadProtectionContext: (...args: unknown[]) => loadProtectionContext(...args) }));
 const sendApprovedTemplate = vi.fn();
 vi.mock("@/lib/whatsapp/send-template-message", () => ({ sendApprovedTemplate: (...args: unknown[]) => sendApprovedTemplate(...args) }));
 const events: Array<Record<string, unknown>> = [];
@@ -29,6 +31,7 @@ vi.mock("@/utils/supabase/admin", () => ({
 let conversationRow: { id: string; state: string; assigned_to_id: string | null; assigned_to_name: string | null; channel: string; contact_phone: string; external_conversation_id: string } | null;
 let openReviews: Array<{ id: string }>;
 let writeMatchesRows = true;
+let templateText = "Hello";
 const updates: Array<{ patch: Record<string, unknown>; filters: Record<string, unknown> }> = [];
 const rpcCalls: string[] = [];
 
@@ -74,7 +77,15 @@ beforeEach(() => {
   events.length = 0;
   rpcCalls.length = 0;
   sendApprovedTemplate.mockReset();
-  sendApprovedTemplate.mockResolvedValue({ ok: true, externalMessageId: "wamid.1", renderedText: "Hello", bodyParameters: [], template: { id: TEMPLATE, name: "t", language: "en", category: "UTILITY" } });
+  loadProtectionContext.mockReset();
+  loadProtectionContext.mockResolvedValue({ openReviews: [], approvedAccountDigits: [] });
+  // Like the real sender: the Inbox's text check runs on the filled-in template before anything goes out.
+  sendApprovedTemplate.mockImplementation(async (args: { checkRenderedText?: (text: string) => Promise<string | null> }) => {
+    const refusal = await args.checkRenderedText?.(templateText);
+    if (refusal) return { ok: false, reason: "SEND_FAILED", error: refusal };
+    return { ok: true, externalMessageId: "wamid.1", renderedText: templateText, bodyParameters: [], template: { id: TEMPLATE, name: "t", language: "en", category: "UTILITY" } };
+  });
+  templateText = "Hello";
 });
 
 describe("takeControl", () => {
@@ -142,6 +153,20 @@ describe("sendConversationTemplateAction", () => {
     expect(rpcCalls).toEqual(["record_staff_template_message"]);
     expect(updates[0].filters).toMatchObject({ assigned_to_id: null });
     expect(events[0]).toMatchObject({ kind: "OWNER_CHANGED" });
+  });
+  it("sends nothing when the filled-in template says what an open review guards", async () => {
+    loadProtectionContext.mockResolvedValue({ openReviews: [{ kind: "PAYMENT_CLAIM", severity: "BLOCK", headline: "The customer says they paid" }], approvedAccountDigits: [] });
+    templateText = "Good news, we have received your payment. Thank you!";
+    const result = await sendConversationTemplateAction(input);
+    expect(result).toMatchObject({ ok: false });
+    expect(rpcCalls).toHaveLength(0);
+    expect(updates).toHaveLength(0);
+  });
+  it("sends nothing when the open reviews cannot be read", async () => {
+    loadProtectionContext.mockRejectedValue(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await sendConversationTemplateAction(input)).toMatchObject({ ok: false });
+    expect(rpcCalls).toHaveLength(0);
   });
   it("does not report success when someone took the chat after the send", async () => {
     writeMatchesRows = false;

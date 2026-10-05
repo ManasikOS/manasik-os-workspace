@@ -29,7 +29,8 @@ vi.mock("@/lib/copilot/sales/knowledge-context", () => ({ loadCopilotKnowledgeCo
 vi.mock("@/lib/data/inbox-offer-repository", () => ({ checkStoredOffer: vi.fn() }));
 vi.mock("@/lib/data/identity-graph-repository", () => ({ confirmIdentityLink: vi.fn(), rejectIdentityLinks: vi.fn(), unlinkIdentityLink: vi.fn() }));
 vi.mock("@/app/(main)/leads/copilot-actions", () => ({ saveQuoteDraftAction: vi.fn() }));
-vi.mock("@/lib/data/inbox-risk-repository", () => ({ loadProtectionContext: vi.fn() }));
+const loadProtectionContext = vi.fn();
+vi.mock("@/lib/data/inbox-risk-repository", () => ({ loadProtectionContext: (...args: unknown[]) => loadProtectionContext(...args) }));
 vi.mock("@/lib/data/inbox-composer-presence-repository", () => ({ claimComposerPresence: vi.fn(), releaseComposerPresence: vi.fn(), syncConcurrentComposerSignal: vi.fn() }));
 vi.mock("@/lib/data/conversation-handoff-repository", () => ({
   acknowledgeConversationHandoff: vi.fn(), buildHandoffForConversation: vi.fn(), createConversationHandoff: vi.fn(),
@@ -89,6 +90,8 @@ const { loadEmailComposeMailboxReadinessAction, startEmailConversation } = await
 
 beforeEach(() => {
   role.value = "MARKETING";
+  loadProtectionContext.mockReset();
+  loadProtectionContext.mockResolvedValue({ openReviews: [], approvedAccountDigits: [] });
   rpc.mockClear();
   linkConversationToLead.mockClear();
   connectionRow = {
@@ -198,5 +201,15 @@ describe("loadEmailComposeMailboxReadinessAction", () => {
 
     connectionRow = { id: "conn-gmail-1", status: "NOT_CONNECTED" };
     await expect(loadEmailComposeMailboxReadinessAction()).resolves.toBe(false);
+  });
+});
+
+describe("startEmailConversation — the protection gate", () => {
+  it("refuses a new email whose subject says what an open review on that address guards, and queues nothing", async () => {
+    existingConversation = { id: "conv-existing", state: "HUMAN_ACTIVE", assigned_to_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", assigned_to_name: "Test", contact_name: "Nimal" };
+    loadProtectionContext.mockResolvedValue({ openReviews: [{ kind: "PAYMENT_CLAIM", severity: "BLOCK", headline: "The customer says they paid" }], approvedAccountDigits: [] });
+    const result = await startEmailConversation({ recipientEmail: "nimal@example.com", subject: "Payment received - thank you", body: "Thank you for writing." });
+    expect(result).toMatchObject({ ok: false });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

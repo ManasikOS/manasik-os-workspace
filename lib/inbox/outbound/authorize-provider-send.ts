@@ -59,6 +59,8 @@ export function mentionsStoredOfferFigure(text: string, offer: MatchedOfferSnaps
 
 export function evaluateProviderSend(input: {
   text: string;
+  /** Everything the customer will read (email subject, file name as well as the text); the protection and offer-figure checks look at this. Defaults to `text`. */
+  gateText?: string;
   author: ProviderSendAuthor;
   now: Date;
   facts: ProviderSendFacts;
@@ -74,7 +76,7 @@ export function evaluateProviderSend(input: {
     if (!humanActive) reasons.push("Take control of this conversation before replying.");
     if (facts.assignedToId && facts.assignedToId !== input.author.actorId) reasons.push("This conversation is assigned to another staff member.");
     const protection = evaluateProtection({
-      text: input.text,
+      text: input.gateText ?? input.text,
       audience: "STAFF_SEND",
       openReviews: facts.protection.openReviews,
       approvedAccountDigits: facts.protection.approvedAccountDigits,
@@ -97,7 +99,7 @@ export function evaluateProviderSend(input: {
   });
   if (policy.action === "BLOCKED" || policy.action === "APPROVED_TEMPLATE") reasons.push(policy.notice);
 
-  if (facts.offer && mentionsStoredOfferFigure(input.text, facts.offer) && facts.offerCheck !== "FRESH") {
+  if (facts.offer && mentionsStoredOfferFigure(input.gateText ?? input.text, facts.offer) && facts.offerCheck !== "FRESH") {
     reasons.push("The live offer changed or could not be verified. Refresh it before sending figures.");
   }
 
@@ -118,6 +120,8 @@ export async function authorizeProviderSend(db: Db, input: {
   agencyId: string;
   conversationId: string;
   text: string;
+  /** See `evaluateProviderSend`. */
+  gateText?: string;
   author: ProviderSendAuthor;
   now?: Date;
 }): Promise<ProviderSendAuthorization> {
@@ -176,6 +180,7 @@ export async function authorizeProviderSend(db: Db, input: {
   };
   return evaluateProviderSend({
     text: input.text,
+    gateText: input.gateText,
     author: input.author,
     now,
     automatedAuthorization,

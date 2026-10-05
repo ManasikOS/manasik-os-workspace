@@ -50,6 +50,11 @@ export async function sendApprovedTemplate(input: {
   to: string;
   templateId: string;
   values: string[];
+  /**
+   * Looks at the filled-in text before anything is sent and returns the reason to refuse, or null to go ahead. Used by the Inbox to run its
+   * protection gate on exactly what the customer would read.
+   */
+  checkRenderedText?: (renderedText: string) => Promise<string | null>;
 }): Promise<SendApprovedTemplateResult> {
   const { db, agencyId, to } = input;
 
@@ -81,6 +86,11 @@ export async function sendApprovedTemplate(input: {
   const bodyParameters = input.values.slice(0, parameterCount).map((value) => value.trim());
   if (bodyParameters.length !== parameterCount || bodyParameters.some((value) => !value)) {
     return { ok: false, reason: "MISSING_VARIABLES", error: "Fill in every template variable before sending." };
+  }
+
+  if (input.checkRenderedText) {
+    const refusal = await input.checkRenderedText(renderTemplateText(template.components, bodyParameters));
+    if (refusal) return { ok: false, reason: "SEND_FAILED", error: refusal };
   }
 
   const budgetDecision = await checkMarketingSendAllowed(db, agencyId, String(template.category));

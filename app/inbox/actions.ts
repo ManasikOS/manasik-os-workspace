@@ -59,6 +59,7 @@ import { acknowledgeIntervention, listInterventions, openIntervention, resolveIn
 import { loadProtectionContext } from "@/lib/data/inbox-risk-repository";
 import { canCloseIntervention } from "@/lib/inbox/risk/interventions";
 import { evaluateProtection, refusalMessage } from "@/lib/inbox/risk/protection-gate";
+import { outboundGateText } from "@/lib/inbox/risk/outbound-gate-text";
 import { claimComposerPresence, releaseComposerPresence, syncConcurrentComposerSignal } from "@/lib/data/inbox-composer-presence-repository";
 import { inboxHandoffAcknowledgementSchema, inboxInterventionDecisionSchema, inboxIdentityLinkRequestSchema, inboxConversationRequestSchema, inboxOfferMessageRequestSchema, inboxOfferRequestSchema, inboxStaffMessageSchema, inboxStaffCaptionSchema, inboxTemplateMessageSchema, inboxEntityIdSchema, inboxStartChatSchema, inboxComposeEmailSchema, inboxInternalNoteSchema, inboxAssignConversationSchema, inboxBulkUpdateSchema, inboxFollowUpRequestSchema, createSavedReplyInputSchema } from "@/lib/validations/inbox";
 import type { InboxSavedReply } from "@/app/inbox/types";
@@ -971,6 +972,23 @@ async function findExistingConversationForStart(
   return (data as (ExistingConversationForStart & { contact_name: string | null }) | null) ?? null;
 }
 
+/**
+ * The protection gate for an approved template, run on the filled-in text before it is sent. If the open reviews cannot be read nothing is
+ * sent: unknown is not "clear".
+ */
+function protectionCheckForOutgoingText(supabase: Awaited<ReturnType<typeof db>>, agencyId: string, conversationId: string): (renderedText: string) => Promise<string | null> {
+  return async (renderedText) => {
+    try {
+      const protection = await loadProtectionContext(supabase, agencyId, conversationId);
+      const decision = evaluateProtection({ text: renderedText, audience: "STAFF_SEND", openReviews: protection.openReviews, approvedAccountDigits: protection.approvedAccountDigits });
+      return decision.allowed ? null : refusalMessage(decision);
+    } catch (cause) {
+      console.error("Protection gate could not read the open reviews:", cause instanceof Error ? cause.message : cause);
+      return "Could not check whether a review is open on this conversation. Try again in a moment.";
+    }
+  };
+}
+
 export async function startWhatsAppChat(rawInput: {
   phoneNumber: string;
   contactName?: string;
@@ -1004,6 +1022,8 @@ export async function startWhatsAppChat(rawInput: {
     to,
     templateId: input.templateId,
     values: input.bodyParameters,
+    // A brand-new contact has no open review; an existing conversation does, and the template must pass the same gate as a typed reply.
+    ...(existingChat ? { checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, existingChat.id) } : {}),
   });
   if (!sent.ok) return { ok: false, error: sent.error };
   const { template, bodyParameters, externalMessageId } = sent;
@@ -1117,6 +1137,11 @@ export async function startEmailConversation(rawInput: {
   if (existingChat === "UNREADABLE") return { ok: false, error: "Could not check whether this address already has a conversation. Try again." };
   const startDecision = decideStartOnExistingConversation({ existing: existingChat, currentStaffId: staffId, contactNoun: "email address" });
   if (!startDecision.ok) return startDecision;
+  // An address that already has a conversation may have an open review on it; a new email passes the same gate as a reply.
+  if (existingChat) {
+    const refusal = await protectionCheckForOutgoingText(supabase, agencyId, existingChat.id)(outboundGateText({ subject: input.subject, body: input.body }));
+    if (refusal) return { ok: false, error: refusal };
+  }
   const now = new Date().toISOString();
   const { data: conversation, error: conversationError } = await supabase
     .from("conversations")
@@ -1197,6 +1222,7 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
     to,
     templateId: parsed.data.templateId,
     values: parsed.data.bodyParameters,
+    checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, conversation.id as string),
   });
   if (!sent.ok) return { ok: false, error: sent.error };
 
@@ -2267,7 +2293,8 @@ export async function sendStaffMessage(
   // the review is resolved with a note. If the open reviews cannot be read, nothing is sent: unknown is not "clear".
   try {
     const protection = await loadProtectionContext(supabase, agencyId, conversationId);
-    const decision = evaluateProtection({ text: trimmedBody, audience: "STAFF_SEND", openReviews: protection.openReviews, approvedAccountDigits: protection.approvedAccountDigits });
+    // The gate reads everything the customer will see, not only the body: an email subject or a file name can carry the same promise.
+    const decision = evaluateProtection({ text: outboundGateText({ subject: emailSendFields.subject, body: trimmedBody, filename: stagedFile?.filename }), audience: "STAFF_SEND", openReviews: protection.openReviews, approvedAccountDigits: protection.approvedAccountDigits });
     if (!decision.allowed) return { ok: false, error: refusalMessage(decision) };
   } catch (cause) {
     console.error("Protection gate could not read the open reviews:", cause instanceof Error ? cause.message : cause);

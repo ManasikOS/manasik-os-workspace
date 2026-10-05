@@ -131,6 +131,16 @@ describe("FIX1 provider-send authorization", () => {
     expect(result.reasons.join(" ")).toMatch(/assigned to another staff member/i);
   });
 
+  it("refuses a protected claim that is only in the email subject or the file name, while the text that is sent stays unchanged", () => {
+    const protectedFacts = facts({ protection: { approvedAccountDigits: [], openReviews: [{ kind: "PAYMENT_CLAIM", severity: "BLOCK", headline: "Payment needs Finance review" }] } });
+    const base = { text: "Thank you for your message", author: staff, now, facts: protectedFacts, automatedAuthorization: null };
+    expect(evaluateProviderSend(base).allowed).toBe(true);
+    const viaSubject = evaluateProviderSend({ ...base, gateText: ["Payment received - thank you", "Thank you for your message"].join("\n") });
+    expect(viaSubject.allowed).toBe(false);
+    expect(viaSubject.command.text).toBe("Thank you for your message");
+    expect(evaluateProviderSend({ ...base, gateText: ["Thank you for your message", "payment received.pdf"].join("\n") }).allowed).toBe(false);
+  });
+
   it("refuses protected claims for staff and all denied automation", () => {
     const protectedFacts = facts({
       protection: {

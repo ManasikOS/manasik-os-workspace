@@ -261,6 +261,13 @@ describe("sendStaffMessage — the gate is enforced on the server", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("refuses a payment confirmation that is only in the email subject", async () => {
+    loadProtectionContext.mockResolvedValue({ openReviews: [paymentReview], approvedAccountDigits: [] });
+    const result = await sendStaffMessage(CONVERSATION, "Thank you for writing to us.", null, undefined, null, { subject: "Payment received - thank you" });
+    expect(result).toMatchObject({ ok: false });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("sends a message that only acknowledges", async () => {
     loadProtectionContext.mockResolvedValue({ openReviews: [paymentReview], approvedAccountDigits: [] });
     expect(await sendStaffMessage(CONVERSATION, "Thank you, a colleague is checking your payment and will come back to you.")).toEqual({ ok: true });
