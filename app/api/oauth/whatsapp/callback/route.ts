@@ -14,6 +14,7 @@ import { getCurrentStaffRole } from "@/lib/data/departure-groups";
 import { sealPendingRef } from "@/lib/channels/pending-token-cookie";
 import { secureSecretEquals } from "@/lib/security/secure-compare";
 import { getSiteUrl } from "@/lib/site-url";
+import { hasOAuthProviderError, oauthProviderErrorMessage } from "@/lib/setup/oauth-callback-error";
 import { connectorRedirect } from "@/lib/setup/setup-return-server";
 import {
   signupRedirectUri,
@@ -41,9 +42,9 @@ export async function GET(request: NextRequest) {
   const expectedState = cookieStore.get(WHATSAPP_OAUTH_STATE_COOKIE)?.value;
   cookieStore.delete(WHATSAPP_OAUTH_STATE_COOKIE);
 
-  if (params.get("error")) {
-    // The description is written by whoever built the callback URL, so it is length-capped, never trusted as copy.
-    return backToIntegrations("error", (params.get("error_description") ?? "").slice(0, 200) || "WhatsApp connection was cancelled or did not complete.");
+  if (hasOAuthProviderError({ error: params.get("error"), description: params.get("error_description") })) {
+    // The description is written by whoever built the callback URL, so it goes to the log and a fixed sentence goes to the screen (SEC-10).
+    return backToIntegrations("error", oauthProviderErrorMessage({ provider: "WhatsApp", error: params.get("error"), description: params.get("error_description") }));
   }
   const code = params.get("code");
   if (!code || code.length > 2048 || !secureSecretEquals(params.get("state"), expectedState)) {

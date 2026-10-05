@@ -13,6 +13,7 @@ import { INSTAGRAM_LOGIN_STATE_COOKIE } from "@/lib/channels/instagram/login/oau
 import { requireUser } from "@/lib/dal";
 import { secureSecretEquals } from "@/lib/security/secure-compare";
 import { getSiteUrl } from "@/lib/site-url";
+import { hasOAuthProviderError, oauthProviderErrorMessage } from "@/lib/setup/oauth-callback-error";
 import { connectorRedirect } from "@/lib/setup/setup-return-server";
 import { parseInstagramLoginCallback } from "@/lib/validations/instagram-login";
 
@@ -42,8 +43,9 @@ export async function GET(request: NextRequest) {
   }
   const { code, state, error, error_description: errorDescription } = parsed.data;
 
-  if (error) {
-    return backToIntegrations("error", errorDescription || "The Instagram connection was cancelled or did not complete.");
+  if (hasOAuthProviderError({ error, description: errorDescription })) {
+    // The description is written by whoever built the callback URL, so it goes to the log and a fixed sentence goes to the screen (SEC-10).
+    return backToIntegrations("error", oauthProviderErrorMessage({ provider: "Instagram", error, description: errorDescription }));
   }
   if (!code || !state || !expectedState || !secureSecretEquals(state, expectedState)) {
     return backToIntegrations("error", "The connection request could not be verified. Please click Connect with Instagram again.");

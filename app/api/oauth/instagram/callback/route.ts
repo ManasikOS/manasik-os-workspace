@@ -13,6 +13,7 @@ import { requireUser } from "@/lib/dal";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
 import { sealPendingRef } from "@/lib/channels/pending-token-cookie";
 import { getSiteUrl } from "@/lib/site-url";
+import { hasOAuthProviderError, oauthProviderErrorMessage } from "@/lib/setup/oauth-callback-error";
 import { connectorRedirect } from "@/lib/setup/setup-return-server";
 import { signupRedirectUri } from "@/lib/whatsapp/embedded-signup-redirect";
 
@@ -36,8 +37,9 @@ export async function GET(request: NextRequest) {
   const expectedState = cookieStore.get(INSTAGRAM_OAUTH_STATE_COOKIE)?.value;
   cookieStore.delete(INSTAGRAM_OAUTH_STATE_COOKIE);
 
-  if (params.get("error")) {
-    return backToIntegrations("error", params.get("error_description") || "The Instagram connection was cancelled or did not complete.");
+  if (hasOAuthProviderError({ error: params.get("error"), description: params.get("error_description") })) {
+    // The description is written by whoever built the callback URL, so it goes to the log and a fixed sentence goes to the screen (SEC-10).
+    return backToIntegrations("error", oauthProviderErrorMessage({ provider: "Instagram", error: params.get("error"), description: params.get("error_description") }));
   }
   const code = params.get("code");
   if (!code || !expectedState || params.get("state") !== expectedState) {
