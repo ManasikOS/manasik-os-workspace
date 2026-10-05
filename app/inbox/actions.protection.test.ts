@@ -15,7 +15,9 @@ const role = { value: "MARKETING" as string, agencyId: "aaaaaaaa-aaaa-4aaa-8aaa-
 vi.mock("@/lib/dal", () => ({ requireUser: async () => ({ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" }) }));
 vi.mock("@/lib/data/departure-groups", () => ({ getCurrentStaffRole: async () => ({ role: role.value, agencyId: role.agencyId, staffId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Test" }), createGroupBooking: vi.fn() }));
 vi.mock("@/lib/data/leads", () => ({ markLeadBookedInStore: vi.fn(), pricePerPerson: vi.fn(), selectDepartureGroupInStore: vi.fn(), setFollowUpInStore: vi.fn() }));
-vi.mock("@/lib/data/leads-repository", () => ({ loadLeadStore: vi.fn(), persistLeadStore: vi.fn(), snapshotLeadStore: vi.fn() }));
+const loadLeadStore = vi.fn();
+const changeOneLead = vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({ ok: true }));
+vi.mock("@/lib/data/leads-repository", () => ({ loadLeadStore: (...args: unknown[]) => loadLeadStore(...args), changeOneLead: (...args: unknown[]) => changeOneLead(...args), persistLeadStore: vi.fn(), snapshotLeadStore: vi.fn() }));
 vi.mock("@/lib/whatsapp/send-template-message", () => ({ sendApprovedTemplate: vi.fn() }));
 vi.mock("@/lib/inbox/outbox/drain", () => ({ processDueInboxOutbox: vi.fn(async () => undefined) }));
 vi.mock("@/lib/channels/profile", () => ({ getChannelProfile: () => ({ displayName: "WhatsApp" }) }));
@@ -36,6 +38,7 @@ const conversationRow = {
   id: "c1", 
   channel: "WHATSAPP", 
   state: "HUMAN_ACTIVE", 
+  lead_id: "6a1d2c4e-5a6b-4c7d-8e9f-0000000000aa" as string | null,
   service_window_expires_at: (null as unknown) as string | null, 
   assigned_to_id: null as string | null, 
   assigned_to_name: null as string | null 
@@ -430,6 +433,27 @@ describe("scheduleConversationFollowUp — input is validated at the boundary", 
     await expect(scheduleConversationFollowUp({ conversationId: "not-a-uuid", dueAt: "2999-01-01T00:00:00Z", type: "CALL" })).resolves.toMatchObject({ ok: false });
     await expect(scheduleConversationFollowUp({ conversationId: CONVERSATION, dueAt: "2999-01-01T00:00:00Z", type: "NOT_A_TYPE" as never })).resolves.toMatchObject({ ok: false });
     await expect(scheduleConversationFollowUp({ conversationId: CONVERSATION, dueAt: 12 as never, type: "CALL" })).resolves.toMatchObject({ ok: false });
+  });
+});
+
+describe("scheduleConversationFollowUp — only the linked lead is read and written (BUG-5)", () => {
+  beforeEach(() => {
+    loadLeadStore.mockClear();
+    changeOneLead.mockClear();
+    changeOneLead.mockResolvedValue({ ok: true });
+    role.value = "ADMIN";
+  });
+
+  it("changes that one lead without reading the agency's whole lead store", async () => {
+    expect(await scheduleConversationFollowUp({ conversationId: CONVERSATION, dueAt: "2999-01-01T00:00:00Z", type: "CALL" })).toEqual({ ok: true });
+    expect(changeOneLead).toHaveBeenCalledTimes(1);
+    expect(changeOneLead.mock.calls[0][1]).toBe(conversationRow.lead_id);
+    expect(loadLeadStore).not.toHaveBeenCalled();
+  });
+
+  it("reports why when the lead could not be changed, instead of success", async () => {
+    changeOneLead.mockResolvedValue({ ok: false, error: "Someone else changed this lead just now. Refresh and try again." });
+    expect(await scheduleConversationFollowUp({ conversationId: CONVERSATION, dueAt: "2999-01-01T00:00:00Z", type: "CALL" })).toEqual({ ok: false, error: "Someone else changed this lead just now. Refresh and try again." });
   });
 });
 

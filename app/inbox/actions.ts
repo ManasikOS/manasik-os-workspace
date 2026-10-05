@@ -28,7 +28,7 @@ import { capabilitiesForLeads } from "@/lib/access/leads-access";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
 import { createGroupBooking, submitGroupPilgrimDocument, updateGroupPilgrimRecord } from "@/lib/data/departure-groups";
 import { markLeadBookedInStore, pricePerPerson, selectDepartureGroupInStore, setFollowUpInStore } from "@/lib/data/leads";
-import { loadLeadStore, persistLeadStore, snapshotLeadStore } from "@/lib/data/leads-repository";
+import { changeOneLead, loadLeadStore } from "@/lib/data/leads-repository";
 import type { FollowUpType } from "@/lib/types/leads";
 import { requireUser } from "@/lib/dal";
 import { sendApprovedTemplate } from "@/lib/whatsapp/send-template-message";
@@ -1795,7 +1795,8 @@ export async function createBookingFromConversation(rawConversationId: string): 
     .single();
   if (conversationError || !conversation?.lead_id) return { ok: false, error: "Link a lead before creating a booking." };
 
-  const store = await loadLeadStore(supabase);
+  // Just this lead (and the packages, for the price), not every lead of the agency.
+  const store = await loadLeadStore(supabase, { only: ["leads", "packages"], leadId: conversation.lead_id as string });
   const leadOrNull = store.leads.find((item) => item.id === conversation.lead_id) ?? null;
   const derived = deriveBookingFromLead(leadOrNull);
   if (!derived.ok) return { ok: false, error: derived.error };
@@ -1823,15 +1824,18 @@ export async function createBookingFromConversation(rawConversationId: string): 
   // The booking points back at the conversation it was created from (MI4.6).
   await stampConversationSource(createAdminClient(), { agencyId, table: "departure_group_bookings", by: { column: "id", value: bookingOutcome.result.bookingId }, conversationId });
 
-  const before = snapshotLeadStore(store);
-  const linked = markLeadBookedInStore(store, {
+  // Written column by column and only if the lead is unchanged since it was read (read again if a colleague edited it meanwhile), so a
+  // colleague's edit to the same lead is never overwritten.
+  const linked = await changeOneLead(supabase, lead.id, (fresh) => markLeadBookedInStore(fresh, {
     leadId: lead.id,
     bookingId: bookingOutcome.result.bookingId,
     bookingReference: bookingOutcome.result.bookingReference,
     actorName: name ?? "Staff",
-  }, new Date().toISOString());
-  if (!linked.ok) return { ok: false, error: linked.error ?? "Could not link the booking to the lead." };
-  await persistLeadStore(supabase, before, store);
+  }, new Date().toISOString()));
+  if (!linked.ok) {
+    // The booking exists and holds the seats; say so, instead of leaving the person to retry into a duplicate-reference error.
+    return { ok: false, error: `Booking ${bookingOutcome.result.bookingReference} was created, but it could not be linked to the lead. Open the lead and check it before trying again.` };
+  }
 
   revalidatePath("/leads");
   revalidatePath("/bookings");
@@ -1856,7 +1860,7 @@ export async function selectConversationDepartureGroup(rawInput: {
   const supabase = await db();
   const { data: conversation } = await supabase.from("conversations").select("lead_id").eq("id", input.conversationId).maybeSingle();
   if (!conversation?.lead_id) return { ok: false, error: "Link a lead before selecting a departure group." };
-  const store = await loadLeadStore(supabase);
+  const store = await loadLeadStore(supabase, { only: ["leads"], leadId: conversation.lead_id as string });
   const lead = store.leads.find((item) => item.id === conversation.lead_id);
   if (!lead) return { ok: false, error: "The linked lead is no longer available." };
 
@@ -1869,15 +1873,13 @@ export async function selectConversationDepartureGroup(rawInput: {
   const { data: group, error: groupError } = await groupQuery.maybeSingle();
   if (groupError || !group) return { ok: false, error: "That departure group is no longer available for this lead." };
 
-  const before = snapshotLeadStore(store);
-  const outcome = selectDepartureGroupInStore(store, {
+  const outcome = await changeOneLead(supabase, lead.id, (fresh) => selectDepartureGroupInStore(fresh, {
     leadId: lead.id,
     departureGroupId: group.id as string,
     groupLabel: `${group.group_name as string} (${group.group_code as string})`,
     actorName: name ?? "Staff",
-  }, new Date().toISOString());
-  if (!outcome.ok) return { ok: false, error: outcome.error ?? "Could not select the departure group." };
-  await persistLeadStore(supabase, before, store);
+  }, new Date().toISOString()));
+  if (!outcome.ok) return { ok: false, error: ("error" in outcome ? outcome.error : undefined) ?? "Could not select the departure group." };
   revalidatePath("/leads");
   return { ok: true };
 }
@@ -2234,18 +2236,15 @@ export async function scheduleConversationFollowUp(input: {
   const supabase = await db();
   const { data: conversation } = await supabase.from("conversations").select("lead_id").eq("agency_id", agencyId).eq("id", request.conversationId).maybeSingle();
   if (!conversation?.lead_id) return { ok: false, error: "Link a lead before scheduling a follow-up." };
-  const store = await loadLeadStore(supabase);
-  const before = snapshotLeadStore(store);
-  const outcome = setFollowUpInStore(store, {
-    leadId: conversation.lead_id,
+  const outcome = await changeOneLead(supabase, conversation.lead_id as string, (fresh) => setFollowUpInStore(fresh, {
+    leadId: conversation.lead_id as string,
     actorName: name ?? "Staff",
     nextFollowUpAt: dueAt.toISOString(),
     followUpType: request.type,
     followUpOwnerId: staffId,
     followUpOwnerName: name ?? "Staff",
-  }, new Date().toISOString());
-  if (!outcome.ok) return { ok: false, error: outcome.error ?? "Could not schedule follow-up." };
-  await persistLeadStore(supabase, before, store);
+  }, new Date().toISOString()));
+  if (!outcome.ok) return { ok: false, error: ("error" in outcome ? outcome.error : undefined) ?? "Could not schedule follow-up." };
   revalidatePath("/leads");
   return { ok: true };
 }
