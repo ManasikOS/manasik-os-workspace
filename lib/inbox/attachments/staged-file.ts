@@ -19,6 +19,7 @@ import {
   verifyStagedBytes,
   type StagedAttachmentRef,
 } from "@/lib/inbox/attachments/staff-attachment";
+import { inspectStagedFileContent } from "@/lib/inbox/attachments/file-inspection";
 
 export const INBOX_ATTACHMENT_BUCKET = "inbox-attachments";
 
@@ -42,6 +43,17 @@ export async function createStaffAttachmentUpload(
   return { ok: true, path, token: data.token, filename: sanitizeAttachmentFilename(input.filename, type) };
 }
 
+/** The stored object's size in bytes from its record in the bucket, or "UNKNOWN" if the record cannot be found or read. */
+async function storedObjectSize(admin: Db, path: string): Promise<number | "UNKNOWN"> {
+  const slash = path.lastIndexOf("/");
+  const folder = path.slice(0, slash);
+  const name = path.slice(slash + 1);
+  const { data, error } = await admin.storage.from(INBOX_ATTACHMENT_BUCKET).list(folder, { limit: 5, search: name });
+  if (error) return "UNKNOWN";
+  const size = (data ?? []).find((object) => object.name === name)?.metadata?.size;
+  return typeof size === "number" && Number.isFinite(size) ? size : "UNKNOWN";
+}
+
 export type VerifiedStagedFile =
   | { ok: true; path: string; filename: string; mimeType: string; byteSize: number; checksumSha256: string }
   | { ok: false; error: string };
@@ -62,10 +74,20 @@ export async function verifyStagedAttachment(
   if (!channelAcceptsAttachment(input.channel, type.kind)) {
     return { ok: false, error: input.channel === "INSTAGRAM" ? "Instagram can only carry photos. Send a photo instead." : "This channel can't carry files." };
   }
+  // The size is read from the stored object's own record BEFORE it is downloaded. The bucket caps uploads (10 MB), but the whole file is then
+  // loaded into this server's memory, so that cap is not left as the only thing between a misconfigured bucket and an enormous download.
+  const storedSize = await storedObjectSize(admin, ref.path);
+  if (storedSize === "UNKNOWN") return { ok: false, error: "The file wasn't uploaded. Attach it again." };
+  if (storedSize > type.maxBytes) {
+    await admin.storage.from(INBOX_ATTACHMENT_BUCKET).remove([ref.path]).catch(() => undefined);
+    return { ok: false, error: `That file is too large. ${type.kind === "image" ? "Photos" : "Documents"} can be up to ${type.maxBytes / (1024 * 1024)} MB.` };
+  }
   const stored = await admin.storage.from(INBOX_ATTACHMENT_BUCKET).download(ref.path);
   if (stored.error || !stored.data) return { ok: false, error: "The file wasn't uploaded. Attach it again." };
   const bytes = new Uint8Array(await stored.data.arrayBuffer());
-  const verdict = verifyStagedBytes({ mimeType: ref.mimeType, bytes });
+  const basic = verifyStagedBytes({ mimeType: ref.mimeType, bytes });
+  // The deeper look (hidden scripts in a PDF, a ZIP that is not really an Office file) only runs on a file that already has the right signature and size.
+  const verdict = basic.ok ? inspectStagedFileContent({ mimeType: ref.mimeType, bytes }) : basic;
   if (!verdict.ok) {
     // A refused file is removed: it must not sit in the bucket waiting to be sent by a later request.
     await admin.storage.from(INBOX_ATTACHMENT_BUCKET).remove([ref.path]).catch(() => undefined);

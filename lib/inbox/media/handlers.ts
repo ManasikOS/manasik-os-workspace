@@ -131,6 +131,7 @@ async function loadAndRetainOriginal(job: ClaimedChannelJob, context: LaneJobCon
     mime_type: mimeType,
     byte_size: retainedBytes.byteLength,
     checksum_sha256: checksum,
+    // "CLEAN" here means the bytes were fetched from the provider, stored and type-checked. NO virus scan runs (SEC-8, docs/runbooks/inbox-attachment-checks.md).
     scan_status: "CLEAN",
     expires_at: expiresAt,
   }).eq("agency_id", job.agencyId).eq("id", payload.attachmentId);

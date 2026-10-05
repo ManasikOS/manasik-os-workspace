@@ -177,6 +177,7 @@ async function persistParsedAttachments(db: Db, input: { agencyId: string; messa
       mime_type: mimeType,
       byte_size: attachment.content.byteLength,
       checksum_sha256: checksum,
+      // "CLEAN" here means the file arrived by email and was stored. NO virus scan runs (SEC-8, docs/runbooks/inbox-attachment-checks.md).
       scan_status: "CLEAN",
       expires_at: expiresAt,
     });
