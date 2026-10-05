@@ -466,11 +466,43 @@ describe("updateInterventionAction — who may close a review", () => {
     expect(resolveIntervention).not.toHaveBeenCalled();
   });
 
-  it("anyone with access may say 'I am on it' without a note; the money review still needs the right role only to CLOSE it", async () => {
+  it("the person who may close a review may also say 'I am on it' without a note", async () => {
     role.value = "FINANCE";
     open();
     expect(await decide("ACKNOWLEDGE")).toEqual({ ok: true });
     expect(acknowledgeIntervention).toHaveBeenCalledWith(expect.anything(), role.agencyId, REVIEW_ID);
+  });
+
+  it("Finance cannot close, or take, a complaint or medical-urgency review: it cannot reply in the Inbox (SEC-5)", async () => {
+    role.value = "FINANCE";
+    for (const kind of ["COMPLAINT", "MEDICAL_URGENCY"]) {
+      open(kind);
+      expect(await decide("RESOLVE", "Handled.")).toEqual({ ok: false, error: "Your role cannot close this review." });
+      expect(await decide("ACKNOWLEDGE")).toEqual({ ok: false, error: "Your role cannot close this review." });
+    }
+    expect(resolveIntervention).not.toHaveBeenCalled();
+    expect(acknowledgeIntervention).not.toHaveBeenCalled();
+  });
+
+  it("a role without Inbox access is refused before any review is read", async () => {
+    role.value = "GUIDE";
+    open();
+    expect(await decide("ACKNOWLEDGE")).toEqual({ ok: false, error: "Your role cannot work on Inbox reviews." });
+    expect(listInterventions).not.toHaveBeenCalled();
+  });
+
+  it("reports a lost race instead of success when the acknowledge changed nothing", async () => {
+    role.value = "FINANCE";
+    open();
+    acknowledgeIntervention.mockResolvedValueOnce(null);
+    expect(await decide("ACKNOWLEDGE")).toMatchObject({ ok: false });
+  });
+
+  it("treats acknowledging a review that is already acknowledged as done", async () => {
+    role.value = "FINANCE";
+    listInterventions.mockResolvedValue([{ id: REVIEW_ID, kind: "PAYMENT_CLAIM", severity: "BLOCK", status: "ACKNOWLEDGED" }]);
+    acknowledgeIntervention.mockResolvedValueOnce(null);
+    expect(await decide("ACKNOWLEDGE")).toEqual({ ok: true });
   });
 
   it("a review that is not open on this conversation cannot be touched", async () => {

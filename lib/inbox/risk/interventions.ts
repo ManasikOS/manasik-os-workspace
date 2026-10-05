@@ -138,11 +138,22 @@ export function interventionForSignal(code: SignalCode): InterventionSpec | null
   return INTERVENTION_FOR_SIGNAL[code] ?? null;
 }
 
-/** Roles that may close a review. The money and refund reviews belong to Finance (and Admin); the rest to anyone who works the inbox. */
+/**
+ * Roles that may close a review. The money and refund reviews belong to Finance (and Admin). The rest belong to the people who answer customers in
+ * the Inbox (Admin, Marketing, Operations): Finance cannot reply there, so it does not decide a complaint or a medical-urgency review.
+ */
 const FINANCE_KINDS: readonly InterventionKind[] = ["PAYMENT_CLAIM", "BANK_DETAIL_MISMATCH", "REFUND_REQUEST", "FRAUD_CONCERN"];
 const FINANCE_RESOLVERS = ["ADMIN", "FINANCE"];
-const INBOX_RESOLVERS = ["ADMIN", "MARKETING", "OPERATIONS", "FINANCE"];
+const INBOX_RESOLVERS = ["ADMIN", "MARKETING", "OPERATIONS"];
 
 export function canCloseIntervention(role: string, kind: InterventionKind): boolean {
   return (FINANCE_KINDS.includes(kind) ? FINANCE_RESOLVERS : INBOX_RESOLVERS).includes(role);
+}
+
+/**
+ * The Inbox permission a role must also hold, in Roles & Permissions, to close this review: seeing the Inbox for a money review (Finance does not
+ * reply there), replying in it for the others. A custom role can be narrowed by it; the role tiers above stay the ceiling.
+ */
+export function closingCapability(kind: InterventionKind): "viewModule" | "sendMessage" {
+  return FINANCE_KINDS.includes(kind) ? "viewModule" : "sendMessage";
 }

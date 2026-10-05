@@ -58,7 +58,8 @@ import { composeFollowUp, composeOfferReply } from "@/lib/inbox/intelligence/off
 import { confirmIdentityLink, rejectIdentityLinks, unlinkIdentityLink } from "@/lib/data/identity-graph-repository";
 import { acknowledgeIntervention, listInterventions, openIntervention, resolveIntervention } from "@/lib/data/conversation-intelligence-repository";
 import { loadProtectionContext } from "@/lib/data/inbox-risk-repository";
-import { canCloseIntervention } from "@/lib/inbox/risk/interventions";
+import { canCloseIntervention, closingCapability } from "@/lib/inbox/risk/interventions";
+import { resolveCapability } from "@/lib/agent/kernel/proposals/capabilities";
 import { evaluateProtection, refusalMessage } from "@/lib/inbox/risk/protection-gate";
 import { outboundGateText } from "@/lib/inbox/risk/outbound-gate-text";
 import { claimComposerPresence, releaseComposerPresence, syncConcurrentComposerSignal } from "@/lib/data/inbox-composer-presence-repository";
@@ -2024,12 +2025,13 @@ export async function suggestConversationReplyAction(conversationId: string): Pr
  * inbox. Runs on the service role AFTER the checks, every query scoped to the agency.
  */
 export async function updateInterventionAction(input: unknown): Promise<ActionResult> {
+  const user = await requireUser();
   const parsed = inboxInterventionDecisionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the review." };
 
-  const user = await requireUser();
-  const { role, agencyId } = await getCurrentStaffRole();
+  const { role, roleId, agencyId } = await getCurrentStaffRole();
   if (!agencyId) return { ok: false, error: "Your account is not linked to an agency." };
+  if (!capabilitiesForInbox(role).viewModule) return { ok: false, error: "Your role cannot work on Inbox reviews." };
   const admin = createAdminClient();
 
   const reviews = await listInterventions(admin, agencyId, parsed.data.conversationId, { openOnly: true });
@@ -2039,8 +2041,13 @@ export async function updateInterventionAction(input: unknown): Promise<ActionRe
     return { ok: false, error: review.kind === "PAYMENT_CLAIM" || review.kind === "BANK_DETAIL_MISMATCH" || review.kind === "REFUND_REQUEST" || review.kind === "FRAUD_CONCERN" ? "Only Finance or an Admin can close this review." : "Your role cannot close this review." };
   }
 
+  // The role tier above is the ceiling; a custom role can also be narrowed in Roles & Permissions, and that is honoured here too.
+  if (!(await resolveCapability(role, roleId, "inbox", closingCapability(review.kind), admin))) return { ok: false, error: "Your role cannot close this review." };
+
   if (parsed.data.decision === "ACKNOWLEDGE") {
-    await acknowledgeIntervention(admin, agencyId, review.id);
+    const acknowledged = await acknowledgeIntervention(admin, agencyId, review.id);
+    // Nothing changed because someone else got there first; a review that was already acknowledged is the one case where that is expected.
+    if (!acknowledged && review.status === "OPEN") return { ok: false, error: "That review was just updated by someone else. Refresh and try again." };
     return { ok: true };
   }
   const closed = await resolveIntervention(admin, agencyId, { interventionId: review.id, status: parsed.data.decision === "RESOLVE" ? "RESOLVED" : "DISMISSED", note: parsed.data.note, actorStaffId: user.id });

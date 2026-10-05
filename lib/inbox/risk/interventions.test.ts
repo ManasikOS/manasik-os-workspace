@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 import { INTERVENTION_KINDS, RULE_ONLY_SIGNAL_CODES } from "@/lib/inbox/intelligence/contracts";
 import { openInterventionInputSchema } from "@/lib/data/conversation-intelligence-repository";
 
-import { canCloseIntervention, INTERVENTION_FOR_SIGNAL, interventionForSignal } from "./interventions";
+import { canCloseIntervention, closingCapability, INTERVENTION_FOR_SIGNAL, interventionForSignal } from "./interventions";
 
 describe("signals that become review cards", () => {
   it("every card is valid for the table: headline, guidance, action and kind", () => {
@@ -45,9 +45,16 @@ describe("who may close a review", () => {
     }
   });
 
-  it("the others anyone who works the inbox, and never a guide or the CEO", () => {
-    for (const role of ["ADMIN", "MARKETING", "OPERATIONS", "FINANCE"]) expect(canCloseIntervention(role, "GROUP_FULL"), role).toBe(true);
-    for (const role of ["GUIDE", "CEO", "VISA"]) expect(canCloseIntervention(role, "GROUP_FULL"), role).toBe(false);
+  it("the others only the people who answer customers in the Inbox: never Finance, a guide, the CEO or Visa", () => {
+    for (const kind of ["GROUP_FULL", "COMPLAINT", "MEDICAL_URGENCY", "DISTRESSED_CUSTOMER"] as const) {
+      for (const role of ["ADMIN", "MARKETING", "OPERATIONS"]) expect(canCloseIntervention(role, kind), `${role} ${kind}`).toBe(true);
+      for (const role of ["FINANCE", "GUIDE", "CEO", "VISA"]) expect(canCloseIntervention(role, kind), `${role} ${kind}`).toBe(false);
+    }
+  });
+
+  it("asks for the Inbox permission that fits the review: seeing it for money, replying for the rest", () => {
+    expect(closingCapability("PAYMENT_CLAIM")).toBe("viewModule");
+    expect(closingCapability("COMPLAINT")).toBe("sendMessage");
   });
 });
 
