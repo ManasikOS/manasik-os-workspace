@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { confirmIdentityLink, loadProposalsForConversation, recordProposals, rejectIdentityLinks, unlinkIdentityLink } = await import("./identity-graph-repository");
+const { confirmIdentityLink, loadProposalsForConversation, recordIdentityKeptSeparate, recordProposals, rejectIdentityLinks, restoreRejectedIdentityLinks, unlinkIdentityLink } = await import("./identity-graph-repository");
 
 const AGENCY = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OTHER_AGENCY = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -159,12 +159,52 @@ describe("confirming a link links identities and never merges leads", () => {
 });
 
 describe("keeping a contact separate", () => {
-  it("rejects every open suggestion, audits each, and a rejected pair is never proposed again", async () => {
+  async function proposedBoth() {
     const fake = fakeDb(seed());
     await recordProposals(fake.db, { agencyId: AGENCY, subjectIdentityId: "ident-1", candidates: [candidate("lead-ig"), candidate("lead-other", 0.55)] });
-    expect(await rejectIdentityLinks(fake.db, { agencyId: AGENCY, conversationId: "conv-1", actorId: ACTOR })).toEqual({ ok: true, rejected: 2 });
+    return fake;
+  }
+
+  it("rejects every open suggestion and writes no history until the decision has held", async () => {
+    const fake = await proposedBoth();
+    const result = await rejectIdentityLinks(fake.db, { agencyId: AGENCY, conversationId: "conv-1", actorId: ACTOR });
+    expect(result).toMatchObject({ ok: true, rejected: 2, identityId: "ident-1", links: [{ candidateLeadId: "lead-ig" }, { candidateLeadId: "lead-other" }] });
     expect(fake.tables.contact_identity_links.map((link) => link.status)).toEqual(["REJECTED", "REJECTED"]);
-    expect(fake.tables.identity_match_events.filter((event) => event.action === "SPLIT")).toHaveLength(2);
+    expect(fake.tables.identity_match_events.filter((event) => event.action === "SPLIT")).toEqual([]);
+  });
+
+  it("BUG-7: records one SPLIT row per suggestion once the separate lead exists", async () => {
+    const fake = await proposedBoth();
+    const result = await rejectIdentityLinks(fake.db, { agencyId: AGENCY, conversationId: "conv-1", actorId: ACTOR });
+    if (!result.ok) throw new Error("expected the suggestions to be rejected");
+    await recordIdentityKeptSeparate(fake.db, { agencyId: AGENCY, identityId: result.identityId, links: result.links, actorId: ACTOR });
+    const splits = fake.tables.identity_match_events.filter((event) => event.action === "SPLIT");
+    expect(splits).toHaveLength(2);
+    expect(splits[0]).toMatchObject({ contact_identity_id: "ident-1", previous_lead_id: "lead-ig", actor_id: ACTOR, evidence: { decision: "KEPT_SEPARATE" } });
+  });
+
+  it("BUG-7: puts the suggestions back as they were when the separate lead could not be created", async () => {
+    const fake = await proposedBoth();
+    const result = await rejectIdentityLinks(fake.db, { agencyId: AGENCY, conversationId: "conv-1", actorId: ACTOR });
+    if (!result.ok) throw new Error("expected the suggestions to be rejected");
+    expect(await restoreRejectedIdentityLinks(fake.db, { agencyId: AGENCY, linkIds: result.links.map((link) => link.id) })).toEqual({ ok: true });
+    expect(fake.tables.contact_identity_links.map((link) => link.status)).toEqual(["PROPOSED", "PROPOSED"]);
+    expect(fake.tables.contact_identity_links.every((link) => link.decided_by === null && link.decided_at === null)).toBe(true);
+    expect(fake.tables.identity_match_events.filter((event) => event.action === "SPLIT")).toEqual([]);
+  });
+
+  it("BUG-7: restoring never reopens a suggestion someone decided in the meantime", async () => {
+    const fake = await proposedBoth();
+    const result = await rejectIdentityLinks(fake.db, { agencyId: AGENCY, conversationId: "conv-1", actorId: ACTOR });
+    if (!result.ok) throw new Error("expected the suggestions to be rejected");
+    fake.tables.contact_identity_links[0].status = "CONFIRMED";
+    await restoreRejectedIdentityLinks(fake.db, { agencyId: AGENCY, linkIds: result.links.map((link) => link.id) });
+    expect(fake.tables.contact_identity_links.map((link) => link.status)).toEqual(["CONFIRMED", "PROPOSED"]);
+  });
+
+  it("a rejected pair is never proposed again", async () => {
+    const fake = await proposedBoth();
+    await rejectIdentityLinks(fake.db, { agencyId: AGENCY, conversationId: "conv-1", actorId: ACTOR });
     // The next message proposes the same lead again: the existing REJECTED edge is left exactly as it is.
     expect(await recordProposals(fake.db, { agencyId: AGENCY, subjectIdentityId: "ident-1", candidates: [candidate("lead-ig")] })).toBe(0);
     expect(fake.tables.contact_identity_links.map((link) => link.status)).toEqual(["REJECTED", "REJECTED"]);

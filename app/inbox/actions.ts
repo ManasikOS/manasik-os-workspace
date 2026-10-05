@@ -56,7 +56,7 @@ import { loadIntelligence } from "@/lib/data/conversation-intelligence-repositor
 import { checkStoredOffer } from "@/lib/data/inbox-offer-repository";
 import { canQuoteOffer, intentCodeSchema, OFFER_CHECK_MESSAGES, type MatchedOfferSnapshot, type OfferCheckState } from "@/lib/inbox/intelligence/contracts";
 import { composeFollowUp, composeOfferReply } from "@/lib/inbox/intelligence/offer";
-import { confirmIdentityLink, rejectIdentityLinks, unlinkIdentityLink } from "@/lib/data/identity-graph-repository";
+import { confirmIdentityLink, recordIdentityKeptSeparate, rejectIdentityLinks, restoreRejectedIdentityLinks, unlinkIdentityLink } from "@/lib/data/identity-graph-repository";
 import { acknowledgeIntervention, listInterventions, openIntervention, resolveIntervention } from "@/lib/data/conversation-intelligence-repository";
 import { loadProtectionContext } from "@/lib/data/inbox-risk-repository";
 import { canCloseIntervention, closingCapability } from "@/lib/inbox/risk/interventions";
@@ -2184,7 +2184,11 @@ export async function confirmIdentityLinkAction(input: unknown): Promise<ActionR
   return result;
 }
 
-/** "Create separate lead": close every suggestion for this contact (never proposed again) and capture them as their own lead. */
+/**
+ * "Create separate lead": close every suggestion for this contact (never proposed again) and capture them as their own lead.
+ * The suggestions have to be closed first, or the capture would just propose them again. But closing them is only worth keeping if the
+ * lead then exists, so when the capture fails they are reopened and the person can try again or pick a suggestion instead.
+ */
 export async function keepIdentitySeparateAction(input: unknown): Promise<ActionResult> {
   const parsed = inboxConversationRequestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That conversation could not be found." };
@@ -2195,7 +2199,33 @@ export async function keepIdentitySeparateAction(input: unknown): Promise<Action
   const admin = createAdminClient();
   const rejected = await rejectIdentityLinks(admin, { agencyId: who.agencyId, conversationId: parsed.data.conversationId, actorId: who.actorId });
   if (!rejected.ok) return rejected;
-  return captureConversationLead(parsed.data.conversationId);
+
+  let captured: ActionResult;
+  try {
+    captured = await captureConversationLead(parsed.data.conversationId);
+  } catch (cause) {
+    console.error("Create separate lead failed:", cause instanceof Error ? cause.message : cause);
+    captured = { ok: false, error: "Could not create the lead. Please try again." };
+  }
+  if (captured.ok) {
+    await recordIdentityKeptSeparate(admin, { agencyId: who.agencyId, identityId: rejected.identityId, links: rejected.links, actorId: who.actorId });
+    return captured;
+  }
+
+  // The capture failed. If the conversation still has no lead, the suggestions go back as they were. If it somehow has one (the
+  // failure came after the lead was linked), the person did get a separate lead, so the decision stands.
+  const { data: linked, error: linkedError } = await admin.from("conversations").select("lead_id").eq("agency_id", who.agencyId).eq("id", parsed.data.conversationId).maybeSingle();
+  const alreadyHasLead = !linkedError && Boolean((linked as { lead_id: string | null } | null)?.lead_id);
+  if (alreadyHasLead) {
+    await recordIdentityKeptSeparate(admin, { agencyId: who.agencyId, identityId: rejected.identityId, links: rejected.links, actorId: who.actorId });
+    return captured;
+  }
+  const restored = await restoreRejectedIdentityLinks(admin, { agencyId: who.agencyId, linkIds: rejected.links.map((link) => link.id) });
+  if (!restored.ok) {
+    console.error("Create separate lead: the suggestions could not be reopened after the lead failed:", restored.error);
+    return { ok: false, error: `${captured.error} The earlier suggestions for this contact could not be reopened; ask an admin to check them.` };
+  }
+  return captured;
 }
 
 /** Undo a confirmed link: the conversation goes back to the lead it had before, and the pair is not suggested again. */
