@@ -72,6 +72,8 @@ interface Call {
 const calls: Call[] = [];
 let noteInsertFails = false;
 let mentionsInsertFails = false;
+let staffRows: Array<{ id: string; role: string; status: string; role_id: string | null }> = [];
+let staffReadFails = false;
 
 /** A conversation is only "found" when the query names this agency, like the real table where the other agency's row is simply not there. */
 function answer(call: Call) {
@@ -82,7 +84,7 @@ function answer(call: Call) {
   }
   if (call.table === "conversation_notes" && call.op === "insert") return noteInsertFails ? { data: null, error: { message: "boom" } } : { data: { id: "note-1" }, error: null };
   if (call.table === "note_mentions" && call.op === "insert") return { data: null, error: mentionsInsertFails ? { message: "boom" } : null };
-  if (call.table === "staff_profiles") return { data: [{ id: MENTIONED }], error: null };
+  if (call.table === "staff_profiles") return staffReadFails ? { data: null, error: { message: "boom" } } : { data: staffRows, error: null };
   return { data: null, error: null };
 }
 
@@ -124,6 +126,8 @@ beforeEach(() => {
   calls.length = 0;
   noteInsertFails = false;
   mentionsInsertFails = false;
+  staffRows = [{ id: MENTIONED, role: "OPERATIONS", status: "ACTIVE", role_id: null }];
+  staffReadFails = false;
   linkConversationToLead.mockReset();
   linkConversationToLead.mockResolvedValue({ lead: { id: "lead-1", reference: "LD-1", full_name: "Nimal", mobile: "94771234567", stage: "NEW_LEAD" }, source: "EXISTING" });
 });
@@ -164,6 +168,63 @@ describe("addInternalNote", () => {
     account.agencyId = null;
     expect(await addInternalNote(CONVERSATION, "Hello", [])).toEqual({ ok: false, error: "No agency resolved for your account." });
     expect(calls).toEqual([]);
+  });
+});
+
+describe("addInternalNote — SEC-11: who may be mentioned", () => {
+  const noteWasWritten = () => calls.some((call) => call.table === "conversation_notes" && call.op === "insert");
+
+  it("mentions a colleague who can open the Inbox", async () => {
+    for (const role of ["ADMIN", "CEO", "MARKETING", "OPERATIONS", "FINANCE", "VISA"]) {
+      calls.length = 0;
+      staffRows = [{ id: MENTIONED, role, status: "ACTIVE", role_id: null }];
+      expect(await addInternalNote(CONVERSATION, "Please look", [MENTIONED]), role).toEqual({ ok: true });
+    }
+  });
+
+  it("refuses a Guide, who cannot open the Inbox, and writes no note", async () => {
+    staffRows = [{ id: MENTIONED, role: "GUIDE", status: "ACTIVE", role_id: null }];
+    expect(await addInternalNote(CONVERSATION, "Please look", [MENTIONED])).toEqual({ ok: false, error: "One or more mentioned staff members cannot open the Inbox, so they cannot be mentioned." });
+    expect(noteWasWritten()).toBe(false);
+  });
+
+  it("refuses the whole note when only one of several mentioned people cannot open the Inbox", async () => {
+    const guide = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+    staffRows = [{ id: MENTIONED, role: "ADMIN", status: "ACTIVE", role_id: null }, { id: guide, role: "GUIDE", status: "ACTIVE", role_id: null }];
+    expect(await addInternalNote(CONVERSATION, "Please look", [MENTIONED, guide])).toMatchObject({ ok: false });
+    expect(noteWasWritten()).toBe(false);
+  });
+
+  it("refuses someone who is not active in this agency, or who is not there at all", async () => {
+    staffRows = [{ id: MENTIONED, role: "ADMIN", status: "SUSPENDED", role_id: null }];
+    expect(await addInternalNote(CONVERSATION, "Please look", [MENTIONED])).toEqual({ ok: false, error: "One or more mentioned staff members are no longer available." });
+    staffRows = [];
+    expect(await addInternalNote(CONVERSATION, "Please look", [MENTIONED])).toMatchObject({ ok: false });
+    expect(noteWasWritten()).toBe(false);
+  });
+
+  it("refuses when the staff cannot be read, rather than mentioning someone unchecked", async () => {
+    staffReadFails = true;
+    expect(await addInternalNote(CONVERSATION, "Please look", [MENTIONED])).toMatchObject({ ok: false });
+    expect(noteWasWritten()).toBe(false);
+  });
+
+  it("checks only the staff of this agency and only the ids it was given", async () => {
+    await addInternalNote(CONVERSATION, "Please look", [MENTIONED]);
+    const lookup = calls.find((call) => call.table === "staff_profiles");
+    expect(lookup?.filters).toMatchObject({ agency_id: AGENCY, status: "ACTIVE" });
+  });
+
+  it("takes the ids from the validated note: an id that is not a real id is refused before anything is read", async () => {
+    expect(await addInternalNote(CONVERSATION, "Please look", ["not-a-uuid"])).toMatchObject({ ok: false });
+    expect(calls.some((call) => call.table === "staff_profiles")).toBe(false);
+    expect(noteWasWritten()).toBe(false);
+  });
+
+  it("leaves yourself out of the check: mentioning only yourself reads no staff and still saves the note", async () => {
+    expect(await addInternalNote(CONVERSATION, "A note to self", [ME])).toEqual({ ok: true });
+    expect(calls.some((call) => call.table === "staff_profiles")).toBe(false);
+    expect(calls.find((call) => call.table === "note_mentions")).toBeUndefined();
   });
 });
 

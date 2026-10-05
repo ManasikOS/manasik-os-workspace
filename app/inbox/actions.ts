@@ -63,6 +63,8 @@ import { acknowledgeIntervention, listInterventions, openIntervention, resolveIn
 import { loadProtectionContext } from "@/lib/data/inbox-risk-repository";
 import { canCloseIntervention, closingCapability } from "@/lib/inbox/risk/interventions";
 import { resolveCapability } from "@/lib/agent/kernel/proposals/capabilities";
+import type { StaffRole } from "@/lib/access/departure-groups-access";
+import { checkMentionedStaff, MENTION_UNAVAILABLE_MESSAGE, type MentionCandidate } from "@/lib/inbox/mentions";
 import { evaluateProtection, refusalMessage } from "@/lib/inbox/risk/protection-gate";
 import { outboundGateText } from "@/lib/inbox/risk/outbound-gate-text";
 import { claimComposerPresence, releaseComposerPresence, syncConcurrentComposerSignal } from "@/lib/data/inbox-composer-presence-repository";
@@ -1704,18 +1706,24 @@ export async function addInternalNote(
   const { conversationId, body: trimmedBody } = parsedNote.data;
 
   const supabase = await db();
-  const uniqueMentionedUserIds = [...new Set(mentionedUserIds)].filter((id) => id !== user.id);
-  if (uniqueMentionedUserIds.length > 20) return { ok: false, error: "A note can mention up to 20 staff members." };
+  // From the validated note (real ids, at most 20), not from the raw argument.
+  const uniqueMentionedUserIds = [...new Set(parsedNote.data.mentionedUserIds)].filter((id) => id !== user.id);
   if (uniqueMentionedUserIds.length > 0) {
     const { data: staff, error: staffError } = await supabase
       .from("staff_profiles")
-      .select("id")
+      .select("id, role, status, role_id")
       .eq("agency_id", agencyId)
       .eq("status", "ACTIVE")
       .in("id", uniqueMentionedUserIds);
-    if (staffError || (staff ?? []).length !== uniqueMentionedUserIds.length) {
-      return { ok: false, error: "One or more mentioned staff members are no longer available." };
-    }
+    if (staffError) return { ok: false, error: MENTION_UNAVAILABLE_MESSAGE };
+    // Only colleagues who can open the Inbox may be mentioned (SEC-11); a custom role that took Inbox access away counts too.
+    const mentionAdmin = createAdminClient();
+    const mentionCheck = await checkMentionedStaff({
+      requestedIds: uniqueMentionedUserIds,
+      candidates: (staff ?? []) as MentionCandidate[],
+      canOpenInbox: (candidate) => resolveCapability(String(candidate.role).toUpperCase() as StaffRole, candidate.role_id ?? null, "inbox", "viewModule", mentionAdmin),
+    });
+    if (!mentionCheck.ok) return mentionCheck;
   }
 
   const { data: note, error } = await supabase
