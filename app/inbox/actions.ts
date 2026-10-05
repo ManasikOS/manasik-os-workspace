@@ -1045,18 +1045,12 @@ export async function startWhatsAppChat(rawInput: {
   });
 
   const content = sent.renderedText;
-  const { error: messageError } = await supabase.from("conversation_messages").insert({
-    agency_id: agencyId,
-    conversation_id: conversation.id,
-    external_message_id: externalMessageId,
-    role: "staff",
-    actor_kind: "STAFF",
-    actor_id: staffId,
-    actor_name_snapshot: name,
-    content,
-    message_type: "TEMPLATE",
-    delivery_status: "SENT",
-    metadata: {
+  // The author is set by the database from the signed-in user; staff cannot insert message rows directly.
+  const { error: messageError } = await supabase.rpc("record_staff_template_message", {
+    p_conversation_id: conversation.id,
+    p_external_message_id: externalMessageId,
+    p_content: content,
+    p_metadata: {
       template_id: template.id,
       template_name: template.name,
       template_language: template.language,
@@ -1203,18 +1197,11 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
   if (!sent.ok) return { ok: false, error: sent.error };
 
   const now = new Date().toISOString();
-  const { error: messageError } = await supabase.from("conversation_messages").insert({
-    agency_id: agencyId,
-    conversation_id: conversation.id,
-    external_message_id: sent.externalMessageId,
-    role: "staff",
-    actor_kind: "STAFF",
-    actor_id: staffId,
-    actor_name_snapshot: name,
-    content: sent.renderedText,
-    message_type: "TEMPLATE",
-    delivery_status: "SENT",
-    metadata: {
+  const { error: messageError } = await supabase.rpc("record_staff_template_message", {
+    p_conversation_id: conversation.id,
+    p_external_message_id: sent.externalMessageId,
+    p_content: sent.renderedText,
+    p_metadata: {
       template_id: sent.template.id,
       template_name: sent.template.name,
       template_language: sent.template.language,
