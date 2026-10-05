@@ -36,6 +36,7 @@ vi.mock("@/app/(main)/leads/copilot-actions", () => ({ saveQuoteDraftAction: vi.
 const rpc = vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({ error: null }));
 const conversationRow = { 
   id: "c1", 
+  agency_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", 
   channel: "WHATSAPP", 
   state: "HUMAN_ACTIVE", 
   lead_id: "6a1d2c4e-5a6b-4c7d-8e9f-0000000000aa" as string | null,
@@ -252,6 +253,19 @@ describe("composer presence actions — a warning is never a reply lock", () => 
     role.value = "FINANCE";
     expect(await releaseConversationComposerAction({ conversationId: CONVERSATION })).toEqual({ ok: false, error: "Not permitted to reply here." });
     expect(releaseComposerPresence).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendStaffMessage — SEC-9: a conversation of another agency is never used", () => {
+  it("answers 'not found' and sends nothing when the row it read belongs to a different agency", async () => {
+    const original = conversationRow.agency_id;
+    conversationRow.agency_id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    try {
+      expect(await sendStaffMessage(CONVERSATION, "Hello")).toEqual({ ok: false, error: "Conversation not found." });
+      expect(rpc).not.toHaveBeenCalled();
+    } finally {
+      conversationRow.agency_id = original;
+    }
   });
 });
 
