@@ -20,6 +20,8 @@ import { claimRefusalMessage, claimTemplateSend, attachTemplateConversation, rec
 import { decideReleaseToAi, decideReplyOnOwnedConversation, decideTakeControl, type OwnedConversationFacts } from "@/lib/inbox/ownership-guard";
 import { decideStartOnExistingConversation, type ExistingConversationForStart } from "@/lib/inbox/start-conversation-guard";
 import { openStartedConversation } from "@/lib/inbox/start-conversation-write";
+import { checkStartChatConsent } from "@/lib/inbox/start-chat-consent";
+import { consumeInboxRateLimit } from "@/lib/inbox/rate-limit/limiter";
 import { insertReviewEvent } from "@/lib/data/documents-repository";
 import { INBOX_ATTACHMENT_BUCKET } from "@/lib/inbox/media/handlers";
 import { claimInboxAttachmentForPromotion, markInboxAttachmentPromoted, releaseInboxAttachmentClaim } from "@/lib/inbox/retention/promote-attachment";
@@ -177,7 +179,7 @@ export type InboxTranslationActionResult =
 
 /** Translates one verified agency-scoped message, or the current stored digest, without persisting the translation. */
 export async function translateInboxTextAction(input: unknown): Promise<InboxTranslationActionResult> {
-  await requireUser();
+  const user = await requireUser();
   const parsed = inboxTranslationRequestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Choose a valid message to translate." };
   const { role, agencyId } = await getCurrentStaffRole();
@@ -190,6 +192,9 @@ export async function translateInboxTextAction(input: unknown): Promise<InboxTra
       .then(({ data, error }) => error || !data ? null : String(data.digest ?? "").trim());
   if (text === null) return { ok: false, error: "That Inbox content is no longer available." };
   if (!text) return { ok: false, error: "There is no text to translate yet." };
+  // Every role that can open the Inbox may translate, so the model call is limited per person and per agency (the agency's monthly AI budget is checked inside it).
+  const allowance = await consumeInboxRateLimit(createAdminClient(), { agencyId, userId: user.id, action: "TRANSLATE" });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
   const result = await translateInboxText({ agencyId, conversationId: parsed.data.conversationId, text, targetLanguage: parsed.data.targetLanguage, db: supabase });
   if (!result.value) return { ok: false, error: result.note ?? "Translation is unavailable. The original message is still available." };
   return { ok: true, ...result.value, source: result.source, note: result.note };
@@ -1063,6 +1068,9 @@ export async function startWhatsAppChat(rawInput: {
   if (existingChat === "UNREADABLE") return { ok: false, error: "Could not check whether this number already has a conversation. Try again." };
   const startDecision = decideStartOnExistingConversation({ existing: existingChat, currentStaffId: staffId, contactNoun: "number" });
   if (!startDecision.ok) return startDecision;
+  // A lead who opted out, or asked not to be contacted, is not messaged (the same rule Copilot's draft path applies).
+  const consent = await checkStartChatConsent(supabase, { agencyId, mobile: waIdToMobile(to) });
+  if (!consent.allowed) return { ok: false, error: consent.error };
 
   // The attempt is recorded BEFORE Meta is called, so a repeat of this send (double click, retry, second tab) cannot send and bill twice.
   const claim = await claimTemplateSend(admin, { agencyId, key: input.clientIdempotencyKey, staffId: user.id });
@@ -1074,6 +1082,13 @@ export async function startWhatsAppChat(rawInput: {
   const claimRefusal = claimRefusalMessage(claim);
   if (claimRefusal) return { ok: false, error: claimRefusal };
 
+  // After the claim, so a repeat of an attempt that already went out never uses a second slot; before Meta, so a refused one never reaches it.
+  const allowance = await consumeInboxRateLimit(admin, { agencyId, userId: user.id, action: "START_WHATSAPP_CHAT" });
+  if (!allowance.ok) {
+    await recordTemplateFailed(admin, { agencyId, key: input.clientIdempotencyKey, error: allowance.error });
+    return { ok: false, error: allowance.error };
+  }
+
   const sent = await sendApprovedTemplate({
     db: admin,
     agencyId,
@@ -1084,6 +1099,7 @@ export async function startWhatsAppChat(rawInput: {
     ...(existingChat ? { checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, existingChat.id) } : {}),
   });
   if (!sent.ok) {
+    await allowance.giveBack();
     await recordTemplateFailed(admin, { agencyId, key: input.clientIdempotencyKey, error: sent.error });
     return { ok: false, error: sent.error };
   }
@@ -1212,6 +1228,9 @@ export async function startEmailConversation(rawInput: {
     const refusal = await protectionCheckForOutgoingText(supabase, agencyId, existingChat.id)(outboundGateText({ subject: input.subject, body: input.body }));
     if (refusal) return { ok: false, error: refusal };
   }
+  // After every cheap refusal, so a refused email never uses a slot; given back below if the email is not queued after all.
+  const allowance = await consumeInboxRateLimit(admin, { agencyId, userId: user.id, action: "START_EMAIL_CONVERSATION" });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
   const now = new Date().toISOString();
   const opened = await openStartedConversation(supabase, {
     agencyId,
@@ -1224,10 +1243,12 @@ export async function startEmailConversation(rawInput: {
     readExisting: () => findExistingConversationForStart(supabase, agencyId, "GMAIL", recipient),
   });
   if (!opened.ok) {
+    await allowance.giveBack();
     return { ok: false, error: "Could not open the conversation. Refresh before retrying." };
   }
   // Nothing is sent yet, so a chat a colleague picked up since the check above stops the email instead of being taken over.
   if (!opened.tookOver) {
+    await allowance.giveBack();
     const stillTheirs = decideStartOnExistingConversation({ existing: opened.previous, currentStaffId: staffId, contactNoun: "email address" });
     return { ok: false, error: stillTheirs.ok ? "Someone else changed this conversation just now. Refresh and try again." : stillTheirs.error };
   }
@@ -1264,6 +1285,7 @@ export async function startEmailConversation(rawInput: {
     p_bcc: input.bcc?.length ? input.bcc : null,
   });
   if (error) {
+    await allowance.giveBack();
     return { ok: false, error: "The conversation was created, but the message could not be queued. Open it and try sending again." };
   }
 
@@ -1301,6 +1323,12 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
   const claimRefusal = claimRefusalMessage(claim);
   if (claimRefusal) return { ok: false, error: claimRefusal };
 
+  const allowance = await consumeInboxRateLimit(admin, { agencyId, userId: user.id, action: "SEND_TEMPLATE" });
+  if (!allowance.ok) {
+    await recordTemplateFailed(admin, { agencyId, key: parsed.data.clientIdempotencyKey, error: allowance.error });
+    return { ok: false, error: allowance.error };
+  }
+
   const sent = await sendApprovedTemplate({
     db: admin,
     agencyId,
@@ -1310,6 +1338,7 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
     checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, conversation.id as string),
   });
   if (!sent.ok) {
+    await allowance.giveBack();
     await recordTemplateFailed(admin, { agencyId, key: parsed.data.clientIdempotencyKey, error: sent.error });
     return { ok: false, error: sent.error };
   }
@@ -2027,7 +2056,7 @@ export async function reviewConversationTriageAction(input: unknown): Promise<Ac
  * deterministically instead of by the model).
  */
 export async function suggestConversationReplyAction(conversationId: string): Promise<SuggestReplyResult> {
-  await requireUser();
+  const user = await requireUser();
   const { role, agencyId } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).sendMessage || !capabilitiesForLeads(role).useCopilot) {
     return { ok: false, error: "Your role cannot use Manasik Copilot." };
@@ -2092,6 +2121,9 @@ export async function suggestConversationReplyAction(conversationId: string): Pr
     inboxQueuesV2: false,
     surfaces: { INBOX_REPLY: { enabled: Boolean(autonomySurface?.enabled), mode: surfaceMode, autonomy } },
   });
+  // The model call is the part that costs money, so the limit is checked right before it, after every cheap refusal above.
+  const allowance = await consumeInboxRateLimit(createAdminClient(), { agencyId, userId: user.id, action: "SUGGEST_REPLY" });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
   const result = await suggestConversationReply(intelligencePack ?? pack, agencyId, conversationId, supabase, "INBOX_REPLY", protection, { answerCacheEnabled: availability.answerCache });
   if (!result.value) {
     if (result.source === "RULES" && result.note) return { ok: false, error: result.note };
@@ -2268,10 +2300,14 @@ export type OfferMessageResult = { ok: true; text: string } | { ok: false; error
 
 /** Text for the composer: a reply built from the offer, or the questions still worth asking. Staff edit it; nothing is sent. */
 export async function prepareOfferMessageAction(input: unknown): Promise<OfferMessageResult> {
+  const user = await requireUser();
   const parsed = inboxOfferMessageRequestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That conversation could not be found." };
   const stored = await loadStoredOffer(parsed.data.conversationId, "send");
   if ("error" in stored) return { ok: false, error: stored.error };
+  // No model call here, but it re-checks live prices and seats on every click, so it has a (generous) cap too.
+  const allowance = await consumeInboxRateLimit(createAdminClient(), { agencyId: stored.agencyId, userId: user.id, action: "PREPARE_OFFER" });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
 
   // Same rule as "Suggest reply": a customer who opted out of contact is not offered a draft.
   const pack = await loadReplyContextPack(stored.supabase, parsed.data.conversationId, stored.agencyId);

@@ -25,7 +25,18 @@ async function removeOrphanStagedUploads(db: Db): Promise<{ removed: number; fai
   return { removed: (removed ?? []).length, failed: false };
 }
 
-export async function runInboxHousekeeping(db: Db): Promise<HousekeepingResult> {
+/** Rate-limit counters only matter for the hour or day they count; anything older than this is spent and removed (SEC-6). */
+export const RATE_LIMIT_COUNTER_KEEP_DAYS = 3;
+
+async function removeSpentRateLimitCounters(db: Db, now: Date): Promise<boolean> {
+  const cutoff = new Date(now.getTime() - RATE_LIMIT_COUNTER_KEEP_DAYS * 24 * 60 * 60_000).toISOString();
+  const { error } = await db.from("inbox_rate_limit_counters").delete().lt("window_start", cutoff);
+  if (error) console.error("Could not remove spent rate-limit counters:", error.message);
+  return Boolean(error);
+}
+
+export async function runInboxHousekeeping(db: Db, now: Date = new Date()): Promise<HousekeepingResult> {
   const uploads = await removeOrphanStagedUploads(db);
-  return { orphanUploadsRemoved: uploads.removed, failures: Number(uploads.failed) };
+  const countersFailed = await removeSpentRateLimitCounters(db, now);
+  return { orphanUploadsRemoved: uploads.removed, failures: Number(uploads.failed) + Number(countersFailed) };
 }

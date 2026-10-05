@@ -7,6 +7,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 vi.mock("server-only", () => ({}));
+const limiter = vi.hoisted(() => ({ refusal: null as string | null, calls: [] as Array<{ action: string; userId: string; agencyId: string }>, giveBack: vi.fn(async () => undefined) }));
+vi.mock("@/lib/inbox/rate-limit/limiter", () => ({
+  consumeInboxRateLimit: async (_db: unknown, input: { action: string; userId: string; agencyId: string }) => {
+    limiter.calls.push(input);
+    return limiter.refusal ? { ok: false, error: limiter.refusal } : { ok: true, giveBack: limiter.giveBack };
+  },
+}));
 vi.mock("next/headers", () => ({ cookies: async () => ({}) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -113,6 +120,9 @@ beforeEach(() => {
   existingConversation = null;
   writeSpy.mockClear();
   updateMatches = true;
+  limiter.refusal = null;
+  limiter.calls.length = 0;
+  limiter.giveBack.mockClear();
 });
 
 describe("startEmailConversation", () => {
@@ -136,6 +146,32 @@ describe("startEmailConversation", () => {
     if (!result.ok) expect(result.error).toContain("Nadeesha");
     expect(writeSpy).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("SEC-6: counts the email against the sender's new-conversation limit", async () => {
+    await startEmailConversation(input);
+    expect(limiter.calls).toHaveLength(1);
+    expect(limiter.calls[0]).toMatchObject({ action: "START_EMAIL_CONVERSATION", agencyId: expect.any(String), userId: expect.any(String) });
+  });
+
+  it("SEC-6: opens nothing and queues nothing when the limit is used up", async () => {
+    limiter.refusal = "You have reached the limit of 20 new email conversations per hour. You can try again after 4:00 pm.";
+    const result = await startEmailConversation(input);
+    expect(result).toEqual({ ok: false, error: limiter.refusal });
+    expect(writeSpy).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("SEC-6: does not use a slot for an address a colleague already owns", async () => {
+    existingConversation = { id: "conv-existing", state: "HUMAN_ACTIVE", assigned_to_id: "someone-else", assigned_to_name: "Nadeesha", contact_name: "Amina" };
+    await startEmailConversation(input);
+    expect(limiter.calls).toEqual([]);
+  });
+
+  it("SEC-6: gives the use back when the email could not be queued", async () => {
+    rpc.mockResolvedValueOnce({ error: { message: "boom" } });
+    expect(await startEmailConversation(input)).toMatchObject({ ok: false });
+    expect(limiter.giveBack).toHaveBeenCalledTimes(1);
   });
 
   it("BUG-8: stops, queues nothing and changes no owner when a colleague takes the chat after the check", async () => {
