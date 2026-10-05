@@ -78,8 +78,12 @@ export function emptyLeadStore(): LeadStore {
   };
 }
 
-async function selectAll(db: Db, table: string, order?: string): Promise<Row[]> {
+/** Narrows a read to one lead: `column` is `id` on `leads` and `lead_id` on the tables that hang off it. */
+interface LeadScope { column: string; value: string }
+
+async function selectAll(db: Db, table: string, order?: string, scope?: LeadScope): Promise<Row[]> {
   let query = db.from(table).select("*");
+  if (scope) query = query.eq(scope.column, scope.value);
   if (order) query = query.order(order, { ascending: false });
   const { data, error } = await query;
   if (error) throw new LeadPersistenceError(table, "select", error);
@@ -92,8 +96,9 @@ async function selectAll(db: Db, table: string, order?: string): Promise<Row[]> 
  * cache has not caught up) reads as empty instead of taking the whole Leads
  * page down. Writes to it still fail loudly.
  */
-async function selectOptional(db: Db, table: string, order?: string): Promise<Row[]> {
+async function selectOptional(db: Db, table: string, order?: string, scope?: LeadScope): Promise<Row[]> {
   let query = db.from(table).select("*");
+  if (scope) query = query.eq(scope.column, scope.value);
   if (order) query = query.order(order, { ascending: false });
   const { data, error } = await query;
   if (error) {
@@ -214,6 +219,11 @@ async function loadLeadPackages(db: Db): Promise<LeadPackageRow[]> {
 export interface LoadLeadStoreOptions {
   /** Collections to hydrate. Omitted means everything — used by the list page. */
   only?: readonly (keyof LeadStore)[];
+  /**
+   * Read just this lead, and only its own rows in the per-lead collections. For an action that changes one lead: reading every lead, note and
+   * quote of the agency to do that costs more with every lead the agency has. Packages and sources are not per-lead and load in full if asked for.
+   */
+  leadId?: string;
 }
 
 function initialsFor(name: string): string {
@@ -262,16 +272,18 @@ export async function loadLeadStore(
     ],
   );
 
+  const ownRows = (column: string): LeadScope | undefined => (options.leadId ? { column, value: options.leadId } : undefined);
+
   const [leads, activity, notes, quotes, copilotContexts, copilotDismissals, communicationDrafts, packages, sources] =
     await Promise.all([
-      wanted.has("leads") ? selectAll(db, "leads", "created_at") : Promise.resolve([]),
-      wanted.has("activity") ? selectAll(db, "lead_activity") : Promise.resolve([]),
-      wanted.has("notes") ? selectAll(db, "lead_notes") : Promise.resolve([]),
-      wanted.has("quotes") ? selectAll(db, "lead_quotes") : Promise.resolve([]),
-      wanted.has("copilotContexts") ? selectOptional(db, "lead_copilot_context") : Promise.resolve([]),
-      wanted.has("copilotDismissals") ? selectOptional(db, "lead_copilot_dismissals") : Promise.resolve([]),
+      wanted.has("leads") ? selectAll(db, "leads", "created_at", ownRows("id")) : Promise.resolve([]),
+      wanted.has("activity") ? selectAll(db, "lead_activity", undefined, ownRows("lead_id")) : Promise.resolve([]),
+      wanted.has("notes") ? selectAll(db, "lead_notes", undefined, ownRows("lead_id")) : Promise.resolve([]),
+      wanted.has("quotes") ? selectAll(db, "lead_quotes", undefined, ownRows("lead_id")) : Promise.resolve([]),
+      wanted.has("copilotContexts") ? selectOptional(db, "lead_copilot_context", undefined, ownRows("lead_id")) : Promise.resolve([]),
+      wanted.has("copilotDismissals") ? selectOptional(db, "lead_copilot_dismissals", undefined, ownRows("lead_id")) : Promise.resolve([]),
       wanted.has("communicationDrafts")
-        ? selectOptional(db, "lead_communication_drafts", "created_at")
+        ? selectOptional(db, "lead_communication_drafts", "created_at", ownRows("lead_id"))
         : Promise.resolve([]),
       wanted.has("packages") ? loadLeadPackages(db) : Promise.resolve([]),
       wanted.has("sources") ? selectAll(db, "lead_sources", undefined) : Promise.resolve([]),
@@ -415,4 +427,74 @@ export async function persistLeadStore(
       if (error) throw new LeadPersistenceError(spec.table, "delete", error);
     }
   }
+}
+
+/** Another writer changed the lead between this action reading it and writing it. */
+export class LeadConflictError extends Error {
+  constructor(readonly leadId: string) {
+    super("Someone else changed this lead just now.");
+    this.name = "LeadConflictError";
+  }
+}
+
+/**
+ * Writes the change one mutator made to ONE lead: only the columns that changed (so a colleague's edit to another column survives), only if
+ * the lead is still as it was read (compare-and-swap on `updated_at`, which the database bumps on every update), then the new history rows.
+ * Meant for mutators that touch only the lead row and its history, such as follow-up, group selection and marking booked. Throws
+ * `LeadConflictError` when the lead changed first; nothing is written then.
+ */
+export async function persistSingleLeadChange(db: Db, before: LeadStore, after: LeadStore, leadId: string): Promise<void> {
+  const previous = before.leads.find((lead) => lead.id === leadId);
+  const next = after.leads.find((lead) => lead.id === leadId);
+  if (!previous || !next) throw new LeadPersistenceError("leads", "update", new Error("The lead is not in the store."));
+
+  const patch: Row = {};
+  for (const key of new Set([...Object.keys(previous), ...Object.keys(next)])) {
+    const was = (previous as Row)[key];
+    const now = (next as Row)[key];
+    if (!sameValue(was, now)) patch[key] = now ?? null;
+  }
+  // The database stamps updated_at itself; it is the version this write is checked against, not a value to send.
+  delete patch.updated_at;
+
+  if (Object.keys(patch).length > 0) {
+    const { data, error } = await db.from("leads").update(patch).eq("id", leadId).eq("updated_at", previous.updated_at).select("id");
+    if (error) throw new LeadPersistenceError("leads", "update", error);
+    if (!data || data.length === 0) throw new LeadConflictError(leadId);
+  }
+
+  const knownActivity = new Set(before.activity.map((row) => row.id));
+  const newActivity = after.activity.filter((row) => !knownActivity.has(row.id));
+  for (const batch of chunked(newActivity as Row[])) {
+    if (batch.length === 0) continue;
+    const { error } = await db.from("lead_activity").insert(batch);
+    if (error) throw new LeadPersistenceError("lead_activity", "insert", error);
+  }
+}
+
+/**
+ * Reads one lead, lets `mutate` change it, and writes that change safely. If a colleague changed the lead in between, the lead is read again and
+ * `mutate` runs again on the fresh copy (a few times) instead of overwriting their change; a mutator that refuses (`ok: false`) writes nothing.
+ * `collections` adds non-per-lead data the mutator needs (for example `packages`).
+ */
+export async function changeOneLead<T extends { ok: boolean }>(
+  db: Db,
+  leadId: string,
+  mutate: (store: LeadStore) => T,
+  options: { collections?: readonly (keyof LeadStore)[]; attempts?: number } = {},
+): Promise<T | { ok: false; error: string }> {
+  const attempts = options.attempts ?? 3;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const store = await loadLeadStore(db, { only: ["leads", ...(options.collections ?? [])], leadId });
+    const before = snapshotLeadStore(store);
+    const outcome = mutate(store);
+    if (!outcome.ok) return outcome;
+    try {
+      await persistSingleLeadChange(db, before, store, leadId);
+      return outcome;
+    } catch (cause) {
+      if (!(cause instanceof LeadConflictError)) throw cause;
+    }
+  }
+  return { ok: false, error: "Someone else changed this lead just now. Refresh and try again." };
 }

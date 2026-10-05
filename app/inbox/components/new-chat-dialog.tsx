@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { MessageSquarePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,11 @@ export default function NewChatDialog({
 }) {
   const [ownOpen, setOwnOpen] = useState(false);
   const open = controlledOpen ?? ownOpen;
+  // One key per attempt: a repeat of the same send (double click, retry) carries the same key and is never sent, or billed, twice.
+  // Opening, closing or finishing starts a new attempt.
+  const attemptKey = useRef(crypto.randomUUID());
   const setOpen = (next: boolean) => {
+    attemptKey.current = crypto.randomUUID();
     setOwnOpen(next);
     onOpenChange?.(next);
   };
@@ -136,6 +140,7 @@ export default function NewChatDialog({
         contactName,
         templateId,
         bodyParameters: parameters,
+        clientIdempotencyKey: attemptKey.current,
       });
       if (!result.ok) {
         setError(result.error);

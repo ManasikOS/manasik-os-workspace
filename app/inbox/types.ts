@@ -162,6 +162,8 @@ export interface InboxAttachment {
   original_href: string | null;
   expires_at: string | null;
   promoted_document_id: string | null;
+  /** A passport the viewer's role may not open: no link and no file name, and the screen says so instead of waiting for it. */
+  restricted?: boolean;
 }
 
 export interface InboxMediaAnalysis {

@@ -15,7 +15,9 @@ const role = { value: "MARKETING" as string, agencyId: "aaaaaaaa-aaaa-4aaa-8aaa-
 vi.mock("@/lib/dal", () => ({ requireUser: async () => ({ id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" }) }));
 vi.mock("@/lib/data/departure-groups", () => ({ getCurrentStaffRole: async () => ({ role: role.value, agencyId: role.agencyId, staffId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", name: "Test" }), createGroupBooking: vi.fn() }));
 vi.mock("@/lib/data/leads", () => ({ markLeadBookedInStore: vi.fn(), pricePerPerson: vi.fn(), selectDepartureGroupInStore: vi.fn(), setFollowUpInStore: vi.fn() }));
-vi.mock("@/lib/data/leads-repository", () => ({ loadLeadStore: vi.fn(), persistLeadStore: vi.fn(), snapshotLeadStore: vi.fn() }));
+const loadLeadStore = vi.fn();
+const changeOneLead = vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => ({ ok: true }));
+vi.mock("@/lib/data/leads-repository", () => ({ loadLeadStore: (...args: unknown[]) => loadLeadStore(...args), changeOneLead: (...args: unknown[]) => changeOneLead(...args), persistLeadStore: vi.fn(), snapshotLeadStore: vi.fn() }));
 vi.mock("@/lib/whatsapp/send-template-message", () => ({ sendApprovedTemplate: vi.fn() }));
 vi.mock("@/lib/inbox/outbox/drain", () => ({ processDueInboxOutbox: vi.fn(async () => undefined) }));
 vi.mock("@/lib/channels/profile", () => ({ getChannelProfile: () => ({ displayName: "WhatsApp" }) }));
@@ -36,6 +38,7 @@ const conversationRow = {
   id: "c1", 
   channel: "WHATSAPP", 
   state: "HUMAN_ACTIVE", 
+  lead_id: "6a1d2c4e-5a6b-4c7d-8e9f-0000000000aa" as string | null,
   service_window_expires_at: (null as unknown) as string | null, 
   assigned_to_id: null as string | null, 
   assigned_to_name: null as string | null 
@@ -53,12 +56,19 @@ vi.mock("@/utils/supabase/server", () => ({
             return query;
           },
           single: async () => ({ data: conversationRow, error: null }),
+          maybeSingle: async () => ({ data: conversationRow, error: null }),
         };
         return query;
       },
       update: (patch: Record<string, unknown>) => {
         conversationUpdates.push(patch);
-        return { eq: () => ({ eq: async () => ({ error: null }) }) };
+        // Chainable like the real client: .eq/.is narrow the write, .select asks for the rows it changed, and awaiting it settles.
+        const write: Record<string, unknown> = {};
+        write.eq = () => write;
+        write.is = () => write;
+        write.select = () => write;
+        write.then = (resolve: (value: unknown) => unknown) => resolve({ data: [{ id: "c1" }], error: null });
+        return write;
       },
     }),
     rpc: (...args: unknown[]) => rpc(...args),
@@ -254,6 +264,13 @@ describe("sendStaffMessage — the gate is enforced on the server", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("refuses a payment confirmation that is only in the email subject", async () => {
+    loadProtectionContext.mockResolvedValue({ openReviews: [paymentReview], approvedAccountDigits: [] });
+    const result = await sendStaffMessage(CONVERSATION, "Thank you for writing to us.", null, undefined, null, { subject: "Payment received - thank you" });
+    expect(result).toMatchObject({ ok: false });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("sends a message that only acknowledges", async () => {
     loadProtectionContext.mockResolvedValue({ openReviews: [paymentReview], approvedAccountDigits: [] });
     expect(await sendStaffMessage(CONVERSATION, "Thank you, a colleague is checking your payment and will come back to you.")).toEqual({ ok: true });
@@ -419,6 +436,27 @@ describe("scheduleConversationFollowUp — input is validated at the boundary", 
   });
 });
 
+describe("scheduleConversationFollowUp — only the linked lead is read and written (BUG-5)", () => {
+  beforeEach(() => {
+    loadLeadStore.mockClear();
+    changeOneLead.mockClear();
+    changeOneLead.mockResolvedValue({ ok: true });
+    role.value = "ADMIN";
+  });
+
+  it("changes that one lead without reading the agency's whole lead store", async () => {
+    expect(await scheduleConversationFollowUp({ conversationId: CONVERSATION, dueAt: "2999-01-01T00:00:00Z", type: "CALL" })).toEqual({ ok: true });
+    expect(changeOneLead).toHaveBeenCalledTimes(1);
+    expect(changeOneLead.mock.calls[0][1]).toBe(conversationRow.lead_id);
+    expect(loadLeadStore).not.toHaveBeenCalled();
+  });
+
+  it("reports why when the lead could not be changed, instead of success", async () => {
+    changeOneLead.mockResolvedValue({ ok: false, error: "Someone else changed this lead just now. Refresh and try again." });
+    expect(await scheduleConversationFollowUp({ conversationId: CONVERSATION, dueAt: "2999-01-01T00:00:00Z", type: "CALL" })).toEqual({ ok: false, error: "Someone else changed this lead just now. Refresh and try again." });
+  });
+});
+
 describe("updateInterventionAction — who may close a review", () => {
   const open = (kind = "PAYMENT_CLAIM") => listInterventions.mockResolvedValue([{ id: REVIEW_ID, kind, severity: "BLOCK", status: "OPEN" }]);
   const decide = (decision: "ACKNOWLEDGE" | "RESOLVE" | "DISMISS", note = "") => updateInterventionAction({ conversationId: CONVERSATION, interventionId: REVIEW_ID, decision, note });
@@ -452,11 +490,43 @@ describe("updateInterventionAction — who may close a review", () => {
     expect(resolveIntervention).not.toHaveBeenCalled();
   });
 
-  it("anyone with access may say 'I am on it' without a note; the money review still needs the right role only to CLOSE it", async () => {
+  it("the person who may close a review may also say 'I am on it' without a note", async () => {
     role.value = "FINANCE";
     open();
     expect(await decide("ACKNOWLEDGE")).toEqual({ ok: true });
     expect(acknowledgeIntervention).toHaveBeenCalledWith(expect.anything(), role.agencyId, REVIEW_ID);
+  });
+
+  it("Finance cannot close, or take, a complaint or medical-urgency review: it cannot reply in the Inbox (SEC-5)", async () => {
+    role.value = "FINANCE";
+    for (const kind of ["COMPLAINT", "MEDICAL_URGENCY"]) {
+      open(kind);
+      expect(await decide("RESOLVE", "Handled.")).toEqual({ ok: false, error: "Your role cannot close this review." });
+      expect(await decide("ACKNOWLEDGE")).toEqual({ ok: false, error: "Your role cannot close this review." });
+    }
+    expect(resolveIntervention).not.toHaveBeenCalled();
+    expect(acknowledgeIntervention).not.toHaveBeenCalled();
+  });
+
+  it("a role without Inbox access is refused before any review is read", async () => {
+    role.value = "GUIDE";
+    open();
+    expect(await decide("ACKNOWLEDGE")).toEqual({ ok: false, error: "Your role cannot work on Inbox reviews." });
+    expect(listInterventions).not.toHaveBeenCalled();
+  });
+
+  it("reports a lost race instead of success when the acknowledge changed nothing", async () => {
+    role.value = "FINANCE";
+    open();
+    acknowledgeIntervention.mockResolvedValueOnce(null);
+    expect(await decide("ACKNOWLEDGE")).toMatchObject({ ok: false });
+  });
+
+  it("treats acknowledging a review that is already acknowledged as done", async () => {
+    role.value = "FINANCE";
+    listInterventions.mockResolvedValue([{ id: REVIEW_ID, kind: "PAYMENT_CLAIM", severity: "BLOCK", status: "ACKNOWLEDGED" }]);
+    acknowledgeIntervention.mockResolvedValueOnce(null);
+    expect(await decide("ACKNOWLEDGE")).toEqual({ ok: true });
   });
 
   it("a review that is not open on this conversation cannot be touched", async () => {

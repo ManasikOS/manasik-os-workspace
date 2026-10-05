@@ -100,7 +100,7 @@ export function AttachmentIntelligenceCard({
           </Card>
         ))}
       </dl>
-      {travellerSelectionRequired && travellerOptions.length > 1 && (
+      {travellerSelectionRequired && travellerOptions.length > 1 && canReviewPassportFields && (
         <div className="mt-3 space-y-2">
           <p className="text-xs font-medium">
             Choose the traveller before using this passport review.

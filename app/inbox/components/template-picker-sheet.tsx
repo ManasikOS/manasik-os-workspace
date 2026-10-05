@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +33,13 @@ export function InboxConversationTemplatePicker({
   conversationId: string;
   templates: InboxTemplate[];
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  // One key per attempt: a repeat of the same send (double click, retry) carries the same key and is never sent, or billed, twice.
+  const attemptKey = useRef(crypto.randomUUID());
+  const setOpen = (next: boolean) => {
+    if (next) attemptKey.current = crypto.randomUUID();
+    setOpenState(next);
+  };
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [parameters, setParameters] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +67,7 @@ export function InboxConversationTemplatePicker({
         conversationId,
         templateId: selected.id,
         bodyParameters: parameters,
+        clientIdempotencyKey: attemptKey.current,
       });
       if (!result.ok) {
         setError(result.error);

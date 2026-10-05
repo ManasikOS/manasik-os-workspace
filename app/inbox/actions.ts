@@ -16,17 +16,19 @@ import { canBeVisaOfficer } from "@/lib/inbox/visa-officer";
 import { insertVisaEvent, updateVisaFields } from "@/lib/data/visa-repository";
 import { dialableDigits } from "@/lib/inbox/new-chat-lead-match";
 import { assignmentNotification, canTakeInboxConversations, OWNER_CHANGED_EVENT_KIND, ownerChangedEventData, planConversationAssignment } from "@/lib/inbox/assignment";
+import { claimRefusalMessage, claimTemplateSend, attachTemplateConversation, recordTemplateFailed, recordTemplateSent } from "@/lib/inbox/template-send-claims";
+import { decideReleaseToAi, decideReplyOnOwnedConversation, decideTakeControl, type OwnedConversationFacts } from "@/lib/inbox/ownership-guard";
 import { decideStartOnExistingConversation, type ExistingConversationForStart } from "@/lib/inbox/start-conversation-guard";
 import { insertReviewEvent } from "@/lib/data/documents-repository";
 import { INBOX_ATTACHMENT_BUCKET } from "@/lib/inbox/media/handlers";
-import { markInboxAttachmentPromoted } from "@/lib/inbox/retention/promote-attachment";
-import { checkPassportFileForPromotion, choosePassportChecklistItem, passportDocumentPath, resolvePassportTraveller, type PassportChecklistItem } from "@/lib/inbox/retention/promote-passport-plan";
+import { claimInboxAttachmentForPromotion, markInboxAttachmentPromoted, releaseInboxAttachmentClaim } from "@/lib/inbox/retention/promote-attachment";
+import { checkPassportFileForPromotion, choosePassportChecklistItem, mayRemoveUnsubmittedCopy, passportDocumentPath, resolvePassportTraveller, type PassportChecklistItem } from "@/lib/inbox/retention/promote-passport-plan";
 import { capabilitiesForOperations } from "@/lib/access/operations-access";
 import { capabilitiesForLeads } from "@/lib/access/leads-access";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
 import { createGroupBooking, submitGroupPilgrimDocument, updateGroupPilgrimRecord } from "@/lib/data/departure-groups";
 import { markLeadBookedInStore, pricePerPerson, selectDepartureGroupInStore, setFollowUpInStore } from "@/lib/data/leads";
-import { loadLeadStore, persistLeadStore, snapshotLeadStore } from "@/lib/data/leads-repository";
+import { changeOneLead, loadLeadStore } from "@/lib/data/leads-repository";
 import type { FollowUpType } from "@/lib/types/leads";
 import { requireUser } from "@/lib/dal";
 import { sendApprovedTemplate } from "@/lib/whatsapp/send-template-message";
@@ -42,7 +44,7 @@ import { hasChannelAdapter } from "@/lib/channels/registry";
 import type { ChannelProvider } from "@/lib/inbox/contracts";
 import { linkConversationToLead } from "@/lib/inbox/lead-linking";
 import { deleteConversationPermanently } from "@/lib/inbox/delete-conversation";
-import { deriveBookingFromLead } from "@/lib/inbox/conversation-booking";
+import { decideExistingBookingForLead, deriveBookingFromLead, type ExistingBookingForLead } from "@/lib/inbox/conversation-booking";
 import { loadReplyContextPack } from "@/lib/inbox/reply-context";
 import { loadInboxReplyPack } from "@/lib/inbox/reply-pack-loader";
 import { suggestConversationReply } from "@/lib/ai/surfaces/inbox/workflows";
@@ -56,8 +58,10 @@ import { composeFollowUp, composeOfferReply } from "@/lib/inbox/intelligence/off
 import { confirmIdentityLink, rejectIdentityLinks, unlinkIdentityLink } from "@/lib/data/identity-graph-repository";
 import { acknowledgeIntervention, listInterventions, openIntervention, resolveIntervention } from "@/lib/data/conversation-intelligence-repository";
 import { loadProtectionContext } from "@/lib/data/inbox-risk-repository";
-import { canCloseIntervention } from "@/lib/inbox/risk/interventions";
+import { canCloseIntervention, closingCapability } from "@/lib/inbox/risk/interventions";
+import { resolveCapability } from "@/lib/agent/kernel/proposals/capabilities";
 import { evaluateProtection, refusalMessage } from "@/lib/inbox/risk/protection-gate";
+import { outboundGateText } from "@/lib/inbox/risk/outbound-gate-text";
 import { claimComposerPresence, releaseComposerPresence, syncConcurrentComposerSignal } from "@/lib/data/inbox-composer-presence-repository";
 import { inboxHandoffAcknowledgementSchema, inboxInterventionDecisionSchema, inboxIdentityLinkRequestSchema, inboxConversationRequestSchema, inboxOfferMessageRequestSchema, inboxOfferRequestSchema, inboxStaffMessageSchema, inboxStaffCaptionSchema, inboxTemplateMessageSchema, inboxEntityIdSchema, inboxStartChatSchema, inboxComposeEmailSchema, inboxInternalNoteSchema, inboxAssignConversationSchema, inboxBulkUpdateSchema, inboxFollowUpRequestSchema, createSavedReplyInputSchema } from "@/lib/validations/inbox";
 import type { InboxSavedReply } from "@/app/inbox/types";
@@ -190,13 +194,14 @@ export async function translateInboxTextAction(input: unknown): Promise<InboxTra
   return { ok: true, ...result.value, source: result.source, note: result.note };
 }
 
-/** Staff selects the traveller for an ambiguous passport; only review metadata changes. */
+/** Staff selects the traveller for an ambiguous passport; only review metadata changes. Needs `reviewPassportFields`, like confirming the passport's details. */
 export async function selectPassportMediaTravellerAction(input: unknown): Promise<ActionResult> {
   await requireUser();
   const parsed = passportMediaTravellerSelectionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Choose a valid traveller." };
   const { role, agencyId } = await getCurrentStaffRole();
-  if (!agencyId || !capabilitiesForInbox(role).viewModule) return { ok: false, error: "Not permitted to review this passport." };
+  // Choosing the traveller reads the passport's details and opens a review, so it needs the same right as confirming those details.
+  if (!agencyId || !capabilitiesForInbox(role).reviewPassportFields) return { ok: false, error: "Your role cannot review passports." };
 
   const admin = createAdminClient();
   const { data: analysis, error } = await admin
@@ -354,55 +359,70 @@ export async function savePassportToDocumentsAction(input: unknown): Promise<Act
     );
     if (!target.ok) return target;
 
-    const download = await admin.storage.from(INBOX_ATTACHMENT_BUCKET).download(attachment.storage_path as string);
-    if (download.error || !download.data) return { ok: false, error: "The Inbox copy of this file could not be read." };
-    const bytes = new Uint8Array(await download.data.arrayBuffer());
-    const file = checkPassportFileForPromotion({ mimeType: String(attachment.mime_type), sizeBytes: bytes.byteLength });
-    if (!file.ok) return file;
-
-    const destination = passportDocumentPath({
-      agencyId,
-      departureGroupId: pilgrim.departure_group_id as string,
-      pilgrimId: pilgrim.id as string,
-      documentId: target.item.id,
-      extension: file.extension,
-    });
-    const upload = await admin.storage.from("pilgrim-documents").upload(destination.path, bytes, { contentType: String(attachment.mime_type), upsert: true });
-    if (upload.error) throw new Error(upload.error.message);
-
-    const submitted = await submitGroupPilgrimDocument({
-      documentId: target.item.id,
-      departureGroupId: pilgrim.departure_group_id as string,
-      filePath: destination.path,
-      fileName: destination.fileName,
-      fileSizeBytes: bytes.byteLength,
-      notes: "Saved from an Inbox conversation.",
-    });
-    if (!submitted.ok) {
-      // Nothing points at the copy yet, so remove it rather than leave an unattributed passport in storage.
-      await admin.storage.from("pilgrim-documents").remove([destination.path]);
-      return { ok: false, error: submitted.error };
+    // One save at a time per attachment: a double click or a second tab loses here instead of racing the copy below.
+    const claim = { agencyId, attachmentId: attachment.id as string, documentId: target.item.id };
+    if (!(await claimInboxAttachmentForPromotion(admin, claim))) {
+      return { ok: false, error: "This passport is already being saved. Check Documents in a moment." };
     }
-
-    await insertReviewEvent(await db(), {
-      document_id: target.item.id,
-      actor_id: user.id,
-      actor_name: name ?? "Staff",
-      actor_role: role,
-      action: "UPLOADED",
-      from_status: target.item.status,
-      to_status: "SUBMITTED",
-      reason_code: null,
-      note: "Saved from an Inbox conversation.",
-      overrode_ai_analysis_id: null,
-      override_reason: null,
-    });
-
+    let submittedToDocuments = false;
     try {
-      await markInboxAttachmentPromoted(admin, { agencyId, attachmentId: attachment.id as string, documentId: target.item.id });
-    } catch (cause) {
-      // The passport IS in Documents; only the Inbox's "saved" marker is missing. A retry finishes it without a second copy.
-      console.error("Passport saved to Documents but the Inbox marker failed:", cause);
+      const download = await admin.storage.from(INBOX_ATTACHMENT_BUCKET).download(attachment.storage_path as string);
+      if (download.error || !download.data) return { ok: false, error: "The Inbox copy of this file could not be read." };
+      const bytes = new Uint8Array(await download.data.arrayBuffer());
+      const file = checkPassportFileForPromotion({ mimeType: String(attachment.mime_type), sizeBytes: bytes.byteLength });
+      if (!file.ok) return file;
+
+      const destination = passportDocumentPath({
+        agencyId,
+        departureGroupId: pilgrim.departure_group_id as string,
+        pilgrimId: pilgrim.id as string,
+        documentId: target.item.id,
+        extension: file.extension,
+      });
+      const upload = await admin.storage.from("pilgrim-documents").upload(destination.path, bytes, { contentType: String(attachment.mime_type), upsert: true });
+      if (upload.error) throw new Error(upload.error.message);
+
+      const submitted = await submitGroupPilgrimDocument({
+        documentId: target.item.id,
+        departureGroupId: pilgrim.departure_group_id as string,
+        filePath: destination.path,
+        fileName: destination.fileName,
+        fileSizeBytes: bytes.byteLength,
+        notes: "Saved from an Inbox conversation.",
+      });
+      if (!submitted.ok) {
+        // Remove the copy only if nothing points at it: the path is the checklist item's, so another save to the same item may own this very file.
+        const { data: itemNow, error: itemReadError } = await admin.from("departure_group_pilgrim_documents").select("file_path").eq("id", target.item.id).maybeSingle();
+        if (mayRemoveUnsubmittedCopy({ readFailed: Boolean(itemReadError), itemFilePath: (itemNow?.file_path as string | null | undefined) ?? null, destinationPath: destination.path })) {
+          await admin.storage.from("pilgrim-documents").remove([destination.path]);
+        }
+        return { ok: false, error: submitted.error };
+      }
+      submittedToDocuments = true;
+
+      await insertReviewEvent(await db(), {
+        document_id: target.item.id,
+        actor_id: user.id,
+        actor_name: name ?? "Staff",
+        actor_role: role,
+        action: "UPLOADED",
+        from_status: target.item.status,
+        to_status: "SUBMITTED",
+        reason_code: null,
+        note: "Saved from an Inbox conversation.",
+        overrode_ai_analysis_id: null,
+        override_reason: null,
+      });
+
+      try {
+        await markInboxAttachmentPromoted(admin, { agencyId, attachmentId: attachment.id as string, documentId: target.item.id });
+      } catch (cause) {
+        // The passport IS in Documents; only the Inbox's "saved" marker is missing. A retry finishes it without a second copy.
+        console.error("Passport saved to Documents but the Inbox marker failed:", cause);
+      }
+    } finally {
+      // A save that did not reach Documents gives the attachment back, so it can be saved again and the retention sweep sees it as unsaved.
+      if (!submittedToDocuments) await releaseInboxAttachmentClaim(admin, claim);
     }
   } catch (cause) {
     return inboxFailure("savePassportToDocuments", cause, "Could not save the passport to Documents. Try again.");
@@ -970,13 +990,31 @@ async function findExistingConversationForStart(
   return (data as (ExistingConversationForStart & { contact_name: string | null }) | null) ?? null;
 }
 
+/**
+ * The protection gate for an approved template, run on the filled-in text before it is sent. If the open reviews cannot be read nothing is
+ * sent: unknown is not "clear".
+ */
+function protectionCheckForOutgoingText(supabase: Awaited<ReturnType<typeof db>>, agencyId: string, conversationId: string): (renderedText: string) => Promise<string | null> {
+  return async (renderedText) => {
+    try {
+      const protection = await loadProtectionContext(supabase, agencyId, conversationId);
+      const decision = evaluateProtection({ text: renderedText, audience: "STAFF_SEND", openReviews: protection.openReviews, approvedAccountDigits: protection.approvedAccountDigits });
+      return decision.allowed ? null : refusalMessage(decision);
+    } catch (cause) {
+      console.error("Protection gate could not read the open reviews:", cause instanceof Error ? cause.message : cause);
+      return "Could not check whether a review is open on this conversation. Try again in a moment.";
+    }
+  };
+}
+
 export async function startWhatsAppChat(rawInput: {
   phoneNumber: string;
   contactName?: string;
   templateId: string;
   bodyParameters: string[];
+  clientIdempotencyKey: string;
 }): Promise<StartChatResult> {
-  await requireUser();
+  const user = await requireUser();
   const { role, agencyId, staffId, name } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).sendMessage) return { ok: false, error: "Not permitted." };
   if (!agencyId) return { ok: false, error: "No agency resolved for your account." };
@@ -997,14 +1035,31 @@ export async function startWhatsAppChat(rawInput: {
   const startDecision = decideStartOnExistingConversation({ existing: existingChat, currentStaffId: staffId, contactNoun: "number" });
   if (!startDecision.ok) return startDecision;
 
+  // The attempt is recorded BEFORE Meta is called, so a repeat of this send (double click, retry, second tab) cannot send and bill twice.
+  const claim = await claimTemplateSend(admin, { agencyId, key: input.clientIdempotencyKey, staffId: user.id });
+  if (claim.kind === "ALREADY_SENT") {
+    return claim.conversationId
+      ? { ok: true, conversationId: claim.conversationId }
+      : { ok: false, error: "This message was already sent, but the chat could not be opened. Refresh the Inbox to find it." };
+  }
+  const claimRefusal = claimRefusalMessage(claim);
+  if (claimRefusal) return { ok: false, error: claimRefusal };
+
   const sent = await sendApprovedTemplate({
     db: admin,
     agencyId,
     to,
     templateId: input.templateId,
     values: input.bodyParameters,
+    // A brand-new contact has no open review; an existing conversation does, and the template must pass the same gate as a typed reply.
+    ...(existingChat ? { checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, existingChat.id) } : {}),
   });
-  if (!sent.ok) return { ok: false, error: sent.error };
+  if (!sent.ok) {
+    await recordTemplateFailed(admin, { agencyId, key: input.clientIdempotencyKey, error: sent.error });
+    return { ok: false, error: sent.error };
+  }
+  // On record straight away, so the send is known even if opening the conversation below fails.
+  await recordTemplateSent(admin, { agencyId, key: input.clientIdempotencyKey, externalMessageId: sent.externalMessageId });
   const { template, bodyParameters, externalMessageId } = sent;
 
   const now = new Date().toISOString();
@@ -1032,6 +1087,8 @@ export async function startWhatsAppChat(rawInput: {
     return { ok: false, error: "The message was sent, but the CRM could not open the conversation. Refresh before retrying." };
   }
 
+  await attachTemplateConversation(admin, { agencyId, key: input.clientIdempotencyKey, conversationId: conversation.id as string });
+
   // A staff-started chat must enter the same CRM path as an inbound message.
   // Here we only match an existing lead; creating a new record is an explicit
   // Inbox action so staff never accidentally create leads while composing.
@@ -1045,18 +1102,12 @@ export async function startWhatsAppChat(rawInput: {
   });
 
   const content = sent.renderedText;
-  const { error: messageError } = await supabase.from("conversation_messages").insert({
-    agency_id: agencyId,
-    conversation_id: conversation.id,
-    external_message_id: externalMessageId,
-    role: "staff",
-    actor_kind: "STAFF",
-    actor_id: staffId,
-    actor_name_snapshot: name,
-    content,
-    message_type: "TEMPLATE",
-    delivery_status: "SENT",
-    metadata: {
+  // The author is set by the database from the signed-in user; staff cannot insert message rows directly.
+  const { error: messageError } = await supabase.rpc("record_staff_template_message", {
+    p_conversation_id: conversation.id,
+    p_external_message_id: externalMessageId,
+    p_content: content,
+    p_metadata: {
       template_id: template.id,
       template_name: template.name,
       template_language: template.language,
@@ -1122,6 +1173,11 @@ export async function startEmailConversation(rawInput: {
   if (existingChat === "UNREADABLE") return { ok: false, error: "Could not check whether this address already has a conversation. Try again." };
   const startDecision = decideStartOnExistingConversation({ existing: existingChat, currentStaffId: staffId, contactNoun: "email address" });
   if (!startDecision.ok) return startDecision;
+  // An address that already has a conversation may have an open review on it; a new email passes the same gate as a reply.
+  if (existingChat) {
+    const refusal = await protectionCheckForOutgoingText(supabase, agencyId, existingChat.id)(outboundGateText({ subject: input.subject, body: input.body }));
+    if (refusal) return { ok: false, error: refusal };
+  }
   const now = new Date().toISOString();
   const { data: conversation, error: conversationError } = await supabase
     .from("conversations")
@@ -1174,7 +1230,7 @@ export async function startEmailConversation(rawInput: {
 
 /** Sends an approved WhatsApp template into an existing conversation when free text is unavailable. */
 export async function sendConversationTemplateAction(input: unknown): Promise<ActionResult> {
-  await requireUser();
+  const user = await requireUser();
   const parsed = inboxTemplateMessageSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the template message." };
 
@@ -1183,38 +1239,47 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
   const supabase = await db();
   const { data: conversation, error: conversationError } = await supabase
     .from("conversations")
-    .select("id, agency_id, channel, state, contact_phone, external_conversation_id")
+    .select("id, agency_id, channel, state, contact_phone, external_conversation_id, assigned_to_id, assigned_to_name")
     .eq("id", parsed.data.conversationId)
     .eq("agency_id", agencyId)
     .maybeSingle();
   if (conversationError || !conversation) return { ok: false, error: "Conversation not found." };
   if (conversation.channel !== "WHATSAPP") return { ok: false, error: "Approved templates can only be sent on WhatsApp." };
   if (conversation.state === "CLOSED") return { ok: false, error: "This conversation is closed." };
+  // Sending makes the sender the owner, so a chat a colleague owns is refused before anything is sent.
+  const ownerDecision = decideReplyOnOwnedConversation({ conversation: conversation as OwnedConversationFacts, currentStaffId: staffId });
+  if (!ownerDecision.ok) return ownerDecision;
   const to = String(conversation.external_conversation_id || conversation.contact_phone || "").replace(/\D/g, "");
   if (!/^\d{8,15}$/.test(to)) return { ok: false, error: "This conversation has no valid WhatsApp number." };
 
+  const admin = createAdminClient();
+  // The attempt is recorded BEFORE Meta is called, so a repeat of this send (double click, retry, second tab) cannot send and bill twice.
+  const claim = await claimTemplateSend(admin, { agencyId, key: parsed.data.clientIdempotencyKey, staffId: user.id });
+  if (claim.kind === "ALREADY_SENT") return { ok: true };
+  const claimRefusal = claimRefusalMessage(claim);
+  if (claimRefusal) return { ok: false, error: claimRefusal };
+
   const sent = await sendApprovedTemplate({
-    db: createAdminClient(),
+    db: admin,
     agencyId,
     to,
     templateId: parsed.data.templateId,
     values: parsed.data.bodyParameters,
+    checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, conversation.id as string),
   });
-  if (!sent.ok) return { ok: false, error: sent.error };
+  if (!sent.ok) {
+    await recordTemplateFailed(admin, { agencyId, key: parsed.data.clientIdempotencyKey, error: sent.error });
+    return { ok: false, error: sent.error };
+  }
+  await recordTemplateSent(admin, { agencyId, key: parsed.data.clientIdempotencyKey, externalMessageId: sent.externalMessageId });
+  await attachTemplateConversation(admin, { agencyId, key: parsed.data.clientIdempotencyKey, conversationId: conversation.id as string });
 
   const now = new Date().toISOString();
-  const { error: messageError } = await supabase.from("conversation_messages").insert({
-    agency_id: agencyId,
-    conversation_id: conversation.id,
-    external_message_id: sent.externalMessageId,
-    role: "staff",
-    actor_kind: "STAFF",
-    actor_id: staffId,
-    actor_name_snapshot: name,
-    content: sent.renderedText,
-    message_type: "TEMPLATE",
-    delivery_status: "SENT",
-    metadata: {
+  const { error: messageError } = await supabase.rpc("record_staff_template_message", {
+    p_conversation_id: conversation.id,
+    p_external_message_id: sent.externalMessageId,
+    p_content: sent.renderedText,
+    p_metadata: {
       template_id: sent.template.id,
       template_name: sent.template.name,
       template_language: sent.template.language,
@@ -1224,12 +1289,23 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
   });
   if (messageError) return { ok: false, error: "The message was sent, but the CRM could not save it. Refresh before retrying." };
 
-  const { error: conversationUpdateError } = await supabase
+  const previousOwnerId = (conversation.assigned_to_id as string | null) ?? null;
+  let guardedUpdate = supabase
     .from("conversations")
     .update({ state: "HUMAN_ACTIVE", assigned_to_id: staffId, assigned_to_name: name, last_outbound_at: now })
     .eq("id", conversation.id)
     .eq("agency_id", agencyId);
-  if (conversationUpdateError) return { ok: false, error: "The message was sent, but the conversation status could not be updated. Refresh before retrying." };
+  guardedUpdate = previousOwnerId === null ? guardedUpdate.is("assigned_to_id", null) : guardedUpdate.eq("assigned_to_id", previousOwnerId);
+  const { data: updatedRows, error: conversationUpdateError } = await guardedUpdate.select("id");
+  if (conversationUpdateError || !updatedRows || updatedRows.length === 0) return { ok: false, error: "The message was sent, but the conversation status could not be updated. Refresh before retrying." };
+  await recordOwnerChange({
+    agencyId,
+    conversationId: conversation.id as string,
+    actorId: user.id,
+    actorName: name ?? null,
+    from: { id: previousOwnerId, name: (conversation.assigned_to_name as string | null) ?? null },
+    to: { id: staffId, name: name ?? null },
+  });
   revalidatePath("/inbox");
   return { ok: true };
 }
@@ -1257,22 +1333,76 @@ export async function markConversationRead(rawConversationId: string): Promise<A
   return { ok: true };
 }
 
+/** Best effort, like every other owner change: the history row never undoes the change it describes. */
+async function recordOwnerChange(input: {
+  agencyId: string;
+  conversationId: string;
+  actorId: string;
+  actorName: string | null;
+  from: { id: string | null; name: string | null };
+  to: { id: string | null; name: string | null };
+}): Promise<void> {
+  if (input.from.id === input.to.id) return;
+  try {
+    const { error } = await createAdminClient().from("conversation_events").insert({
+      agency_id: input.agencyId,
+      conversation_id: input.conversationId,
+      kind: OWNER_CHANGED_EVENT_KIND,
+      actor_kind: "STAFF",
+      actor_id: input.actorId,
+      data: ownerChangedEventData({ from: input.from, to: input.to, actorName: input.actorName }),
+    });
+    if (error) console.error("Could not record the owner change:", error.message);
+  } catch (cause) {
+    console.error("Could not record the owner change:", cause instanceof Error ? cause.message : cause);
+  }
+}
+
+const CONVERSATION_CHANGED_MESSAGE = "Someone else changed this conversation just now. Refresh and try again.";
+
+/**
+ * Makes the caller the conversation's owner and pauses the assistant. Refused when a colleague owns the chat or the chat is closed
+ * (giving a chat to someone is the Assign action), and the write is a compare-and-swap on the state and owner that were checked.
+ */
 export async function takeControl(rawConversationId: string): Promise<ActionResult> {
-  await requireUser();
+  const user = await requireUser();
   const { role, staffId, name, agencyId } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).takeControl || !agencyId) return { ok: false, error: "Not permitted." };
   const idCheck = inboxEntityIdSchema.safeParse(rawConversationId);
   if (!idCheck.success) return { ok: false, error: "Conversation not found." };
 
   const supabase = await db();
-  // Row security already confines the session to its agency; naming it here keeps the guarantee if a policy ever loosens.
-  const { error } = await supabase
+  const { data: current, error: readError } = await supabase
+    .from("conversations")
+    .select("state, assigned_to_id, assigned_to_name")
+    .eq("agency_id", agencyId)
+    .eq("id", idCheck.data)
+    .maybeSingle();
+  if (readError) return inboxFailure("takeControl", readError, "Could not take control of this conversation.");
+  if (!current) return { ok: false, error: "Conversation not found." };
+  const facts = current as OwnedConversationFacts;
+  const decision = decideTakeControl({ conversation: facts, currentStaffId: staffId });
+  if (!decision.ok) return decision;
+
+  let guardedUpdate = supabase
     .from("conversations")
     .update({ state: "HUMAN_ACTIVE", assigned_to_id: staffId, assigned_to_name: name })
     .eq("agency_id", agencyId)
-    .eq("id", idCheck.data);
+    .eq("id", idCheck.data)
+    .eq("state", facts.state);
+  guardedUpdate = facts.assigned_to_id === null ? guardedUpdate.is("assigned_to_id", null) : guardedUpdate.eq("assigned_to_id", facts.assigned_to_id);
+  const { data: updatedRows, error } = await guardedUpdate.select("id");
   if (error) return inboxFailure("takeControl", error, "Could not take control of this conversation.");
+  if (!updatedRows || updatedRows.length === 0) return { ok: false, error: CONVERSATION_CHANGED_MESSAGE };
 
+  await recordOwnerChange({
+    agencyId,
+    conversationId: idCheck.data,
+    actorId: user.id,
+    actorName: name ?? null,
+    from: { id: facts.assigned_to_id, name: facts.assigned_to_name },
+    to: { id: staffId, name: name ?? null },
+  });
   return { ok: true };
 }
 
@@ -1358,17 +1488,49 @@ export async function assignConversationAction(input: unknown): Promise<ActionRe
   return { ok: true };
 }
 
+/**
+ * Hands a chat back to the assistant. Only its owner (or an administrator) may, never while a review is open on it, and the owner is
+ * cleared so a stale name does not keep colleagues from taking the chat later.
+ */
 export async function releaseToAi(rawConversationId: string): Promise<ActionResult> {
-  await requireUser();
-  const { role, agencyId } = await getCurrentStaffRole();
+  const user = await requireUser();
+  const { role, agencyId, staffId, name } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).releaseToAi || !agencyId) return { ok: false, error: "Not permitted." };
   const idCheck = inboxEntityIdSchema.safeParse(rawConversationId);
   if (!idCheck.success) return { ok: false, error: "Conversation not found." };
 
   const supabase = await db();
-  const { error } = await supabase.from("conversations").update({ state: "AI_RESUMED" }).eq("agency_id", agencyId).eq("id", idCheck.data);
-  if (error) return inboxFailure("releaseToAi", error, "Could not hand this conversation back to the assistant.");
+  const [{ data: current, error: readError }, { data: openReviews, error: reviewError }] = await Promise.all([
+    supabase.from("conversations").select("state, assigned_to_id, assigned_to_name").eq("agency_id", agencyId).eq("id", idCheck.data).maybeSingle(),
+    supabase.from("conversation_interventions").select("id").eq("agency_id", agencyId).eq("conversation_id", idCheck.data).in("status", ["OPEN", "ACKNOWLEDGED"]).limit(1),
+  ]);
+  if (readError) return inboxFailure("releaseToAi", readError, "Could not hand this conversation back to the assistant.");
+  // Unknown is not "clear": if the open reviews cannot be read, the chat stays with the person.
+  if (reviewError) return inboxFailure("releaseToAi.reviews", reviewError, "Could not check whether a review is open on this conversation. Try again in a moment.");
+  if (!current) return { ok: false, error: "Conversation not found." };
+  const facts = current as OwnedConversationFacts;
+  const decision = decideReleaseToAi({ conversation: facts, currentStaffId: staffId, isAdministrator: role === "ADMIN", openReviewCount: openReviews?.length ?? 0 });
+  if (!decision.ok) return decision;
 
+  let guardedUpdate = supabase
+    .from("conversations")
+    .update({ state: "AI_RESUMED", assigned_to_id: null, assigned_to_name: null })
+    .eq("agency_id", agencyId)
+    .eq("id", idCheck.data)
+    .eq("state", facts.state);
+  guardedUpdate = facts.assigned_to_id === null ? guardedUpdate.is("assigned_to_id", null) : guardedUpdate.eq("assigned_to_id", facts.assigned_to_id);
+  const { data: updatedRows, error } = await guardedUpdate.select("id");
+  if (error) return inboxFailure("releaseToAi", error, "Could not hand this conversation back to the assistant.");
+  if (!updatedRows || updatedRows.length === 0) return { ok: false, error: CONVERSATION_CHANGED_MESSAGE };
+
+  await recordOwnerChange({
+    agencyId,
+    conversationId: idCheck.data,
+    actorId: user.id,
+    actorName: name ?? null,
+    from: { id: facts.assigned_to_id, name: facts.assigned_to_name },
+    to: { id: null, name: null },
+  });
   return { ok: true };
 }
 
@@ -1609,6 +1771,18 @@ export async function releaseConversationComposerAction(input: unknown): Promise
   }
 }
 
+/** The booking already holding this lead's reference, null when there is none, "UNREADABLE" when the lookup failed (never guessed as "none"). */
+async function findBookingForLeadReference(supabase: Awaited<ReturnType<typeof db>>, leadId: string, bookingReference: string): Promise<ExistingBookingForLead | null | "UNREADABLE"> {
+  const { data, error } = await supabase
+    .from("departure_group_bookings")
+    .select("id, booking_reference, booking_status, departure_group_id")
+    .eq("lead_id", leadId)
+    .ilike("booking_reference", bookingReference)
+    .maybeSingle();
+  if (error) return "UNREADABLE";
+  return (data as ExistingBookingForLead | null) ?? null;
+}
+
 /**
  * Converts the lead already linked to this conversation using the same
  * capacity-safe booking primitive as the Leads workspace. The action derives
@@ -1633,7 +1807,8 @@ export async function createBookingFromConversation(rawConversationId: string): 
     .single();
   if (conversationError || !conversation?.lead_id) return { ok: false, error: "Link a lead before creating a booking." };
 
-  const store = await loadLeadStore(supabase);
+  // Just this lead (and the packages, for the price), not every lead of the agency.
+  const store = await loadLeadStore(supabase, { only: ["leads", "packages"], leadId: conversation.lead_id as string });
   const leadOrNull = store.leads.find((item) => item.id === conversation.lead_id) ?? null;
   const derived = deriveBookingFromLead(leadOrNull);
   if (!derived.ok) return { ok: false, error: derived.error };
@@ -1641,35 +1816,60 @@ export async function createBookingFromConversation(rawConversationId: string): 
   // A lead from Messenger/Instagram has no number until the customer gives one; a booking with nobody to call is not useful.
   if (!lead.mobile.trim()) return { ok: false, error: "Add the customer's phone number to the lead before creating a booking." };
   const { travellerCount, roomOccupancyPreference } = derived.result;
-  const bookingOutcome = await createGroupBooking(
-    {
-      departureGroupId: lead.selected_departure_group_id!,
-      leadId: lead.id,
-      bookingReference: `LD-${lead.reference.replace(/^LD-/, "")}`,
-      bookingStatus: "DEPOSIT_PENDING",
-      primaryContactName: lead.full_name,
-      primaryContactPhone: lead.mobile,
-      travellerCount,
-      roomOccupancyPreference,
-      packagePricePerPerson: pricePerPerson(store, lead.desired_package_id, lead.journey_type, lead.room_preference),
-      amountPaid: 0,
-    },
-    { client: supabase },
-  );
-  if (!bookingOutcome.ok) return bookingOutcome;
+  const bookingReference = `LD-${lead.reference.replace(/^LD-/, "")}`;
 
-  // The booking points back at the conversation it was created from (MI4.6).
-  await stampConversationSource(createAdminClient(), { agencyId, table: "departure_group_bookings", by: { column: "id", value: bookingOutcome.result.bookingId }, conversationId });
+  // A booking already under this lead's reference is from an earlier attempt that could not link itself (or a click that raced this one):
+  // link that one instead of failing on the reference, unless it is cancelled or in another group, which a person must look at first.
+  const found = await findBookingForLeadReference(supabase, lead.id, bookingReference);
+  if (found === "UNREADABLE") return { ok: false, error: "Could not check whether this lead already has a booking. Try again." };
+  const adoption = decideExistingBookingForLead({ existing: found, selectedDepartureGroupId: lead.selected_departure_group_id! });
+  if (adoption.kind === "BLOCKED") return { ok: false, error: adoption.error };
 
-  const before = snapshotLeadStore(store);
-  const linked = markLeadBookedInStore(store, {
+  let booking: { bookingId: string; bookingReference: string };
+  if (adoption.kind === "ADOPT") {
+    booking = { bookingId: adoption.bookingId, bookingReference: adoption.bookingReference };
+  } else {
+    const bookingOutcome = await createGroupBooking(
+      {
+        departureGroupId: lead.selected_departure_group_id!,
+        leadId: lead.id,
+        bookingReference,
+        bookingStatus: "DEPOSIT_PENDING",
+        primaryContactName: lead.full_name,
+        primaryContactPhone: lead.mobile,
+        travellerCount,
+        roomOccupancyPreference,
+        packagePricePerPerson: pricePerPerson(store, lead.desired_package_id, lead.journey_type, lead.room_preference),
+        amountPaid: 0,
+      },
+      { client: supabase },
+    );
+    if (!bookingOutcome.ok) {
+      // Two clicks at once: the other one may have just made the booking, which is then the one to link.
+      const raced = await findBookingForLeadReference(supabase, lead.id, bookingReference);
+      const racedDecision = raced === "UNREADABLE" ? null : decideExistingBookingForLead({ existing: raced, selectedDepartureGroupId: lead.selected_departure_group_id! });
+      if (racedDecision?.kind !== "ADOPT") return bookingOutcome;
+      booking = { bookingId: racedDecision.bookingId, bookingReference: racedDecision.bookingReference };
+    } else {
+      booking = { bookingId: bookingOutcome.result.bookingId, bookingReference: bookingOutcome.result.bookingReference };
+    }
+  }
+
+  // The booking points back at the conversation it was created from (MI4.6). Filling an empty link is harmless to repeat.
+  await stampConversationSource(createAdminClient(), { agencyId, table: "departure_group_bookings", by: { column: "id", value: booking.bookingId }, conversationId });
+
+  // Written column by column and only if the lead is unchanged since it was read (read again if a colleague edited it meanwhile), so a
+  // colleague's edit to the same lead is never overwritten.
+  const linked = await changeOneLead(supabase, lead.id, (fresh) => markLeadBookedInStore(fresh, {
     leadId: lead.id,
-    bookingId: bookingOutcome.result.bookingId,
-    bookingReference: bookingOutcome.result.bookingReference,
+    bookingId: booking.bookingId,
+    bookingReference: booking.bookingReference,
     actorName: name ?? "Staff",
-  }, new Date().toISOString());
-  if (!linked.ok) return { ok: false, error: linked.error ?? "Could not link the booking to the lead." };
-  await persistLeadStore(supabase, before, store);
+  }, new Date().toISOString()));
+  if (!linked.ok) {
+    // The booking exists and holds the seats; say so, instead of leaving the person to retry into a duplicate-reference error.
+    return { ok: false, error: `Booking ${booking.bookingReference} exists, but it could not be linked to the lead. Try again: it will be linked, not created twice.` };
+  }
 
   revalidatePath("/leads");
   revalidatePath("/bookings");
@@ -1694,7 +1894,7 @@ export async function selectConversationDepartureGroup(rawInput: {
   const supabase = await db();
   const { data: conversation } = await supabase.from("conversations").select("lead_id").eq("id", input.conversationId).maybeSingle();
   if (!conversation?.lead_id) return { ok: false, error: "Link a lead before selecting a departure group." };
-  const store = await loadLeadStore(supabase);
+  const store = await loadLeadStore(supabase, { only: ["leads"], leadId: conversation.lead_id as string });
   const lead = store.leads.find((item) => item.id === conversation.lead_id);
   if (!lead) return { ok: false, error: "The linked lead is no longer available." };
 
@@ -1707,15 +1907,13 @@ export async function selectConversationDepartureGroup(rawInput: {
   const { data: group, error: groupError } = await groupQuery.maybeSingle();
   if (groupError || !group) return { ok: false, error: "That departure group is no longer available for this lead." };
 
-  const before = snapshotLeadStore(store);
-  const outcome = selectDepartureGroupInStore(store, {
+  const outcome = await changeOneLead(supabase, lead.id, (fresh) => selectDepartureGroupInStore(fresh, {
     leadId: lead.id,
     departureGroupId: group.id as string,
     groupLabel: `${group.group_name as string} (${group.group_code as string})`,
     actorName: name ?? "Staff",
-  }, new Date().toISOString());
-  if (!outcome.ok) return { ok: false, error: outcome.error ?? "Could not select the departure group." };
-  await persistLeadStore(supabase, before, store);
+  }, new Date().toISOString()));
+  if (!outcome.ok) return { ok: false, error: ("error" in outcome ? outcome.error : undefined) ?? "Could not select the departure group." };
   revalidatePath("/leads");
   return { ok: true };
 }
@@ -1863,12 +2061,13 @@ export async function suggestConversationReplyAction(conversationId: string): Pr
  * inbox. Runs on the service role AFTER the checks, every query scoped to the agency.
  */
 export async function updateInterventionAction(input: unknown): Promise<ActionResult> {
+  const user = await requireUser();
   const parsed = inboxInterventionDecisionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the review." };
 
-  const user = await requireUser();
-  const { role, agencyId } = await getCurrentStaffRole();
+  const { role, roleId, agencyId } = await getCurrentStaffRole();
   if (!agencyId) return { ok: false, error: "Your account is not linked to an agency." };
+  if (!capabilitiesForInbox(role).viewModule) return { ok: false, error: "Your role cannot work on Inbox reviews." };
   const admin = createAdminClient();
 
   const reviews = await listInterventions(admin, agencyId, parsed.data.conversationId, { openOnly: true });
@@ -1878,8 +2077,13 @@ export async function updateInterventionAction(input: unknown): Promise<ActionRe
     return { ok: false, error: review.kind === "PAYMENT_CLAIM" || review.kind === "BANK_DETAIL_MISMATCH" || review.kind === "REFUND_REQUEST" || review.kind === "FRAUD_CONCERN" ? "Only Finance or an Admin can close this review." : "Your role cannot close this review." };
   }
 
+  // The role tier above is the ceiling; a custom role can also be narrowed in Roles & Permissions, and that is honoured here too.
+  if (!(await resolveCapability(role, roleId, "inbox", closingCapability(review.kind), admin))) return { ok: false, error: "Your role cannot close this review." };
+
   if (parsed.data.decision === "ACKNOWLEDGE") {
-    await acknowledgeIntervention(admin, agencyId, review.id);
+    const acknowledged = await acknowledgeIntervention(admin, agencyId, review.id);
+    // Nothing changed because someone else got there first; a review that was already acknowledged is the one case where that is expected.
+    if (!acknowledged && review.status === "OPEN") return { ok: false, error: "That review was just updated by someone else. Refresh and try again." };
     return { ok: true };
   }
   const closed = await resolveIntervention(admin, agencyId, { interventionId: review.id, status: parsed.data.decision === "RESOLVE" ? "RESOLVED" : "DISMISSED", note: parsed.data.note, actorStaffId: user.id });
@@ -2066,18 +2270,15 @@ export async function scheduleConversationFollowUp(input: {
   const supabase = await db();
   const { data: conversation } = await supabase.from("conversations").select("lead_id").eq("agency_id", agencyId).eq("id", request.conversationId).maybeSingle();
   if (!conversation?.lead_id) return { ok: false, error: "Link a lead before scheduling a follow-up." };
-  const store = await loadLeadStore(supabase);
-  const before = snapshotLeadStore(store);
-  const outcome = setFollowUpInStore(store, {
-    leadId: conversation.lead_id,
+  const outcome = await changeOneLead(supabase, conversation.lead_id as string, (fresh) => setFollowUpInStore(fresh, {
+    leadId: conversation.lead_id as string,
     actorName: name ?? "Staff",
     nextFollowUpAt: dueAt.toISOString(),
     followUpType: request.type,
     followUpOwnerId: staffId,
     followUpOwnerName: name ?? "Staff",
-  }, new Date().toISOString());
-  if (!outcome.ok) return { ok: false, error: outcome.error ?? "Could not schedule follow-up." };
-  await persistLeadStore(supabase, before, store);
+  }, new Date().toISOString()));
+  if (!outcome.ok) return { ok: false, error: ("error" in outcome ? outcome.error : undefined) ?? "Could not schedule follow-up." };
   revalidatePath("/leads");
   return { ok: true };
 }
@@ -2179,7 +2380,8 @@ export async function sendStaffMessage(
   // the review is resolved with a note. If the open reviews cannot be read, nothing is sent: unknown is not "clear".
   try {
     const protection = await loadProtectionContext(supabase, agencyId, conversationId);
-    const decision = evaluateProtection({ text: trimmedBody, audience: "STAFF_SEND", openReviews: protection.openReviews, approvedAccountDigits: protection.approvedAccountDigits });
+    // The gate reads everything the customer will see, not only the body: an email subject or a file name can carry the same promise.
+    const decision = evaluateProtection({ text: outboundGateText({ subject: emailSendFields.subject, body: trimmedBody, filename: stagedFile?.filename }), audience: "STAFF_SEND", openReviews: protection.openReviews, approvedAccountDigits: protection.approvedAccountDigits });
     if (!decision.allowed) return { ok: false, error: refusalMessage(decision) };
   } catch (cause) {
     console.error("Protection gate could not read the open reviews:", cause instanceof Error ? cause.message : cause);
@@ -2264,7 +2466,10 @@ export async function sendStaffMessage(
         .from("conversations")
         .update({ state: conversation.state, assigned_to_id: (conversation.assigned_to_id as string | null) ?? null, assigned_to_name: (conversation.assigned_to_name as string | null) ?? null })
         .eq("agency_id", agencyId)
-        .eq("id", conversationId);
+        .eq("id", conversationId)
+        // Only undo our own takeover: if anything changed the chat since, leave it as it now is.
+        .eq("state", "HUMAN_ACTIVE")
+        .eq("assigned_to_id", staffId ?? "");
       if (restoreError) console.error("Inbox action failed (sendStaffMessage.restore):", restoreError.message);
     }
     return inboxFailure("sendStaffMessage.enqueue", error, "The message could not be sent. Please try again.");

@@ -42,3 +42,33 @@ export function deriveBookingFromLead(lead: ConversationBookingLead | null): Der
   const roomOccupancyPreference = lead.room_preference === "UNDECIDED" ? "TRIPLE" : lead.room_preference;
   return { ok: true, result: { travellerCount, roomOccupancyPreference } };
 }
+
+export interface ExistingBookingForLead {
+  id: string;
+  booking_reference: string;
+  booking_status: string;
+  departure_group_id: string;
+}
+
+export type ExistingBookingDecision =
+  | { kind: "CREATE" }
+  | { kind: "ADOPT"; bookingId: string; bookingReference: string }
+  | { kind: "BLOCKED"; error: string };
+
+/**
+ * A lead's booking reference is derived from the lead, so a booking that is already there under it was made by an earlier attempt that
+ * could not link itself to the lead (or by a click that raced this one). Making a second booking would fail on the reference; instead that
+ * booking is linked, when it is the same one the person is asking for. A cancelled booking, or one in another departure group, is never
+ * adopted silently: a person looks at it first.
+ */
+export function decideExistingBookingForLead(input: { existing: ExistingBookingForLead | null; selectedDepartureGroupId: string }): ExistingBookingDecision {
+  const { existing } = input;
+  if (!existing) return { kind: "CREATE" };
+  if (existing.booking_status === "CANCELLED") {
+    return { kind: "BLOCKED", error: `Booking ${existing.booking_reference} was cancelled earlier and still holds this lead's reference. Open the lead in Leads to deal with it first.` };
+  }
+  if (existing.departure_group_id !== input.selectedDepartureGroupId) {
+    return { kind: "BLOCKED", error: `Booking ${existing.booking_reference} already exists for this lead in a different departure group. Open the lead in Leads to check it before creating another.` };
+  }
+  return { kind: "ADOPT", bookingId: existing.id, bookingReference: existing.booking_reference };
+}
