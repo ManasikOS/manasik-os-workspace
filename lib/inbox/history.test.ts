@@ -27,6 +27,11 @@ describe("historyEntryFor", () => {
     expect(historyEntryFor(event({ kind: "CUSTOMER_REOPENED" }))).toEqual({ id: "e1", at: "2026-09-24T10:00:00.000Z", label: "Reopened by the customer" });
   });
 
+  it("BUG-9: says who closed a chat, or just that it was closed", () => {
+    expect(historyEntryFor(event({ kind: "CONVERSATION_CLOSED", data: { actorName: "Nadeesha" } }))?.label).toBe("Closed by Nadeesha");
+    expect(historyEntryFor(event({ kind: "CONVERSATION_CLOSED" }))?.label).toBe("Closed");
+  });
+
   it("leaves out events it cannot describe", () => {
     expect(historyEntryFor(event({ kind: "SOMETHING_ELSE" }))).toBeNull();
     expect(historyEntryFor(event({ data: {} }))).toBeNull();

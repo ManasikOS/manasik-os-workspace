@@ -9,7 +9,7 @@ import { logEvent } from "@/lib/observability/log";
 import { reportHandledError } from "@/lib/observability/report-error";
 import { capabilitiesForDocuments } from "@/lib/access/documents-access";
 import { capabilitiesFor } from "@/lib/access/departure-groups-access";
-import { BULK_ACTION_LIMIT, SPAM_MARKED_EVENT_KIND, SPAM_RESTORED_EVENT_KIND, bulkResultSummary, planBulkAction, type BulkConversationInput } from "@/lib/inbox/bulk-actions";
+import { BULK_ACTION_LIMIT, CONVERSATION_CLOSED_EVENT_KIND, SPAM_MARKED_EVENT_KIND, SPAM_RESTORED_EVENT_KIND, bulkResultSummary, planBulkAction, type BulkConversationInput } from "@/lib/inbox/bulk-actions";
 import { parseSavedViewInput, SAVED_VIEW_LIMIT, savedViewsFromRows, type SavedView } from "@/lib/inbox/saved-views";
 import { parsePassportDetails } from "@/lib/inbox/passport-fields";
 import { canBeVisaOfficer } from "@/lib/inbox/visa-officer";
@@ -609,6 +609,14 @@ export async function bulkUpdateConversationsAction(input: unknown): Promise<Bul
 
   // The facts a spam change must check first: a booking on the lead, an open review, and the lead's own spam stage.
   const spamFacts = new Map<string, { leadIsSpam: boolean; hasBooking: boolean; hasOpenReview: boolean }>();
+  // Closing needs only the open-review fact: a chat with a live complaint or payment review must not be closed out from under it.
+  const closeReviewFacts = new Map<string, boolean>();
+  if (action.kind === "CLOSE") {
+    const { data: reviewRows, error: reviewError } = await supabase.from("conversation_interventions").select("conversation_id").eq("agency_id", agencyId).in("conversation_id", ids).in("status", ["OPEN", "ACKNOWLEDGED"]);
+    if (reviewError) return inboxFailure("bulkUpdateConversations", reviewError, "Could not check the conversations, so nothing was changed.");
+    const withReview = new Set(((reviewRows ?? []) as Array<{ conversation_id: string }>).map((review) => review.conversation_id));
+    for (const row of found) closeReviewFacts.set(row.id, withReview.has(row.id));
+  }
   if (isSpamChange) {
     const leadIds = [...new Set(found.map((row) => row.lead_id).filter((id): id is string => id !== null))];
     const [leadRead, reviewRead] = await Promise.all([
@@ -647,6 +655,7 @@ export async function bulkUpdateConversationsAction(input: unknown): Promise<Bul
       state: row.state,
       assignedToId: row.assigned_to_id,
       ...(isSpamChange ? { lifecycleStatus: row.lifecycle_status ?? (row.state === "CLOSED" ? "CLOSED" : "OPEN"), ...spamFacts.get(row.id) } : {}),
+      ...(action.kind === "CLOSE" ? { hasOpenReview: closeReviewFacts.get(row.id) } : {}),
     })),
   );
   // Ids the read did not return (not this agency's, or gone) are left alone too, so the counts add up to what was asked.
@@ -713,6 +722,24 @@ export async function bulkUpdateConversationsAction(input: unknown): Promise<Bul
       }
     } catch (cause) {
       console.error("Bulk owner change follow-up failed:", cause instanceof Error ? cause.message : cause);
+    }
+  }
+
+  // Best effort, like the others: one history row for every chat this closed.
+  if (action.kind === "CLOSE" && written.length > 0) {
+    try {
+      await createAdminClient().from("conversation_events").insert(
+        written.map((id) => ({
+          agency_id: agencyId,
+          conversation_id: id,
+          kind: CONVERSATION_CLOSED_EVENT_KIND,
+          actor_kind: "STAFF",
+          actor_id: user.id,
+          data: { actorName: actorName ?? null, bulk: true },
+        })),
+      );
+    } catch (cause) {
+      console.error("Bulk close audit failed:", cause instanceof Error ? cause.message : cause);
     }
   }
 
@@ -1535,15 +1562,42 @@ export async function releaseToAi(rawConversationId: string): Promise<ActionResu
 }
 
 export async function closeConversation(rawConversationId: string): Promise<ActionResult> {
-  await requireUser();
-  const { role, agencyId } = await getCurrentStaffRole();
+  const user = await requireUser();
+  const { role, agencyId, name: actorName } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).closeConversation || !agencyId) return { ok: false, error: "Not permitted." };
   const idCheck = inboxEntityIdSchema.safeParse(rawConversationId);
   if (!idCheck.success) return { ok: false, error: "Conversation not found." };
 
   const supabase = await db();
-  const { error } = await supabase.from("conversations").update({ state: "CLOSED" }).eq("agency_id", agencyId).eq("id", idCheck.data);
+  // Same rule as bulk Close and marking spam: a live review is settled first, not left attached to a closed chat.
+  const { data: openReviews, error: reviewError } = await supabase
+    .from("conversation_interventions")
+    .select("id")
+    .eq("agency_id", agencyId)
+    .eq("conversation_id", idCheck.data)
+    .in("status", ["OPEN", "ACKNOWLEDGED"])
+    .limit(1);
+  if (reviewError) return inboxFailure("closeConversation", reviewError, "Could not check this conversation, so it was not closed.");
+  if ((openReviews ?? []).length > 0) return { ok: false, error: `This conversation has an open review. Resolve it before closing.` };
+
+  const { data: closedRows, error } = await supabase.from("conversations").update({ state: "CLOSED" }).eq("agency_id", agencyId).eq("id", idCheck.data).neq("state", "CLOSED").select("id");
   if (error) return inboxFailure("closeConversation", error, "Could not close this conversation.");
+
+  // Best effort, like an owner change. Only a chat that was actually open gets a row, so a double click adds none.
+  if ((closedRows ?? []).length > 0) {
+    try {
+      await createAdminClient().from("conversation_events").insert({
+        agency_id: agencyId,
+        conversation_id: idCheck.data,
+        kind: CONVERSATION_CLOSED_EVENT_KIND,
+        actor_kind: "STAFF",
+        actor_id: user.id,
+        data: { actorName: actorName ?? null },
+      });
+    } catch (cause) {
+      console.error("Close audit failed:", cause instanceof Error ? cause.message : cause);
+    }
+  }
 
   return { ok: true };
 }

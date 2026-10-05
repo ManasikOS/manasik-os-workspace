@@ -27,6 +27,10 @@ export function historyEntryFor(event: HistoryEventRow): HistoryEntry | null {
     return { id: event.id, at: event.occurred_at, label: reason ? `Assigned to ${owner} by routing: ${reason}` : `Assigned to ${owner} by routing` };
   }
   if (event.kind === "CUSTOMER_REOPENED") return { id: event.id, at: event.occurred_at, label: "Reopened by the customer" };
+  if (event.kind === "CONVERSATION_CLOSED") {
+    const closedBy = text(event.data.actorName);
+    return { id: event.id, at: event.occurred_at, label: closedBy ? `Closed by ${closedBy}` : "Closed" };
+  }
   if (event.kind !== "OWNER_CHANGED") return null;
   const from = text(event.data.from_name);
   const to = text(event.data.to_name);
