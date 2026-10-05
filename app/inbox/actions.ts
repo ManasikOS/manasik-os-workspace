@@ -16,6 +16,7 @@ import { canBeVisaOfficer } from "@/lib/inbox/visa-officer";
 import { insertVisaEvent, updateVisaFields } from "@/lib/data/visa-repository";
 import { dialableDigits } from "@/lib/inbox/new-chat-lead-match";
 import { assignmentNotification, canTakeInboxConversations, OWNER_CHANGED_EVENT_KIND, ownerChangedEventData, planConversationAssignment } from "@/lib/inbox/assignment";
+import { decideReleaseToAi, decideReplyOnOwnedConversation, decideTakeControl, type OwnedConversationFacts } from "@/lib/inbox/ownership-guard";
 import { decideStartOnExistingConversation, type ExistingConversationForStart } from "@/lib/inbox/start-conversation-guard";
 import { insertReviewEvent } from "@/lib/data/documents-repository";
 import { INBOX_ATTACHMENT_BUCKET } from "@/lib/inbox/media/handlers";
@@ -1168,7 +1169,7 @@ export async function startEmailConversation(rawInput: {
 
 /** Sends an approved WhatsApp template into an existing conversation when free text is unavailable. */
 export async function sendConversationTemplateAction(input: unknown): Promise<ActionResult> {
-  await requireUser();
+  const user = await requireUser();
   const parsed = inboxTemplateMessageSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the template message." };
 
@@ -1177,13 +1178,16 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
   const supabase = await db();
   const { data: conversation, error: conversationError } = await supabase
     .from("conversations")
-    .select("id, agency_id, channel, state, contact_phone, external_conversation_id")
+    .select("id, agency_id, channel, state, contact_phone, external_conversation_id, assigned_to_id, assigned_to_name")
     .eq("id", parsed.data.conversationId)
     .eq("agency_id", agencyId)
     .maybeSingle();
   if (conversationError || !conversation) return { ok: false, error: "Conversation not found." };
   if (conversation.channel !== "WHATSAPP") return { ok: false, error: "Approved templates can only be sent on WhatsApp." };
   if (conversation.state === "CLOSED") return { ok: false, error: "This conversation is closed." };
+  // Sending makes the sender the owner, so a chat a colleague owns is refused before anything is sent.
+  const ownerDecision = decideReplyOnOwnedConversation({ conversation: conversation as OwnedConversationFacts, currentStaffId: staffId });
+  if (!ownerDecision.ok) return ownerDecision;
   const to = String(conversation.external_conversation_id || conversation.contact_phone || "").replace(/\D/g, "");
   if (!/^\d{8,15}$/.test(to)) return { ok: false, error: "This conversation has no valid WhatsApp number." };
 
@@ -1211,12 +1215,23 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
   });
   if (messageError) return { ok: false, error: "The message was sent, but the CRM could not save it. Refresh before retrying." };
 
-  const { error: conversationUpdateError } = await supabase
+  const previousOwnerId = (conversation.assigned_to_id as string | null) ?? null;
+  let guardedUpdate = supabase
     .from("conversations")
     .update({ state: "HUMAN_ACTIVE", assigned_to_id: staffId, assigned_to_name: name, last_outbound_at: now })
     .eq("id", conversation.id)
     .eq("agency_id", agencyId);
-  if (conversationUpdateError) return { ok: false, error: "The message was sent, but the conversation status could not be updated. Refresh before retrying." };
+  guardedUpdate = previousOwnerId === null ? guardedUpdate.is("assigned_to_id", null) : guardedUpdate.eq("assigned_to_id", previousOwnerId);
+  const { data: updatedRows, error: conversationUpdateError } = await guardedUpdate.select("id");
+  if (conversationUpdateError || !updatedRows || updatedRows.length === 0) return { ok: false, error: "The message was sent, but the conversation status could not be updated. Refresh before retrying." };
+  await recordOwnerChange({
+    agencyId,
+    conversationId: conversation.id as string,
+    actorId: user.id,
+    actorName: name ?? null,
+    from: { id: previousOwnerId, name: (conversation.assigned_to_name as string | null) ?? null },
+    to: { id: staffId, name: name ?? null },
+  });
   revalidatePath("/inbox");
   return { ok: true };
 }
@@ -1244,22 +1259,76 @@ export async function markConversationRead(rawConversationId: string): Promise<A
   return { ok: true };
 }
 
+/** Best effort, like every other owner change: the history row never undoes the change it describes. */
+async function recordOwnerChange(input: {
+  agencyId: string;
+  conversationId: string;
+  actorId: string;
+  actorName: string | null;
+  from: { id: string | null; name: string | null };
+  to: { id: string | null; name: string | null };
+}): Promise<void> {
+  if (input.from.id === input.to.id) return;
+  try {
+    const { error } = await createAdminClient().from("conversation_events").insert({
+      agency_id: input.agencyId,
+      conversation_id: input.conversationId,
+      kind: OWNER_CHANGED_EVENT_KIND,
+      actor_kind: "STAFF",
+      actor_id: input.actorId,
+      data: ownerChangedEventData({ from: input.from, to: input.to, actorName: input.actorName }),
+    });
+    if (error) console.error("Could not record the owner change:", error.message);
+  } catch (cause) {
+    console.error("Could not record the owner change:", cause instanceof Error ? cause.message : cause);
+  }
+}
+
+const CONVERSATION_CHANGED_MESSAGE = "Someone else changed this conversation just now. Refresh and try again.";
+
+/**
+ * Makes the caller the conversation's owner and pauses the assistant. Refused when a colleague owns the chat or the chat is closed
+ * (giving a chat to someone is the Assign action), and the write is a compare-and-swap on the state and owner that were checked.
+ */
 export async function takeControl(rawConversationId: string): Promise<ActionResult> {
-  await requireUser();
+  const user = await requireUser();
   const { role, staffId, name, agencyId } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).takeControl || !agencyId) return { ok: false, error: "Not permitted." };
   const idCheck = inboxEntityIdSchema.safeParse(rawConversationId);
   if (!idCheck.success) return { ok: false, error: "Conversation not found." };
 
   const supabase = await db();
-  // Row security already confines the session to its agency; naming it here keeps the guarantee if a policy ever loosens.
-  const { error } = await supabase
+  const { data: current, error: readError } = await supabase
+    .from("conversations")
+    .select("state, assigned_to_id, assigned_to_name")
+    .eq("agency_id", agencyId)
+    .eq("id", idCheck.data)
+    .maybeSingle();
+  if (readError) return inboxFailure("takeControl", readError, "Could not take control of this conversation.");
+  if (!current) return { ok: false, error: "Conversation not found." };
+  const facts = current as OwnedConversationFacts;
+  const decision = decideTakeControl({ conversation: facts, currentStaffId: staffId });
+  if (!decision.ok) return decision;
+
+  let guardedUpdate = supabase
     .from("conversations")
     .update({ state: "HUMAN_ACTIVE", assigned_to_id: staffId, assigned_to_name: name })
     .eq("agency_id", agencyId)
-    .eq("id", idCheck.data);
+    .eq("id", idCheck.data)
+    .eq("state", facts.state);
+  guardedUpdate = facts.assigned_to_id === null ? guardedUpdate.is("assigned_to_id", null) : guardedUpdate.eq("assigned_to_id", facts.assigned_to_id);
+  const { data: updatedRows, error } = await guardedUpdate.select("id");
   if (error) return inboxFailure("takeControl", error, "Could not take control of this conversation.");
+  if (!updatedRows || updatedRows.length === 0) return { ok: false, error: CONVERSATION_CHANGED_MESSAGE };
 
+  await recordOwnerChange({
+    agencyId,
+    conversationId: idCheck.data,
+    actorId: user.id,
+    actorName: name ?? null,
+    from: { id: facts.assigned_to_id, name: facts.assigned_to_name },
+    to: { id: staffId, name: name ?? null },
+  });
   return { ok: true };
 }
 
@@ -1345,17 +1414,49 @@ export async function assignConversationAction(input: unknown): Promise<ActionRe
   return { ok: true };
 }
 
+/**
+ * Hands a chat back to the assistant. Only its owner (or an administrator) may, never while a review is open on it, and the owner is
+ * cleared so a stale name does not keep colleagues from taking the chat later.
+ */
 export async function releaseToAi(rawConversationId: string): Promise<ActionResult> {
-  await requireUser();
-  const { role, agencyId } = await getCurrentStaffRole();
+  const user = await requireUser();
+  const { role, agencyId, staffId, name } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).releaseToAi || !agencyId) return { ok: false, error: "Not permitted." };
   const idCheck = inboxEntityIdSchema.safeParse(rawConversationId);
   if (!idCheck.success) return { ok: false, error: "Conversation not found." };
 
   const supabase = await db();
-  const { error } = await supabase.from("conversations").update({ state: "AI_RESUMED" }).eq("agency_id", agencyId).eq("id", idCheck.data);
-  if (error) return inboxFailure("releaseToAi", error, "Could not hand this conversation back to the assistant.");
+  const [{ data: current, error: readError }, { data: openReviews, error: reviewError }] = await Promise.all([
+    supabase.from("conversations").select("state, assigned_to_id, assigned_to_name").eq("agency_id", agencyId).eq("id", idCheck.data).maybeSingle(),
+    supabase.from("conversation_interventions").select("id").eq("agency_id", agencyId).eq("conversation_id", idCheck.data).in("status", ["OPEN", "ACKNOWLEDGED"]).limit(1),
+  ]);
+  if (readError) return inboxFailure("releaseToAi", readError, "Could not hand this conversation back to the assistant.");
+  // Unknown is not "clear": if the open reviews cannot be read, the chat stays with the person.
+  if (reviewError) return inboxFailure("releaseToAi.reviews", reviewError, "Could not check whether a review is open on this conversation. Try again in a moment.");
+  if (!current) return { ok: false, error: "Conversation not found." };
+  const facts = current as OwnedConversationFacts;
+  const decision = decideReleaseToAi({ conversation: facts, currentStaffId: staffId, isAdministrator: role === "ADMIN", openReviewCount: openReviews?.length ?? 0 });
+  if (!decision.ok) return decision;
 
+  let guardedUpdate = supabase
+    .from("conversations")
+    .update({ state: "AI_RESUMED", assigned_to_id: null, assigned_to_name: null })
+    .eq("agency_id", agencyId)
+    .eq("id", idCheck.data)
+    .eq("state", facts.state);
+  guardedUpdate = facts.assigned_to_id === null ? guardedUpdate.is("assigned_to_id", null) : guardedUpdate.eq("assigned_to_id", facts.assigned_to_id);
+  const { data: updatedRows, error } = await guardedUpdate.select("id");
+  if (error) return inboxFailure("releaseToAi", error, "Could not hand this conversation back to the assistant.");
+  if (!updatedRows || updatedRows.length === 0) return { ok: false, error: CONVERSATION_CHANGED_MESSAGE };
+
+  await recordOwnerChange({
+    agencyId,
+    conversationId: idCheck.data,
+    actorId: user.id,
+    actorName: name ?? null,
+    from: { id: facts.assigned_to_id, name: facts.assigned_to_name },
+    to: { id: null, name: null },
+  });
   return { ok: true };
 }
 
@@ -2251,7 +2352,10 @@ export async function sendStaffMessage(
         .from("conversations")
         .update({ state: conversation.state, assigned_to_id: (conversation.assigned_to_id as string | null) ?? null, assigned_to_name: (conversation.assigned_to_name as string | null) ?? null })
         .eq("agency_id", agencyId)
-        .eq("id", conversationId);
+        .eq("id", conversationId)
+        // Only undo our own takeover: if anything changed the chat since, leave it as it now is.
+        .eq("state", "HUMAN_ACTIVE")
+        .eq("assigned_to_id", staffId ?? "");
       if (restoreError) console.error("Inbox action failed (sendStaffMessage.restore):", restoreError.message);
     }
     return inboxFailure("sendStaffMessage.enqueue", error, "The message could not be sent. Please try again.");
