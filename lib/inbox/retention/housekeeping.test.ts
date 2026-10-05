@@ -10,9 +10,14 @@ import { runInboxHousekeeping } from "./housekeeping";
 
 type RpcAnswer = { data: unknown; error: unknown };
 
-function world(input: { orphans?: RpcAnswer; remove?: { data: unknown[] | null; error: unknown } }) {
+function world(input: { orphans?: RpcAnswer; remove?: { data: unknown[] | null; error: unknown }; counterDelete?: { message: string } }) {
   const removed: string[][] = [];
+  const counterCutoffs: string[] = [];
   const db = {
+    from: (table: string) => {
+      if (table !== "inbox_rate_limit_counters") throw new Error(`unexpected table ${table}`);
+      return { delete: () => ({ lt: async (_column: string, cutoff: string) => (counterCutoffs.push(cutoff), { error: input.counterDelete ?? null }) }) };
+    },
     rpc: async (name: string) => {
       if (name === "find_orphan_staged_uploads") return input.orphans ?? { data: [], error: null };
       throw new Error(`unexpected rpc ${name}`);
@@ -26,19 +31,29 @@ function world(input: { orphans?: RpcAnswer; remove?: { data: unknown[] | null; 
       }),
     },
   };
-  return { db: db as unknown as Db, removed };
+  return { db: db as unknown as Db, removed, counterCutoffs };
 }
 
 describe("runInboxHousekeeping", () => {
+  it("SEC-6: removes rate-limit counters older than three days, and counts a failure to do so", async () => {
+    const now = new Date("2026-10-10T12:00:00.000Z");
+    const ok = world({});
+    expect(await runInboxHousekeeping(ok.db, now)).toEqual({ orphanUploadsRemoved: 0, failures: 0 });
+    expect(ok.counterCutoffs).toEqual(["2026-10-07T12:00:00.000Z"]);
+    const failing = world({ counterDelete: { message: "boom" } });
+    expect(await runInboxHousekeeping(failing.db, now)).toMatchObject({ failures: 1 });
+  });
+
   it("does nothing, and reports nothing wrong, when there is nothing to clean", async () => {
     const w = world({});
     expect(await runInboxHousekeeping(w.db)).toEqual({ orphanUploadsRemoved: 0, failures: 0 });
     expect(w.removed).toHaveLength(0);
   });
 
-  it("no longer touches the Inngest outbox: the only database call it makes is the orphan listing", async () => {
+  it("no longer touches the Inngest outbox: the only database function it calls is the orphan listing", async () => {
     const calls: string[] = [];
     const db = {
+      from: () => ({ delete: () => ({ lt: async () => ({ error: null }) }) }),
       rpc: async (name: string) => {
         calls.push(name);
         return { data: [], error: null };

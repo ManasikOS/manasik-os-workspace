@@ -5,9 +5,11 @@ import { BULK_ACTION_LIMIT, bulkResultSummary, planBulkAction, type BulkConversa
 const chat = (id: string, state: BulkConversationInput["state"], assignedToId: string | null = null): BulkConversationInput => ({ id, state, assignedToId });
 const nadeesha = { id: "s1", name: "Nadeesha" };
 
+const checked = (input: BulkConversationInput, hasOpenReview = false): BulkConversationInput => ({ ...input, hasOpenReview });
+
 describe("planBulkAction close", () => {
   it("closes every open chat with the same one-field change as the single Close button", () => {
-    const plan = planBulkAction({ kind: "CLOSE" }, [chat("a", "AI_ACTIVE"), chat("b", "HUMAN_ACTIVE", "s9"), chat("c", "HUMAN_REQUESTED")]);
+    const plan = planBulkAction({ kind: "CLOSE" }, [checked(chat("a", "AI_ACTIVE")), checked(chat("b", "HUMAN_ACTIVE", "s9")), checked(chat("c", "HUMAN_REQUESTED"))]);
     expect(plan.changed).toEqual([
       { id: "a", patch: { state: "CLOSED" } },
       { id: "b", patch: { state: "CLOSED" } },
@@ -17,9 +19,26 @@ describe("planBulkAction close", () => {
   });
 
   it("leaves a chat that is already closed alone", () => {
-    const plan = planBulkAction({ kind: "CLOSE" }, [chat("a", "CLOSED"), chat("b", "AI_ACTIVE")]);
+    const plan = planBulkAction({ kind: "CLOSE" }, [checked(chat("a", "CLOSED")), checked(chat("b", "AI_ACTIVE"))]);
     expect(plan.changed.map((item) => item.id)).toEqual(["b"]);
     expect(plan.skipped).toEqual([{ id: "a", reason: "Already closed." }]);
+  });
+
+  it("BUG-9: leaves a chat with an open review open, and says to resolve the review first", () => {
+    const plan = planBulkAction({ kind: "CLOSE" }, [checked(chat("a", "HUMAN_ACTIVE"), true), checked(chat("b", "AI_ACTIVE"))]);
+    expect(plan.changed.map((item) => item.id)).toEqual(["b"]);
+    expect(plan.skipped).toEqual([{ id: "a", reason: "Has an open review. Resolve it first." }]);
+  });
+
+  it("BUG-9: closes nothing it could not check, rather than guess there is no review", () => {
+    const plan = planBulkAction({ kind: "CLOSE" }, [chat("a", "AI_ACTIVE")]);
+    expect(plan.changed).toEqual([]);
+    expect(plan.skipped).toEqual([{ id: "a", reason: "Could not be checked, so it was left alone." }]);
+  });
+
+  it("BUG-9: a booking does not stop a close", () => {
+    const plan = planBulkAction({ kind: "CLOSE" }, [{ ...checked(chat("a", "AI_ACTIVE")), hasBooking: true }]);
+    expect(plan.changed.map((item) => item.id)).toEqual(["a"]);
   });
 });
 

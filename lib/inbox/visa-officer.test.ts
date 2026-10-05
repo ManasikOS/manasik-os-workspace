@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { canBeVisaOfficer } from "./visa-officer";
+import { canBeVisaOfficer, VISA_OFFICER_ROLES } from "./visa-officer";
+
+describe("VISA_OFFICER_ROLES", () => {
+  it("is exactly the roles canBeVisaOfficer accepts, so the officer query and the check cannot disagree", () => {
+    expect([...VISA_OFFICER_ROLES].sort()).toEqual(["ADMIN", "OPERATIONS", "VISA"]);
+    for (const role of VISA_OFFICER_ROLES) expect(canBeVisaOfficer({ role, status: "ACTIVE" })).toBe(true);
+  });
+});
 
 describe("canBeVisaOfficer", () => {
   it("allows active staff whose role does visa work", () => {

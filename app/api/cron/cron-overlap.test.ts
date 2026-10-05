@@ -74,6 +74,7 @@ vi.mock("@/utils/supabase/admin", () => ({
       const builder: Record<string, unknown> = {
         select: () => builder,
         eq: () => builder,
+        order: () => builder,
         then: (resolve: (value: { data: unknown[]; error: null }) => unknown) => resolve({ data: tables[table] ?? [], error: null }),
       };
       return builder;

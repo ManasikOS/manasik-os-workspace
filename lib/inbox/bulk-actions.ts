@@ -20,6 +20,11 @@ type ConversationLifecycleStatus = (typeof CONVERSATION_LIFECYCLE_STATUSES)[numb
 /** The audit events a spam change writes, one per conversation. */
 export const SPAM_MARKED_EVENT_KIND = "SPAM_MARKED";
 export const SPAM_RESTORED_EVENT_KIND = "SPAM_RESTORED";
+/** Written when staff close a chat, single or bulk, so the history shows who closed it. */
+export const CONVERSATION_CLOSED_EVENT_KIND = "CONVERSATION_CLOSED";
+
+/** Why a chat with an unresolved review cannot be closed, shared by the single Close button and bulk Close. */
+export const CLOSE_BLOCKED_BY_REVIEW_REASON = "Has an open review. Resolve it first.";
 
 /** The most conversations one bulk change touches, so a mistake stays small and a request stays quick. */
 export const BULK_ACTION_LIMIT = 50;
@@ -58,7 +63,11 @@ export function planBulkAction(action: BulkAction, conversations: readonly BulkC
       continue;
     }
     if (action.kind === "CLOSE") {
+      // Closing hides the chat from the working lists, so a live complaint or payment review must be settled first. A booking
+      // does not stop a close: closing the chat of a customer who has booked is normal work.
       if (conversation.state === "CLOSED") plan.skipped.push({ id: conversation.id, reason: "Already closed." });
+      else if (conversation.hasOpenReview === undefined) plan.skipped.push({ id: conversation.id, reason: "Could not be checked, so it was left alone." });
+      else if (conversation.hasOpenReview) plan.skipped.push({ id: conversation.id, reason: CLOSE_BLOCKED_BY_REVIEW_REASON });
       else plan.changed.push({ id: conversation.id, patch: { state: "CLOSED" } });
       continue;
     }
@@ -82,7 +91,7 @@ function planSpamChange(kind: "MARK_SPAM" | "UNMARK_SPAM", conversation: BulkCon
   }
   if (lifecycleStatus === "SPAM") return { reason: "Already marked as spam." };
   if (hasBooking) return { reason: "Linked to a booking, so it is not treated as spam." };
-  if (hasOpenReview) return { reason: "Has an open review. Resolve it first." };
+  if (hasOpenReview) return { reason: CLOSE_BLOCKED_BY_REVIEW_REASON };
   if (leadIsSpam) return { reason: "Already treated as spam through its lead." };
   return { lifecycleStatus: "SPAM" };
 }

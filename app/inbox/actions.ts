@@ -9,16 +9,19 @@ import { logEvent } from "@/lib/observability/log";
 import { reportHandledError } from "@/lib/observability/report-error";
 import { capabilitiesForDocuments } from "@/lib/access/documents-access";
 import { capabilitiesFor } from "@/lib/access/departure-groups-access";
-import { BULK_ACTION_LIMIT, SPAM_MARKED_EVENT_KIND, SPAM_RESTORED_EVENT_KIND, bulkResultSummary, planBulkAction, type BulkConversationInput } from "@/lib/inbox/bulk-actions";
+import { BULK_ACTION_LIMIT, CONVERSATION_CLOSED_EVENT_KIND, SPAM_MARKED_EVENT_KIND, SPAM_RESTORED_EVENT_KIND, bulkResultSummary, planBulkAction, type BulkConversationInput } from "@/lib/inbox/bulk-actions";
 import { parseSavedViewInput, SAVED_VIEW_LIMIT, savedViewsFromRows, type SavedView } from "@/lib/inbox/saved-views";
 import { parsePassportDetails } from "@/lib/inbox/passport-fields";
-import { canBeVisaOfficer } from "@/lib/inbox/visa-officer";
+import { canBeVisaOfficer, VISA_OFFICER_ROLES } from "@/lib/inbox/visa-officer";
 import { insertVisaEvent, updateVisaFields } from "@/lib/data/visa-repository";
 import { dialableDigits } from "@/lib/inbox/new-chat-lead-match";
 import { assignmentNotification, canTakeInboxConversations, OWNER_CHANGED_EVENT_KIND, ownerChangedEventData, planConversationAssignment } from "@/lib/inbox/assignment";
 import { claimRefusalMessage, claimTemplateSend, attachTemplateConversation, recordTemplateFailed, recordTemplateSent } from "@/lib/inbox/template-send-claims";
 import { decideReleaseToAi, decideReplyOnOwnedConversation, decideTakeControl, type OwnedConversationFacts } from "@/lib/inbox/ownership-guard";
 import { decideStartOnExistingConversation, type ExistingConversationForStart } from "@/lib/inbox/start-conversation-guard";
+import { openStartedConversation } from "@/lib/inbox/start-conversation-write";
+import { checkStartChatConsent } from "@/lib/inbox/start-chat-consent";
+import { consumeInboxRateLimit } from "@/lib/inbox/rate-limit/limiter";
 import { insertReviewEvent } from "@/lib/data/documents-repository";
 import { INBOX_ATTACHMENT_BUCKET } from "@/lib/inbox/media/handlers";
 import { claimInboxAttachmentForPromotion, markInboxAttachmentPromoted, releaseInboxAttachmentClaim } from "@/lib/inbox/retention/promote-attachment";
@@ -55,7 +58,7 @@ import { loadIntelligence } from "@/lib/data/conversation-intelligence-repositor
 import { checkStoredOffer } from "@/lib/data/inbox-offer-repository";
 import { canQuoteOffer, intentCodeSchema, OFFER_CHECK_MESSAGES, type MatchedOfferSnapshot, type OfferCheckState } from "@/lib/inbox/intelligence/contracts";
 import { composeFollowUp, composeOfferReply } from "@/lib/inbox/intelligence/offer";
-import { confirmIdentityLink, rejectIdentityLinks, unlinkIdentityLink } from "@/lib/data/identity-graph-repository";
+import { confirmIdentityLink, recordIdentityKeptSeparate, rejectIdentityLinks, restoreRejectedIdentityLinks, unlinkIdentityLink } from "@/lib/data/identity-graph-repository";
 import { acknowledgeIntervention, listInterventions, openIntervention, resolveIntervention } from "@/lib/data/conversation-intelligence-repository";
 import { loadProtectionContext } from "@/lib/data/inbox-risk-repository";
 import { canCloseIntervention, closingCapability } from "@/lib/inbox/risk/interventions";
@@ -176,7 +179,7 @@ export type InboxTranslationActionResult =
 
 /** Translates one verified agency-scoped message, or the current stored digest, without persisting the translation. */
 export async function translateInboxTextAction(input: unknown): Promise<InboxTranslationActionResult> {
-  await requireUser();
+  const user = await requireUser();
   const parsed = inboxTranslationRequestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Choose a valid message to translate." };
   const { role, agencyId } = await getCurrentStaffRole();
@@ -189,6 +192,9 @@ export async function translateInboxTextAction(input: unknown): Promise<InboxTra
       .then(({ data, error }) => error || !data ? null : String(data.digest ?? "").trim());
   if (text === null) return { ok: false, error: "That Inbox content is no longer available." };
   if (!text) return { ok: false, error: "There is no text to translate yet." };
+  // Every role that can open the Inbox may translate, so the model call is limited per person and per agency (the agency's monthly AI budget is checked inside it).
+  const allowance = await consumeInboxRateLimit(createAdminClient(), { agencyId, userId: user.id, action: "TRANSLATE" });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
   const result = await translateInboxText({ agencyId, conversationId: parsed.data.conversationId, text, targetLanguage: parsed.data.targetLanguage, db: supabase });
   if (!result.value) return { ok: false, error: result.note ?? "Translation is unavailable. The original message is still available." };
   return { ok: true, ...result.value, source: result.source, note: result.note };
@@ -494,6 +500,7 @@ export async function loadVisaOfficersAction(): Promise<LoadVisaOfficersResult> 
     .select("id, full_name, role, status")
     .eq("agency_id", agencyId)
     .eq("status", "ACTIVE")
+    .in("role", [...VISA_OFFICER_ROLES])
     .order("full_name")
     .limit(100);
   if (error) return inboxFailure("loadVisaOfficers", error, "Could not load the visa officers.");
@@ -609,6 +616,14 @@ export async function bulkUpdateConversationsAction(input: unknown): Promise<Bul
 
   // The facts a spam change must check first: a booking on the lead, an open review, and the lead's own spam stage.
   const spamFacts = new Map<string, { leadIsSpam: boolean; hasBooking: boolean; hasOpenReview: boolean }>();
+  // Closing needs only the open-review fact: a chat with a live complaint or payment review must not be closed out from under it.
+  const closeReviewFacts = new Map<string, boolean>();
+  if (action.kind === "CLOSE") {
+    const { data: reviewRows, error: reviewError } = await supabase.from("conversation_interventions").select("conversation_id").eq("agency_id", agencyId).in("conversation_id", ids).in("status", ["OPEN", "ACKNOWLEDGED"]);
+    if (reviewError) return inboxFailure("bulkUpdateConversations", reviewError, "Could not check the conversations, so nothing was changed.");
+    const withReview = new Set(((reviewRows ?? []) as Array<{ conversation_id: string }>).map((review) => review.conversation_id));
+    for (const row of found) closeReviewFacts.set(row.id, withReview.has(row.id));
+  }
   if (isSpamChange) {
     const leadIds = [...new Set(found.map((row) => row.lead_id).filter((id): id is string => id !== null))];
     const [leadRead, reviewRead] = await Promise.all([
@@ -647,6 +662,7 @@ export async function bulkUpdateConversationsAction(input: unknown): Promise<Bul
       state: row.state,
       assignedToId: row.assigned_to_id,
       ...(isSpamChange ? { lifecycleStatus: row.lifecycle_status ?? (row.state === "CLOSED" ? "CLOSED" : "OPEN"), ...spamFacts.get(row.id) } : {}),
+      ...(action.kind === "CLOSE" ? { hasOpenReview: closeReviewFacts.get(row.id) } : {}),
     })),
   );
   // Ids the read did not return (not this agency's, or gone) are left alone too, so the counts add up to what was asked.
@@ -713,6 +729,24 @@ export async function bulkUpdateConversationsAction(input: unknown): Promise<Bul
       }
     } catch (cause) {
       console.error("Bulk owner change follow-up failed:", cause instanceof Error ? cause.message : cause);
+    }
+  }
+
+  // Best effort, like the others: one history row for every chat this closed.
+  if (action.kind === "CLOSE" && written.length > 0) {
+    try {
+      await createAdminClient().from("conversation_events").insert(
+        written.map((id) => ({
+          agency_id: agencyId,
+          conversation_id: id,
+          kind: CONVERSATION_CLOSED_EVENT_KIND,
+          actor_kind: "STAFF",
+          actor_id: user.id,
+          data: { actorName: actorName ?? null, bulk: true },
+        })),
+      );
+    } catch (cause) {
+      console.error("Bulk close audit failed:", cause instanceof Error ? cause.message : cause);
     }
   }
 
@@ -1034,6 +1068,9 @@ export async function startWhatsAppChat(rawInput: {
   if (existingChat === "UNREADABLE") return { ok: false, error: "Could not check whether this number already has a conversation. Try again." };
   const startDecision = decideStartOnExistingConversation({ existing: existingChat, currentStaffId: staffId, contactNoun: "number" });
   if (!startDecision.ok) return startDecision;
+  // A lead who opted out, or asked not to be contacted, is not messaged (the same rule Copilot's draft path applies).
+  const consent = await checkStartChatConsent(supabase, { agencyId, mobile: waIdToMobile(to) });
+  if (!consent.allowed) return { ok: false, error: consent.error };
 
   // The attempt is recorded BEFORE Meta is called, so a repeat of this send (double click, retry, second tab) cannot send and bill twice.
   const claim = await claimTemplateSend(admin, { agencyId, key: input.clientIdempotencyKey, staffId: user.id });
@@ -1045,6 +1082,13 @@ export async function startWhatsAppChat(rawInput: {
   const claimRefusal = claimRefusalMessage(claim);
   if (claimRefusal) return { ok: false, error: claimRefusal };
 
+  // After the claim, so a repeat of an attempt that already went out never uses a second slot; before Meta, so a refused one never reaches it.
+  const allowance = await consumeInboxRateLimit(admin, { agencyId, userId: user.id, action: "START_WHATSAPP_CHAT" });
+  if (!allowance.ok) {
+    await recordTemplateFailed(admin, { agencyId, key: input.clientIdempotencyKey, error: allowance.error });
+    return { ok: false, error: allowance.error };
+  }
+
   const sent = await sendApprovedTemplate({
     db: admin,
     agencyId,
@@ -1055,6 +1099,7 @@ export async function startWhatsAppChat(rawInput: {
     ...(existingChat ? { checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, existingChat.id) } : {}),
   });
   if (!sent.ok) {
+    await allowance.giveBack();
     await recordTemplateFailed(admin, { agencyId, key: input.clientIdempotencyKey, error: sent.error });
     return { ok: false, error: sent.error };
   }
@@ -1065,26 +1110,31 @@ export async function startWhatsAppChat(rawInput: {
   const now = new Date().toISOString();
   // A name typed now wins; otherwise keep the name the existing conversation already has instead of replacing it with the number.
   const contactName = input.contactName?.trim() || existingChat?.contact_name?.trim() || `+${to}`;
-  const { data: conversation, error: conversationError } = await supabase
-    .from("conversations")
-    .upsert(
-      {
-        agency_id: agencyId,
-        channel: "WHATSAPP",
-        external_conversation_id: to,
-        contact_name: contactName,
-        contact_phone: to,
-        state: "HUMAN_ACTIVE",
-        assigned_to_id: staffId,
-        assigned_to_name: name,
-        last_outbound_at: now,
-      },
-      { onConflict: "agency_id,channel,external_conversation_id" },
-    )
-    .select("id")
-    .single();
-  if (conversationError || !conversation) {
+  // The message is already out, so a chat a colleague picked up in the meantime is recorded in as it is, never taken over.
+  const opened = await openStartedConversation(supabase, {
+    agencyId,
+    channel: "WHATSAPP",
+    externalId: to,
+    staffId,
+    staffName: name,
+    fields: { contact_name: contactName, contact_phone: to, last_outbound_at: now },
+    existing: existingChat,
+    readExisting: () => findExistingConversationForStart(supabase, agencyId, "WHATSAPP", to),
+  });
+  if (!opened.ok) {
     return { ok: false, error: "The message was sent, but the CRM could not open the conversation. Refresh before retrying." };
+  }
+  const conversation = { id: opened.conversationId };
+  // Taking over a closed chat that was someone else's is an owner change like any other, so the history shows it.
+  if (opened.tookOver && opened.previous) {
+    await recordOwnerChange({
+      agencyId,
+      conversationId: conversation.id,
+      actorId: user.id,
+      actorName: name ?? null,
+      from: { id: opened.previous.assigned_to_id, name: opened.previous.assigned_to_name },
+      to: { id: staffId, name },
+    });
   }
 
   await attachTemplateConversation(admin, { agencyId, key: input.clientIdempotencyKey, conversationId: conversation.id as string });
@@ -1153,7 +1203,7 @@ export async function startEmailConversation(rawInput: {
   cc?: string[];
   bcc?: string[];
 }): Promise<StartChatResult> {
-  await requireUser();
+  const user = await requireUser();
   const { role, agencyId, staffId, name } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).sendMessage) return { ok: false, error: "Not permitted." };
   if (!agencyId) return { ok: false, error: "No agency resolved for your account." };
@@ -1178,27 +1228,40 @@ export async function startEmailConversation(rawInput: {
     const refusal = await protectionCheckForOutgoingText(supabase, agencyId, existingChat.id)(outboundGateText({ subject: input.subject, body: input.body }));
     if (refusal) return { ok: false, error: refusal };
   }
+  // After every cheap refusal, so a refused email never uses a slot; given back below if the email is not queued after all.
+  const allowance = await consumeInboxRateLimit(admin, { agencyId, userId: user.id, action: "START_EMAIL_CONVERSATION" });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
   const now = new Date().toISOString();
-  const { data: conversation, error: conversationError } = await supabase
-    .from("conversations")
-    .upsert(
-      {
-        agency_id: agencyId,
-        channel: "GMAIL",
-        external_conversation_id: recipient,
-        contact_name: existingChat?.contact_name?.trim() || recipient,
-        connection_id: connection.id,
-        state: "HUMAN_ACTIVE",
-        assigned_to_id: staffId,
-        assigned_to_name: name,
-        last_outbound_at: now,
-      },
-      { onConflict: "agency_id,channel,external_conversation_id" },
-    )
-    .select("id")
-    .single();
-  if (conversationError || !conversation) {
+  const opened = await openStartedConversation(supabase, {
+    agencyId,
+    channel: "GMAIL",
+    externalId: recipient,
+    staffId,
+    staffName: name,
+    fields: { contact_name: existingChat?.contact_name?.trim() || recipient, connection_id: connection.id, last_outbound_at: now },
+    existing: existingChat,
+    readExisting: () => findExistingConversationForStart(supabase, agencyId, "GMAIL", recipient),
+  });
+  if (!opened.ok) {
+    await allowance.giveBack();
     return { ok: false, error: "Could not open the conversation. Refresh before retrying." };
+  }
+  // Nothing is sent yet, so a chat a colleague picked up since the check above stops the email instead of being taken over.
+  if (!opened.tookOver) {
+    await allowance.giveBack();
+    const stillTheirs = decideStartOnExistingConversation({ existing: opened.previous, currentStaffId: staffId, contactNoun: "email address" });
+    return { ok: false, error: stillTheirs.ok ? "Someone else changed this conversation just now. Refresh and try again." : stillTheirs.error };
+  }
+  const conversation = { id: opened.conversationId };
+  if (opened.previous) {
+    await recordOwnerChange({
+      agencyId,
+      conversationId: conversation.id,
+      actorId: user.id,
+      actorName: name ?? null,
+      from: { id: opened.previous.assigned_to_id, name: opened.previous.assigned_to_name },
+      to: { id: staffId, name },
+    });
   }
 
   // Mirrors startWhatsAppChat: only matches an existing lead. Creating one is a separate, explicit Inbox action.
@@ -1222,6 +1285,7 @@ export async function startEmailConversation(rawInput: {
     p_bcc: input.bcc?.length ? input.bcc : null,
   });
   if (error) {
+    await allowance.giveBack();
     return { ok: false, error: "The conversation was created, but the message could not be queued. Open it and try sending again." };
   }
 
@@ -1259,6 +1323,12 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
   const claimRefusal = claimRefusalMessage(claim);
   if (claimRefusal) return { ok: false, error: claimRefusal };
 
+  const allowance = await consumeInboxRateLimit(admin, { agencyId, userId: user.id, action: "SEND_TEMPLATE" });
+  if (!allowance.ok) {
+    await recordTemplateFailed(admin, { agencyId, key: parsed.data.clientIdempotencyKey, error: allowance.error });
+    return { ok: false, error: allowance.error };
+  }
+
   const sent = await sendApprovedTemplate({
     db: admin,
     agencyId,
@@ -1268,6 +1338,7 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
     checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, conversation.id as string),
   });
   if (!sent.ok) {
+    await allowance.giveBack();
     await recordTemplateFailed(admin, { agencyId, key: parsed.data.clientIdempotencyKey, error: sent.error });
     return { ok: false, error: sent.error };
   }
@@ -1535,15 +1606,42 @@ export async function releaseToAi(rawConversationId: string): Promise<ActionResu
 }
 
 export async function closeConversation(rawConversationId: string): Promise<ActionResult> {
-  await requireUser();
-  const { role, agencyId } = await getCurrentStaffRole();
+  const user = await requireUser();
+  const { role, agencyId, name: actorName } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).closeConversation || !agencyId) return { ok: false, error: "Not permitted." };
   const idCheck = inboxEntityIdSchema.safeParse(rawConversationId);
   if (!idCheck.success) return { ok: false, error: "Conversation not found." };
 
   const supabase = await db();
-  const { error } = await supabase.from("conversations").update({ state: "CLOSED" }).eq("agency_id", agencyId).eq("id", idCheck.data);
+  // Same rule as bulk Close and marking spam: a live review is settled first, not left attached to a closed chat.
+  const { data: openReviews, error: reviewError } = await supabase
+    .from("conversation_interventions")
+    .select("id")
+    .eq("agency_id", agencyId)
+    .eq("conversation_id", idCheck.data)
+    .in("status", ["OPEN", "ACKNOWLEDGED"])
+    .limit(1);
+  if (reviewError) return inboxFailure("closeConversation", reviewError, "Could not check this conversation, so it was not closed.");
+  if ((openReviews ?? []).length > 0) return { ok: false, error: `This conversation has an open review. Resolve it before closing.` };
+
+  const { data: closedRows, error } = await supabase.from("conversations").update({ state: "CLOSED" }).eq("agency_id", agencyId).eq("id", idCheck.data).neq("state", "CLOSED").select("id");
   if (error) return inboxFailure("closeConversation", error, "Could not close this conversation.");
+
+  // Best effort, like an owner change. Only a chat that was actually open gets a row, so a double click adds none.
+  if ((closedRows ?? []).length > 0) {
+    try {
+      await createAdminClient().from("conversation_events").insert({
+        agency_id: agencyId,
+        conversation_id: idCheck.data,
+        kind: CONVERSATION_CLOSED_EVENT_KIND,
+        actor_kind: "STAFF",
+        actor_id: user.id,
+        data: { actorName: actorName ?? null },
+      });
+    } catch (cause) {
+      console.error("Close audit failed:", cause instanceof Error ? cause.message : cause);
+    }
+  }
 
   return { ok: true };
 }
@@ -1958,7 +2056,7 @@ export async function reviewConversationTriageAction(input: unknown): Promise<Ac
  * deterministically instead of by the model).
  */
 export async function suggestConversationReplyAction(conversationId: string): Promise<SuggestReplyResult> {
-  await requireUser();
+  const user = await requireUser();
   const { role, agencyId } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).sendMessage || !capabilitiesForLeads(role).useCopilot) {
     return { ok: false, error: "Your role cannot use Manasik Copilot." };
@@ -2023,6 +2121,9 @@ export async function suggestConversationReplyAction(conversationId: string): Pr
     inboxQueuesV2: false,
     surfaces: { INBOX_REPLY: { enabled: Boolean(autonomySurface?.enabled), mode: surfaceMode, autonomy } },
   });
+  // The model call is the part that costs money, so the limit is checked right before it, after every cheap refusal above.
+  const allowance = await consumeInboxRateLimit(createAdminClient(), { agencyId, userId: user.id, action: "SUGGEST_REPLY" });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
   const result = await suggestConversationReply(intelligencePack ?? pack, agencyId, conversationId, supabase, "INBOX_REPLY", protection, { answerCacheEnabled: availability.answerCache });
   if (!result.value) {
     if (result.source === "RULES" && result.note) return { ok: false, error: result.note };
@@ -2116,7 +2217,11 @@ export async function confirmIdentityLinkAction(input: unknown): Promise<ActionR
   return result;
 }
 
-/** "Create separate lead": close every suggestion for this contact (never proposed again) and capture them as their own lead. */
+/**
+ * "Create separate lead": close every suggestion for this contact (never proposed again) and capture them as their own lead.
+ * The suggestions have to be closed first, or the capture would just propose them again. But closing them is only worth keeping if the
+ * lead then exists, so when the capture fails they are reopened and the person can try again or pick a suggestion instead.
+ */
 export async function keepIdentitySeparateAction(input: unknown): Promise<ActionResult> {
   const parsed = inboxConversationRequestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That conversation could not be found." };
@@ -2127,7 +2232,33 @@ export async function keepIdentitySeparateAction(input: unknown): Promise<Action
   const admin = createAdminClient();
   const rejected = await rejectIdentityLinks(admin, { agencyId: who.agencyId, conversationId: parsed.data.conversationId, actorId: who.actorId });
   if (!rejected.ok) return rejected;
-  return captureConversationLead(parsed.data.conversationId);
+
+  let captured: ActionResult;
+  try {
+    captured = await captureConversationLead(parsed.data.conversationId);
+  } catch (cause) {
+    console.error("Create separate lead failed:", cause instanceof Error ? cause.message : cause);
+    captured = { ok: false, error: "Could not create the lead. Please try again." };
+  }
+  if (captured.ok) {
+    await recordIdentityKeptSeparate(admin, { agencyId: who.agencyId, identityId: rejected.identityId, links: rejected.links, actorId: who.actorId });
+    return captured;
+  }
+
+  // The capture failed. If the conversation still has no lead, the suggestions go back as they were. If it somehow has one (the
+  // failure came after the lead was linked), the person did get a separate lead, so the decision stands.
+  const { data: linked, error: linkedError } = await admin.from("conversations").select("lead_id").eq("agency_id", who.agencyId).eq("id", parsed.data.conversationId).maybeSingle();
+  const alreadyHasLead = !linkedError && Boolean((linked as { lead_id: string | null } | null)?.lead_id);
+  if (alreadyHasLead) {
+    await recordIdentityKeptSeparate(admin, { agencyId: who.agencyId, identityId: rejected.identityId, links: rejected.links, actorId: who.actorId });
+    return captured;
+  }
+  const restored = await restoreRejectedIdentityLinks(admin, { agencyId: who.agencyId, linkIds: rejected.links.map((link) => link.id) });
+  if (!restored.ok) {
+    console.error("Create separate lead: the suggestions could not be reopened after the lead failed:", restored.error);
+    return { ok: false, error: `${captured.error} The earlier suggestions for this contact could not be reopened; ask an admin to check them.` };
+  }
+  return captured;
 }
 
 /** Undo a confirmed link: the conversation goes back to the lead it had before, and the pair is not suggested again. */
@@ -2169,10 +2300,14 @@ export type OfferMessageResult = { ok: true; text: string } | { ok: false; error
 
 /** Text for the composer: a reply built from the offer, or the questions still worth asking. Staff edit it; nothing is sent. */
 export async function prepareOfferMessageAction(input: unknown): Promise<OfferMessageResult> {
+  const user = await requireUser();
   const parsed = inboxOfferMessageRequestSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That conversation could not be found." };
   const stored = await loadStoredOffer(parsed.data.conversationId, "send");
   if ("error" in stored) return { ok: false, error: stored.error };
+  // No model call here, but it re-checks live prices and seats on every click, so it has a (generous) cap too.
+  const allowance = await consumeInboxRateLimit(createAdminClient(), { agencyId: stored.agencyId, userId: user.id, action: "PREPARE_OFFER" });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
 
   // Same rule as "Suggest reply": a customer who opted out of contact is not offered a draft.
   const pack = await loadReplyContextPack(stored.supabase, parsed.data.conversationId, stored.agencyId);

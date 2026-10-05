@@ -10,6 +10,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 vi.mock("server-only", () => ({}));
+const limiter = vi.hoisted(() => ({ refusal: null as string | null, calls: [] as Array<{ action: string; userId: string; agencyId: string }> }));
+vi.mock("@/lib/inbox/rate-limit/limiter", () => ({
+  consumeInboxRateLimit: async (_db: unknown, input: { action: string; userId: string; agencyId: string }) => {
+    limiter.calls.push(input);
+    return limiter.refusal ? { ok: false, error: limiter.refusal } : { ok: true, giveBack: async () => undefined };
+  },
+}));
 vi.mock("next/headers", () => ({ cookies: async () => ({}) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -99,6 +106,8 @@ beforeEach(() => {
   loadInboxReplyPack.mockClear();
   suggestConversationReply.mockReset();
   proposalInsertResult = { data: { id: "proposal-1" }, error: null };
+  limiter.refusal = null;
+  limiter.calls.length = 0;
 });
 
 describe("suggestConversationReplyAction — FIX3 AI-assisted conversation metering", () => {
@@ -119,6 +128,20 @@ describe("suggestConversationReplyAction — FIX3 AI-assisted conversation meter
 
     expect(result).toMatchObject({ ok: true, reply: "Cached answer" });
     expect(meterAiConversation).toHaveBeenCalledOnce();
+  });
+
+  it("SEC-6: counts the suggestion against the sender's Copilot limit, right before the model is called", async () => {
+    suggestConversationReply.mockResolvedValue({ value: { reply: "Hello" }, source: "LLM", note: null, runId: "run-1" });
+    await suggestConversationReplyAction(CONVERSATION);
+    expect(limiter.calls).toEqual([{ action: "SUGGEST_REPLY", userId: "staff-1", agencyId: AGENCY }]);
+  });
+
+  it("SEC-6: never calls the model, and meters nothing, when the limit is used up", async () => {
+    limiter.refusal = "You have reached the limit of 40 Copilot suggestions per hour. You can try again after 4:00 pm.";
+    const result = await suggestConversationReplyAction(CONVERSATION);
+    expect(result).toEqual({ ok: false, error: limiter.refusal });
+    expect(suggestConversationReply).not.toHaveBeenCalled();
+    expect(meterAiConversation).not.toHaveBeenCalled();
   });
 
   it("does not meter when Copilot could not draft anything", async () => {

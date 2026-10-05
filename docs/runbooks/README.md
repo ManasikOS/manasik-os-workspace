@@ -20,6 +20,7 @@ because someone will follow it literally.
 - [`inngest.md`](inngest.md) — *(removed, R9)* what replaced Inngest, what was deleted, and how to finish the removal in the dashboards.
 - [`inbox-worker.md`](inbox-worker.md) — the always-on Inbox worker: build and check, configuration, deployment requirements, the staged rollout and rollback, and what to watch.
 - [`inbox-health-alerts.md`](inbox-health-alerts.md) — the five-minute Inbox health check: what it reports to Sentry, the Sentry alert rules to create, release order, and rollback.
+- [`inbox-rate-limits.md`](inbox-rate-limits.md) — the per-person and per-agency limits on starting chats, template sends and AI helpers (SEC-6): the defaults, how to change one agency's limits, how to see usage, and what happens if the counter fails.
 - [`outbound-allowlist.md`](outbound-allowlist.md) — outside production the app sends only to the contacts in `INBOX_OUTBOUND_ALLOWLIST` (empty means nobody), where it is enforced, how to set it, plus the environment banner.
 - [`production-gate.md`](production-gate.md) — the go-live gate (`npm run verify:production`): what each of its checks proves, what a FAIL or PENDING means, the settings it needs, and what it does to the target.
 - [`provider-simulator.md`](provider-simulator.md) — how tests and the go-live gate drive the Inbox without a real phone or Meta account: the in-memory sender for test agencies, signed fake webhooks, failure injection, and the safeguards.

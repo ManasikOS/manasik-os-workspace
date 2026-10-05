@@ -6,6 +6,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 vi.mock("server-only", () => ({}));
+const limiter = vi.hoisted(() => ({ refusal: null as string | null, calls: [] as Array<{ action: string; userId: string; agencyId: string }>, giveBack: vi.fn(async () => undefined) }));
+vi.mock("@/lib/inbox/rate-limit/limiter", () => ({
+  consumeInboxRateLimit: async (_db: unknown, input: { action: string; userId: string; agencyId: string }) => {
+    limiter.calls.push(input);
+    return limiter.refusal ? { ok: false, error: limiter.refusal } : { ok: true, giveBack: limiter.giveBack };
+  },
+}));
 vi.mock("next/headers", () => ({ cookies: async () => ({}) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/server", () => ({ after: vi.fn() }));
@@ -33,7 +40,8 @@ vi.mock("@/utils/supabase/admin", () => ({ createAdminClient: () => fakeAdmin.ad
 let conversationRow: { id: string; state: string; assigned_to_id: string | null; assigned_to_name: string | null; channel: string; contact_phone: string; external_conversation_id: string } | null;
 let openReviews: Array<{ id: string }>;
 let writeMatchesRows = true;
-let upsertFails = false;
+let openFails = false;
+let leadRows: Array<{ consent_status: string; do_not_contact: boolean }> = [];
 let templateText = "Hello";
 const updates: Array<{ patch: Record<string, unknown>; filters: Record<string, unknown> }> = [];
 const rpcCalls: string[] = [];
@@ -56,9 +64,11 @@ vi.mock("@/utils/supabase/server", () => ({
     rpc: async (name: string) => { rpcCalls.push(name); return { data: null, error: null }; },
     from: (table: string) => {
       if (table === "conversation_interventions") return { select: () => chain(() => ({ data: openReviews, error: null })) };
+      // The leads that use the number: none, so the opt-out check lets a start through.
+      if (table === "leads") return { select: () => chain(() => ({ data: leadRows, error: null })) };
       return {
         select: () => chain(() => ({ data: conversationRow, error: null })),
-        upsert: () => chain(() => (upsertFails ? { data: null, error: { message: "boom" } } : { data: { id: CONVERSATION }, error: null })),
+        insert: () => chain(() => (openFails ? { data: null, error: { message: "boom" } } : { data: { id: CONVERSATION }, error: null })),
         update: (patch: Record<string, unknown>) => chain(() => ({ data: writeMatchesRows ? [{ id: CONVERSATION }] : [], error: null }), { patch }),
       };
     },
@@ -80,7 +90,11 @@ beforeEach(() => {
   conversationRow = row("AI_ACTIVE", null);
   openReviews = [];
   writeMatchesRows = true;
-  upsertFails = false;
+  openFails = false;
+  leadRows = [];
+  limiter.refusal = null;
+  limiter.calls.length = 0;
+  limiter.giveBack.mockClear();
   updates.length = 0;
   events.length = 0;
   rpcCalls.length = 0;
@@ -158,6 +172,20 @@ describe("sendConversationTemplateAction", () => {
     expect(sendApprovedTemplate).not.toHaveBeenCalled();
     expect(updates).toHaveLength(0);
   });
+  it("SEC-6: counts the send against the sender's template limit, and sends nothing when the limit is used up", async () => {
+    expect(await sendConversationTemplateAction(input)).toEqual({ ok: true });
+    expect(limiter.calls).toEqual([{ action: "SEND_TEMPLATE", userId: ME, agencyId: AGENCY }]);
+    limiter.calls.length = 0;
+    limiter.refusal = "Your agency has reached today's limit of 400 template messages.";
+    const refused = await sendConversationTemplateAction({ ...input, clientIdempotencyKey: "77777777-7777-4777-8777-777777777777" });
+    expect(refused).toEqual({ ok: false, error: "Your agency has reached today's limit of 400 template messages." });
+    expect(sendApprovedTemplate).toHaveBeenCalledTimes(1);
+  });
+  it("SEC-6: gives the use back when Meta refuses the send", async () => {
+    sendApprovedTemplate.mockResolvedValueOnce({ ok: false, reason: "SEND_FAILED", error: "Meta said no." });
+    expect(await sendConversationTemplateAction(input)).toMatchObject({ ok: false });
+    expect(limiter.giveBack).toHaveBeenCalledTimes(1);
+  });
   it("sends on an unowned chat, takes it only if still unowned, and records the owner change", async () => {
     expect(await sendConversationTemplateAction(input)).toEqual({ ok: true });
     expect(rpcCalls).toEqual(["record_staff_template_message"]);
@@ -226,9 +254,9 @@ describe("startWhatsAppChat — one send per attempt", () => {
     expect(sendApprovedTemplate).toHaveBeenCalledTimes(1);
   });
   it("records the send as soon as Meta accepts it, so a failure opening the chat cannot lead to a second send", async () => {
-    upsertFails = true;
+    openFails = true;
     expect(await start()).toMatchObject({ ok: false });
-    upsertFails = false;
+    openFails = false;
     const retry = await start();
     expect(retry).toMatchObject({ ok: false });
     expect((retry as { error: string }).error).toContain("already sent");
@@ -240,6 +268,61 @@ describe("startWhatsAppChat — one send per attempt", () => {
     expect(await start()).toMatchObject({ ok: false });
     expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
     expect(sendApprovedTemplate).toHaveBeenCalledTimes(2);
+  });
+  it("BUG-8: taking over a colleague's closed chat is written to its history, not done silently", async () => {
+    conversationRow = row("CLOSED", "dddddddd-0000-4000-8000-00000000000a");
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
+    expect(ownerEvents()).toEqual([expect.objectContaining({ conversation_id: CONVERSATION, kind: "OWNER_CHANGED", actor_id: ME })]);
+    expect(updates.find((update) => update.patch.assigned_to_id === ME)?.filters).toMatchObject({ id: CONVERSATION, state: "CLOSED", assigned_to_id: "dddddddd-0000-4000-8000-00000000000a" });
+  });
+  it("BUG-8: a brand-new contact is inserted, and starting the chat writes no owner-change row", async () => {
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
+    expect(ownerEvents()).toEqual([]);
+  });
+  it("BUG-8: a chat that keeps changing under the write is recorded in as it is, with its owner left alone", async () => {
+    conversationRow = row("AI_ACTIVE", null);
+    writeMatchesRows = false;
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
+    expect(sendApprovedTemplate).toHaveBeenCalledTimes(1);
+    expect(ownerEvents()).toEqual([]);
+  });
+  it("SEC-6: counts the attempt against the sender's new-chat limit", async () => {
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
+    expect(limiter.calls).toEqual([{ action: "START_WHATSAPP_CHAT", userId: ME, agencyId: AGENCY }]);
+  });
+  it("SEC-6: a repeat of an attempt that already went out does not use a second slot", async () => {
+    await start();
+    await start();
+    expect(limiter.calls).toHaveLength(1);
+  });
+  it("SEC-6: sends nothing when the limit is used up, and lets the same attempt go through once there is room", async () => {
+    limiter.refusal = "You have reached the limit of 15 new WhatsApp chats per hour. You can try again after 4:00 pm.";
+    expect(await start()).toEqual({ ok: false, error: limiter.refusal });
+    expect(sendApprovedTemplate).not.toHaveBeenCalled();
+    limiter.refusal = null;
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
+    expect(sendApprovedTemplate).toHaveBeenCalledTimes(1);
+  });
+  it("SEC-6: gives the use back when Meta refuses the send", async () => {
+    sendApprovedTemplate.mockResolvedValueOnce({ ok: false, reason: "SEND_FAILED", error: "Meta said no." });
+    expect(await start()).toMatchObject({ ok: false });
+    expect(limiter.giveBack).toHaveBeenCalledTimes(1);
+  });
+  it("SEC-6: refuses a number whose lead opted out, before it uses a slot or reaches Meta", async () => {
+    leadRows = [{ consent_status: "OPTED_OUT", do_not_contact: false }];
+    expect(await start()).toMatchObject({ ok: false, error: expect.stringContaining("opted out") });
+    expect(limiter.calls).toEqual([]);
+    expect(sendApprovedTemplate).not.toHaveBeenCalled();
+    expect(fakeAdmin.rows.size).toBe(0);
+  });
+  it("SEC-6: refuses a number whose lead is marked do-not-contact", async () => {
+    leadRows = [{ consent_status: "OPTED_IN", do_not_contact: true }];
+    expect(await start()).toMatchObject({ ok: false });
+    expect(sendApprovedTemplate).not.toHaveBeenCalled();
+  });
+  it("SEC-6: still starts a chat with a number nobody has a record of", async () => {
+    leadRows = [];
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
   });
   it("refuses an attempt without a key, before anything is sent", async () => {
     const result = await startWhatsAppChat({ phoneNumber: "+94771234567", templateId: TEMPLATE, bodyParameters: [] } as never);

@@ -230,8 +230,22 @@ export async function confirmIdentityLink(db: Db, input: { agencyId: string; lin
   return { ok: true };
 }
 
-/** A person said "keep them separate". Every open suggestion for this contact is closed and never proposed again. */
-export async function rejectIdentityLinks(db: Db, input: { agencyId: string; conversationId: string; actorId: string | null }): Promise<IdentityDecisionResult & { rejected?: number }> {
+/** One suggestion that `rejectIdentityLinks` closed, kept so the decision can be recorded once it holds, or undone if it does not. */
+export interface RejectedIdentityLink {
+  id: string;
+  candidateLeadId: string;
+}
+
+export type RejectIdentityLinksResult =
+  | { ok: true; rejected: number; identityId: string; links: RejectedIdentityLink[] }
+  | { ok: false; error: string };
+
+/**
+ * A person said "keep them separate". Every open suggestion for this contact is closed and never proposed again. This only closes them:
+ * the history rows are written by `recordIdentityKeptSeparate` once the separate lead really exists, and if it could not be created the
+ * caller reopens the suggestions with `restoreRejectedIdentityLinks`, so a failed attempt never costs the person their suggestions.
+ */
+export async function rejectIdentityLinks(db: Db, input: { agencyId: string; conversationId: string; actorId: string | null }): Promise<RejectIdentityLinksResult> {
   const conversation = await conversationIdentity(db, input.agencyId, input.conversationId);
   if (!conversation) return fail("That conversation could not be found.");
 
@@ -244,21 +258,41 @@ export async function rejectIdentityLinks(db: Db, input: { agencyId: string; con
     .select("id, candidate_lead_id");
   if (error) return fail(`Could not save the decision: ${error.message}`);
 
-  const rejected = (data ?? []) as Array<{ id: string; candidate_lead_id: string }>;
-  if (rejected.length > 0) {
-    await db.from("identity_match_events").insert(
-      rejected.map((row) => ({
-        agency_id: input.agencyId,
-        contact_identity_id: conversation.identityId,
-        action: "SPLIT",
-        previous_lead_id: row.candidate_lead_id,
-        confidence: "STAFF_CONFIRMED",
-        evidence: { link_id: row.id, decision: "KEPT_SEPARATE" },
-        actor_id: input.actorId,
-      })),
-    );
-  }
-  return { ok: true, rejected: rejected.length };
+  const links = ((data ?? []) as Array<{ id: string; candidate_lead_id: string }>).map((row) => ({ id: row.id, candidateLeadId: row.candidate_lead_id }));
+  return { ok: true, rejected: links.length, identityId: conversation.identityId, links };
+}
+
+/** The history rows for a "keep them separate" decision, written once it has held. Best effort: the decision itself is already saved. */
+export async function recordIdentityKeptSeparate(db: Db, input: { agencyId: string; identityId: string; links: readonly RejectedIdentityLink[]; actorId: string | null }): Promise<void> {
+  if (input.links.length === 0) return;
+  const { error } = await db.from("identity_match_events").insert(
+    input.links.map((link) => ({
+      agency_id: input.agencyId,
+      contact_identity_id: input.identityId,
+      action: "SPLIT",
+      previous_lead_id: link.candidateLeadId,
+      confidence: "STAFF_CONFIRMED",
+      evidence: { link_id: link.id, decision: "KEPT_SEPARATE" },
+      actor_id: input.actorId,
+    })),
+  );
+  if (error) console.error("Could not record that the contact was kept separate:", error.message);
+}
+
+/**
+ * Puts suggestions that `rejectIdentityLinks` just closed back to waiting for a decision, because the separate lead could not be created.
+ * Only a link that is still REJECTED is touched, so a suggestion someone has decided since is never reopened.
+ */
+export async function restoreRejectedIdentityLinks(db: Db, input: { agencyId: string; linkIds: readonly string[] }): Promise<IdentityDecisionResult> {
+  if (input.linkIds.length === 0) return { ok: true };
+  const { error } = await db
+    .from("contact_identity_links")
+    .update({ status: "PROPOSED", decided_by: null, decided_at: null })
+    .eq("agency_id", input.agencyId)
+    .in("id", [...input.linkIds])
+    .eq("status", "REJECTED");
+  if (error) return fail(`Could not reopen the suggestions: ${error.message}`);
+  return { ok: true };
 }
 
 /** Undoes a confirmed link: the identity and conversation go back to the lead they had before, and the pair is not proposed again. */
