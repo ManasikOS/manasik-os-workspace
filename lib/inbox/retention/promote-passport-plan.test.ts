@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkPassportFileForPromotion,
   choosePassportChecklistItem,
+  mayRemoveUnsubmittedCopy,
   passportDocumentPath,
   PASSPORT_PROMOTION_MAX_BYTES,
   resolvePassportTraveller,
@@ -68,5 +69,17 @@ describe("checkPassportFileForPromotion", () => {
 describe("passportDocumentPath", () => {
   it("builds the tenant-first path used by Documents", () => {
     expect(passportDocumentPath({ agencyId: "a1", departureGroupId: "g1", pilgrimId: "p1", documentId: "d1", extension: "jpg" })).toEqual({ path: "a1/g1/p1/d1.jpg", fileName: "d1.jpg" });
+  });
+});
+
+describe("mayRemoveUnsubmittedCopy", () => {
+  const destinationPath = "agency/group/pilgrim/doc.jpg";
+  it("removes the copy only when nothing points at it", () => {
+    expect(mayRemoveUnsubmittedCopy({ readFailed: false, itemFilePath: null, destinationPath })).toBe(true);
+    expect(mayRemoveUnsubmittedCopy({ readFailed: false, itemFilePath: "agency/group/pilgrim/older.jpg", destinationPath })).toBe(true);
+  });
+  it("keeps it when the checklist item points at that path, or when that could not be checked", () => {
+    expect(mayRemoveUnsubmittedCopy({ readFailed: false, itemFilePath: destinationPath, destinationPath })).toBe(false);
+    expect(mayRemoveUnsubmittedCopy({ readFailed: true, itemFilePath: null, destinationPath })).toBe(false);
   });
 });

@@ -56,6 +56,16 @@ export function choosePassportChecklistItem(items: PassportChecklistItem[]): { o
   }
 }
 
+/**
+ * After a failed submit, may this request delete the copy it uploaded? Only when nothing points at it. The path is built from the checklist item,
+ * so another save to the same item (a second passport of the same traveller) writes the very same path; if the item now points at it, the file is
+ * that save's and must stay. If the item could not be read, the copy is kept: an orphan is better than a deleted passport.
+ */
+export function mayRemoveUnsubmittedCopy(input: { readFailed: boolean; itemFilePath: string | null; destinationPath: string }): boolean {
+  if (input.readFailed) return false;
+  return input.itemFilePath !== input.destinationPath;
+}
+
 /** May this stored inbox file be copied into Documents? */
 export function checkPassportFileForPromotion(input: { mimeType: string; sizeBytes: number }): { ok: true; extension: string } | PassportPromotionRefusal {
   const extension = EXTENSION_BY_MIME[input.mimeType];

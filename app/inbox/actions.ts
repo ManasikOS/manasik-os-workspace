@@ -21,8 +21,8 @@ import { decideReleaseToAi, decideReplyOnOwnedConversation, decideTakeControl, t
 import { decideStartOnExistingConversation, type ExistingConversationForStart } from "@/lib/inbox/start-conversation-guard";
 import { insertReviewEvent } from "@/lib/data/documents-repository";
 import { INBOX_ATTACHMENT_BUCKET } from "@/lib/inbox/media/handlers";
-import { markInboxAttachmentPromoted } from "@/lib/inbox/retention/promote-attachment";
-import { checkPassportFileForPromotion, choosePassportChecklistItem, passportDocumentPath, resolvePassportTraveller, type PassportChecklistItem } from "@/lib/inbox/retention/promote-passport-plan";
+import { claimInboxAttachmentForPromotion, markInboxAttachmentPromoted, releaseInboxAttachmentClaim } from "@/lib/inbox/retention/promote-attachment";
+import { checkPassportFileForPromotion, choosePassportChecklistItem, mayRemoveUnsubmittedCopy, passportDocumentPath, resolvePassportTraveller, type PassportChecklistItem } from "@/lib/inbox/retention/promote-passport-plan";
 import { capabilitiesForOperations } from "@/lib/access/operations-access";
 import { capabilitiesForLeads } from "@/lib/access/leads-access";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
@@ -357,55 +357,70 @@ export async function savePassportToDocumentsAction(input: unknown): Promise<Act
     );
     if (!target.ok) return target;
 
-    const download = await admin.storage.from(INBOX_ATTACHMENT_BUCKET).download(attachment.storage_path as string);
-    if (download.error || !download.data) return { ok: false, error: "The Inbox copy of this file could not be read." };
-    const bytes = new Uint8Array(await download.data.arrayBuffer());
-    const file = checkPassportFileForPromotion({ mimeType: String(attachment.mime_type), sizeBytes: bytes.byteLength });
-    if (!file.ok) return file;
-
-    const destination = passportDocumentPath({
-      agencyId,
-      departureGroupId: pilgrim.departure_group_id as string,
-      pilgrimId: pilgrim.id as string,
-      documentId: target.item.id,
-      extension: file.extension,
-    });
-    const upload = await admin.storage.from("pilgrim-documents").upload(destination.path, bytes, { contentType: String(attachment.mime_type), upsert: true });
-    if (upload.error) throw new Error(upload.error.message);
-
-    const submitted = await submitGroupPilgrimDocument({
-      documentId: target.item.id,
-      departureGroupId: pilgrim.departure_group_id as string,
-      filePath: destination.path,
-      fileName: destination.fileName,
-      fileSizeBytes: bytes.byteLength,
-      notes: "Saved from an Inbox conversation.",
-    });
-    if (!submitted.ok) {
-      // Nothing points at the copy yet, so remove it rather than leave an unattributed passport in storage.
-      await admin.storage.from("pilgrim-documents").remove([destination.path]);
-      return { ok: false, error: submitted.error };
+    // One save at a time per attachment: a double click or a second tab loses here instead of racing the copy below.
+    const claim = { agencyId, attachmentId: attachment.id as string, documentId: target.item.id };
+    if (!(await claimInboxAttachmentForPromotion(admin, claim))) {
+      return { ok: false, error: "This passport is already being saved. Check Documents in a moment." };
     }
-
-    await insertReviewEvent(await db(), {
-      document_id: target.item.id,
-      actor_id: user.id,
-      actor_name: name ?? "Staff",
-      actor_role: role,
-      action: "UPLOADED",
-      from_status: target.item.status,
-      to_status: "SUBMITTED",
-      reason_code: null,
-      note: "Saved from an Inbox conversation.",
-      overrode_ai_analysis_id: null,
-      override_reason: null,
-    });
-
+    let submittedToDocuments = false;
     try {
-      await markInboxAttachmentPromoted(admin, { agencyId, attachmentId: attachment.id as string, documentId: target.item.id });
-    } catch (cause) {
-      // The passport IS in Documents; only the Inbox's "saved" marker is missing. A retry finishes it without a second copy.
-      console.error("Passport saved to Documents but the Inbox marker failed:", cause);
+      const download = await admin.storage.from(INBOX_ATTACHMENT_BUCKET).download(attachment.storage_path as string);
+      if (download.error || !download.data) return { ok: false, error: "The Inbox copy of this file could not be read." };
+      const bytes = new Uint8Array(await download.data.arrayBuffer());
+      const file = checkPassportFileForPromotion({ mimeType: String(attachment.mime_type), sizeBytes: bytes.byteLength });
+      if (!file.ok) return file;
+
+      const destination = passportDocumentPath({
+        agencyId,
+        departureGroupId: pilgrim.departure_group_id as string,
+        pilgrimId: pilgrim.id as string,
+        documentId: target.item.id,
+        extension: file.extension,
+      });
+      const upload = await admin.storage.from("pilgrim-documents").upload(destination.path, bytes, { contentType: String(attachment.mime_type), upsert: true });
+      if (upload.error) throw new Error(upload.error.message);
+
+      const submitted = await submitGroupPilgrimDocument({
+        documentId: target.item.id,
+        departureGroupId: pilgrim.departure_group_id as string,
+        filePath: destination.path,
+        fileName: destination.fileName,
+        fileSizeBytes: bytes.byteLength,
+        notes: "Saved from an Inbox conversation.",
+      });
+      if (!submitted.ok) {
+        // Remove the copy only if nothing points at it: the path is the checklist item's, so another save to the same item may own this very file.
+        const { data: itemNow, error: itemReadError } = await admin.from("departure_group_pilgrim_documents").select("file_path").eq("id", target.item.id).maybeSingle();
+        if (mayRemoveUnsubmittedCopy({ readFailed: Boolean(itemReadError), itemFilePath: (itemNow?.file_path as string | null | undefined) ?? null, destinationPath: destination.path })) {
+          await admin.storage.from("pilgrim-documents").remove([destination.path]);
+        }
+        return { ok: false, error: submitted.error };
+      }
+      submittedToDocuments = true;
+
+      await insertReviewEvent(await db(), {
+        document_id: target.item.id,
+        actor_id: user.id,
+        actor_name: name ?? "Staff",
+        actor_role: role,
+        action: "UPLOADED",
+        from_status: target.item.status,
+        to_status: "SUBMITTED",
+        reason_code: null,
+        note: "Saved from an Inbox conversation.",
+        overrode_ai_analysis_id: null,
+        override_reason: null,
+      });
+
+      try {
+        await markInboxAttachmentPromoted(admin, { agencyId, attachmentId: attachment.id as string, documentId: target.item.id });
+      } catch (cause) {
+        // The passport IS in Documents; only the Inbox's "saved" marker is missing. A retry finishes it without a second copy.
+        console.error("Passport saved to Documents but the Inbox marker failed:", cause);
+      }
+    } finally {
+      // A save that did not reach Documents gives the attachment back, so it can be saved again and the retention sweep sees it as unsaved.
+      if (!submittedToDocuments) await releaseInboxAttachmentClaim(admin, claim);
     }
   } catch (cause) {
     return inboxFailure("savePassportToDocuments", cause, "Could not save the passport to Documents. Try again.");
