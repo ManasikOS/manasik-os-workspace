@@ -19,10 +19,12 @@ const PILGRIM = "33333333-3333-4333-8333-333333333333";
 const GROUP = "44444444-4444-4444-8444-444444444444";
 const ITEM = "55555555-5555-4555-8555-555555555555";
 
+const role = { value: "ADMIN" as string };
+let adminCalls = 0;
 vi.mock("@/lib/dal", () => ({ requireUser: async () => ({ id: ME }) }));
 const submitGroupPilgrimDocument = vi.fn();
 vi.mock("@/lib/data/departure-groups", () => ({
-  getCurrentStaffRole: async () => ({ role: "ADMIN", agencyId: AGENCY, staffId: ME, name: "Me" }),
+  getCurrentStaffRole: async () => ({ role: role.value, agencyId: AGENCY, staffId: ME, name: "Me" }),
   createGroupBooking: vi.fn(),
   updateGroupPilgrimRecord: vi.fn(),
   submitGroupPilgrimDocument: (...args: unknown[]) => submitGroupPilgrimDocument(...args),
@@ -57,6 +59,7 @@ function query(result: (filters: Record<string, unknown>) => unknown) {
 vi.mock("@/utils/supabase/admin", () => ({
   createAdminClient: () => ({
     from: (table: string) => {
+      adminCalls += 1;
       switch (table) {
         case "message_attachments":
           return {
@@ -109,9 +112,11 @@ vi.mock("@/utils/supabase/admin", () => ({
   }),
 }));
 
-import { savePassportToDocumentsAction } from "./actions";
+import { savePassportToDocumentsAction, selectPassportMediaTravellerAction } from "./actions";
 
 beforeEach(() => {
+  role.value = "ADMIN";
+  adminCalls = 0;
   attachment = { id: ATTACHMENT, message_id: MESSAGE, storage_path: `${AGENCY}/inbound/passport.jpg`, mime_type: "image/jpeg", promoted_document_id: null, expires_at: "2027-01-01T00:00:00Z" };
   itemFilePath = null;
   downloadFails = false;
@@ -169,5 +174,22 @@ describe("savePassportToDocumentsAction", () => {
     attachment.promoted_document_id = ITEM;
     expect(await savePassportToDocumentsAction({ attachmentId: ATTACHMENT })).toEqual({ ok: true });
     expect(uploads).toHaveLength(0);
+  });
+});
+
+describe("selectPassportMediaTravellerAction — who may choose the traveller (SEC-4)", () => {
+  const input = () => ({ attachmentId: ATTACHMENT, travellerId: PILGRIM });
+
+  it.each(["CEO", "FINANCE", "MARKETING", "GUIDE"])("refuses %s before reading anything, since it cannot review passport details", async (value) => {
+    role.value = value;
+    expect(await selectPassportMediaTravellerAction(input())).toEqual({ ok: false, error: "Your role cannot review passports." });
+    expect(adminCalls).toBe(0);
+  });
+
+  it.each(["ADMIN", "OPERATIONS", "VISA"])("lets %s through to the passport itself", async (value) => {
+    role.value = value;
+    const result = await selectPassportMediaTravellerAction(input());
+    expect(result).not.toEqual({ ok: false, error: "Your role cannot review passports." });
+    expect(adminCalls).toBeGreaterThan(0);
   });
 });

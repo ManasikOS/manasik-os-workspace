@@ -193,13 +193,14 @@ export async function translateInboxTextAction(input: unknown): Promise<InboxTra
   return { ok: true, ...result.value, source: result.source, note: result.note };
 }
 
-/** Staff selects the traveller for an ambiguous passport; only review metadata changes. */
+/** Staff selects the traveller for an ambiguous passport; only review metadata changes. Needs `reviewPassportFields`, like confirming the passport's details. */
 export async function selectPassportMediaTravellerAction(input: unknown): Promise<ActionResult> {
   await requireUser();
   const parsed = passportMediaTravellerSelectionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Choose a valid traveller." };
   const { role, agencyId } = await getCurrentStaffRole();
-  if (!agencyId || !capabilitiesForInbox(role).viewModule) return { ok: false, error: "Not permitted to review this passport." };
+  // Choosing the traveller reads the passport's details and opens a review, so it needs the same right as confirming those details.
+  if (!agencyId || !capabilitiesForInbox(role).reviewPassportFields) return { ok: false, error: "Your role cannot review passports." };
 
   const admin = createAdminClient();
   const { data: analysis, error } = await admin
