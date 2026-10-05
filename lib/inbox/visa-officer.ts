@@ -12,3 +12,10 @@ export function canBeVisaOfficer(profile: { role: string | null | undefined; sta
   if (!(STAFF_ROLES as readonly string[]).includes(role)) return false;
   return capabilitiesForVisa(role as StaffRole).recordStatusCheck;
 }
+
+/**
+ * Every role `canBeVisaOfficer` accepts, derived from it so the two cannot drift apart. The officer list asks the database for these roles
+ * directly: it used to read the first 100 active staff by name and filter afterwards, so in a larger agency an officer whose name sorted
+ * late never appeared (BUG-10).
+ */
+export const VISA_OFFICER_ROLES: readonly StaffRole[] = STAFF_ROLES.filter((role) => canBeVisaOfficer({ role, status: "ACTIVE" }));

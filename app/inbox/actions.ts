@@ -12,7 +12,7 @@ import { capabilitiesFor } from "@/lib/access/departure-groups-access";
 import { BULK_ACTION_LIMIT, CONVERSATION_CLOSED_EVENT_KIND, SPAM_MARKED_EVENT_KIND, SPAM_RESTORED_EVENT_KIND, bulkResultSummary, planBulkAction, type BulkConversationInput } from "@/lib/inbox/bulk-actions";
 import { parseSavedViewInput, SAVED_VIEW_LIMIT, savedViewsFromRows, type SavedView } from "@/lib/inbox/saved-views";
 import { parsePassportDetails } from "@/lib/inbox/passport-fields";
-import { canBeVisaOfficer } from "@/lib/inbox/visa-officer";
+import { canBeVisaOfficer, VISA_OFFICER_ROLES } from "@/lib/inbox/visa-officer";
 import { insertVisaEvent, updateVisaFields } from "@/lib/data/visa-repository";
 import { dialableDigits } from "@/lib/inbox/new-chat-lead-match";
 import { assignmentNotification, canTakeInboxConversations, OWNER_CHANGED_EVENT_KIND, ownerChangedEventData, planConversationAssignment } from "@/lib/inbox/assignment";
@@ -495,6 +495,7 @@ export async function loadVisaOfficersAction(): Promise<LoadVisaOfficersResult> 
     .select("id, full_name, role, status")
     .eq("agency_id", agencyId)
     .eq("status", "ACTIVE")
+    .in("role", [...VISA_OFFICER_ROLES])
     .order("full_name")
     .limit(100);
   if (error) return inboxFailure("loadVisaOfficers", error, "Could not load the visa officers.");
