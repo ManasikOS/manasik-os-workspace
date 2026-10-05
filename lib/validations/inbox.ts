@@ -70,6 +70,8 @@ export type CreateSavedReplyInput = z.infer<typeof createSavedReplyInputSchema>;
 export const inboxTemplateMessageSchema = z.object({
   conversationId: z.string().uuid(),
   templateId: z.string().uuid(),
+  /** The browser's key for THIS send attempt: a repeat with the same key never sends (and bills) the template twice. */
+  clientIdempotencyKey: z.string().uuid(),
   bodyParameters: z.array(z.string().trim().max(1000)).max(20),
 }).strict();
 
@@ -133,6 +135,8 @@ export const inboxStartChatSchema = z.object({
   phoneNumber: z.string().max(32),
   contactName: z.string().trim().max(120).optional(),
   templateId: z.string().uuid("Choose an approved message template."),
+  /** See `inboxTemplateMessageSchema`. */
+  clientIdempotencyKey: z.string().uuid(),
   bodyParameters: z.array(z.string().trim().max(1000)).max(20),
 }).strict();
 

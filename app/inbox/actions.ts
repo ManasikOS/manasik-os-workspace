@@ -16,6 +16,7 @@ import { canBeVisaOfficer } from "@/lib/inbox/visa-officer";
 import { insertVisaEvent, updateVisaFields } from "@/lib/data/visa-repository";
 import { dialableDigits } from "@/lib/inbox/new-chat-lead-match";
 import { assignmentNotification, canTakeInboxConversations, OWNER_CHANGED_EVENT_KIND, ownerChangedEventData, planConversationAssignment } from "@/lib/inbox/assignment";
+import { claimRefusalMessage, claimTemplateSend, attachTemplateConversation, recordTemplateFailed, recordTemplateSent } from "@/lib/inbox/template-send-claims";
 import { decideReleaseToAi, decideReplyOnOwnedConversation, decideTakeControl, type OwnedConversationFacts } from "@/lib/inbox/ownership-guard";
 import { decideStartOnExistingConversation, type ExistingConversationForStart } from "@/lib/inbox/start-conversation-guard";
 import { insertReviewEvent } from "@/lib/data/documents-repository";
@@ -994,8 +995,9 @@ export async function startWhatsAppChat(rawInput: {
   contactName?: string;
   templateId: string;
   bodyParameters: string[];
+  clientIdempotencyKey: string;
 }): Promise<StartChatResult> {
-  await requireUser();
+  const user = await requireUser();
   const { role, agencyId, staffId, name } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).sendMessage) return { ok: false, error: "Not permitted." };
   if (!agencyId) return { ok: false, error: "No agency resolved for your account." };
@@ -1016,6 +1018,16 @@ export async function startWhatsAppChat(rawInput: {
   const startDecision = decideStartOnExistingConversation({ existing: existingChat, currentStaffId: staffId, contactNoun: "number" });
   if (!startDecision.ok) return startDecision;
 
+  // The attempt is recorded BEFORE Meta is called, so a repeat of this send (double click, retry, second tab) cannot send and bill twice.
+  const claim = await claimTemplateSend(admin, { agencyId, key: input.clientIdempotencyKey, staffId: user.id });
+  if (claim.kind === "ALREADY_SENT") {
+    return claim.conversationId
+      ? { ok: true, conversationId: claim.conversationId }
+      : { ok: false, error: "This message was already sent, but the chat could not be opened. Refresh the Inbox to find it." };
+  }
+  const claimRefusal = claimRefusalMessage(claim);
+  if (claimRefusal) return { ok: false, error: claimRefusal };
+
   const sent = await sendApprovedTemplate({
     db: admin,
     agencyId,
@@ -1025,7 +1037,12 @@ export async function startWhatsAppChat(rawInput: {
     // A brand-new contact has no open review; an existing conversation does, and the template must pass the same gate as a typed reply.
     ...(existingChat ? { checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, existingChat.id) } : {}),
   });
-  if (!sent.ok) return { ok: false, error: sent.error };
+  if (!sent.ok) {
+    await recordTemplateFailed(admin, { agencyId, key: input.clientIdempotencyKey, error: sent.error });
+    return { ok: false, error: sent.error };
+  }
+  // On record straight away, so the send is known even if opening the conversation below fails.
+  await recordTemplateSent(admin, { agencyId, key: input.clientIdempotencyKey, externalMessageId: sent.externalMessageId });
   const { template, bodyParameters, externalMessageId } = sent;
 
   const now = new Date().toISOString();
@@ -1052,6 +1069,8 @@ export async function startWhatsAppChat(rawInput: {
   if (conversationError || !conversation) {
     return { ok: false, error: "The message was sent, but the CRM could not open the conversation. Refresh before retrying." };
   }
+
+  await attachTemplateConversation(admin, { agencyId, key: input.clientIdempotencyKey, conversationId: conversation.id as string });
 
   // A staff-started chat must enter the same CRM path as an inbound message.
   // Here we only match an existing lead; creating a new record is an explicit
@@ -1216,15 +1235,27 @@ export async function sendConversationTemplateAction(input: unknown): Promise<Ac
   const to = String(conversation.external_conversation_id || conversation.contact_phone || "").replace(/\D/g, "");
   if (!/^\d{8,15}$/.test(to)) return { ok: false, error: "This conversation has no valid WhatsApp number." };
 
+  const admin = createAdminClient();
+  // The attempt is recorded BEFORE Meta is called, so a repeat of this send (double click, retry, second tab) cannot send and bill twice.
+  const claim = await claimTemplateSend(admin, { agencyId, key: parsed.data.clientIdempotencyKey, staffId: user.id });
+  if (claim.kind === "ALREADY_SENT") return { ok: true };
+  const claimRefusal = claimRefusalMessage(claim);
+  if (claimRefusal) return { ok: false, error: claimRefusal };
+
   const sent = await sendApprovedTemplate({
-    db: createAdminClient(),
+    db: admin,
     agencyId,
     to,
     templateId: parsed.data.templateId,
     values: parsed.data.bodyParameters,
     checkRenderedText: protectionCheckForOutgoingText(supabase, agencyId, conversation.id as string),
   });
-  if (!sent.ok) return { ok: false, error: sent.error };
+  if (!sent.ok) {
+    await recordTemplateFailed(admin, { agencyId, key: parsed.data.clientIdempotencyKey, error: sent.error });
+    return { ok: false, error: sent.error };
+  }
+  await recordTemplateSent(admin, { agencyId, key: parsed.data.clientIdempotencyKey, externalMessageId: sent.externalMessageId });
+  await attachTemplateConversation(admin, { agencyId, key: parsed.data.clientIdempotencyKey, conversationId: conversation.id as string });
 
   const now = new Date().toISOString();
   const { error: messageError } = await supabase.rpc("record_staff_template_message", {
