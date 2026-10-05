@@ -39,6 +39,7 @@ import { verifyWhatsAppSignature } from "@/lib/whatsapp/signature";
 import type { WhatsAppTemplateStatus, WhatsAppWebhookPayload } from "@/lib/types/whatsapp";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { readBoundedWebhookBody } from "@/lib/security/webhook-body";
+import { mayRecordUnsignedEvent } from "@/lib/security/unsigned-event-throttle";
 import { extractMessageText, extractMessageType, ingestWhatsAppInboundMessages, isReactionMessage, storableInboundMessageIds } from "@/lib/whatsapp/inbound-ingest";
 export { storableInboundMessageIds };
 import { isUnsupportedWhatsAppMessage, sendWhatsAppUnsupportedNotice } from "@/lib/inbox/media/unsupported-notice";
@@ -89,12 +90,15 @@ export async function handleWebhookDelivery(request: NextRequest, identity: Webh
     // payload never reaches a conversation. Only a size stub is stored: the body is attacker-written, so keeping
     // it would let anyone fill the table with arbitrary content. This is also the guard D3 relies on: an event
     // signed with agency A's secret posted to agency B's keyed route fails HERE, before either agency's data is touched.
-    await recordWebhookEvent(admin, {
-      agencyId: null,
-      externalEventId: crypto.randomUUID(),
-      payload: { rejected: "invalid_signature", bytes: rawBody.length },
-      signatureValid: false,
-    }).catch(() => undefined);
+    // Anyone can send this, so the stubs are capped per minute (SEC-7): the 401 below is never throttled, only the database write.
+    if (await mayRecordUnsignedEvent(admin, "whatsapp_webhook_events")) {
+      await recordWebhookEvent(admin, {
+        agencyId: null,
+        externalEventId: crypto.randomUUID(),
+        payload: { rejected: "invalid_signature", bytes: rawBody.length },
+        signatureValid: false,
+      }).catch(() => undefined);
+    }
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
