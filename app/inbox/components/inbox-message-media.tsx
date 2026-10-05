@@ -6,6 +6,7 @@ import type { InboxAttachment } from "../types";
 import { shouldRenewInboxAudioSource } from "@/lib/inbox/media/playback";
 import { useInboxRefresh } from "./inbox-refresh-context";
 import { InboxVoiceMessagePlayer } from "./inbox-voice-message-player";
+import { PASSPORT_RESTRICTED_NOTE } from "@/lib/inbox/media/passport-visibility";
 import { FilePdf } from "reicon-react";
 
 const LOADING_POLL_MS = 4000;
@@ -21,7 +22,7 @@ export function InboxMessageMedia({ attachments }: { attachments: InboxAttachmen
   const [failedAudioSources, setFailedAudioSources] = useState<Record<string, string>>({});
   const [renewedAudioSources, setRenewedAudioSources] = useState<Record<string, string>>({});
   const stillLoading = attachments.some(
-    (attachment) => !attachment.original_href,
+    (attachment) => !attachment.original_href && !attachment.restricted,
   );
   // The file is downloaded in the background and nothing announces it, so while a file is missing, look again every few
   // seconds (for about a minute) instead of leaving "Loading…" until the person reloads.
@@ -42,6 +43,13 @@ export function InboxMessageMedia({ attachments }: { attachments: InboxAttachmen
       {attachments.map((attachment) => {
         const href = attachment.original_href;
         const mimeType = attachment.mime_type.toLowerCase();
+        if (attachment.restricted) {
+          return (
+            <p key={attachment.id} className="text-xs text-muted-foreground">
+              {PASSPORT_RESTRICTED_NOTE}
+            </p>
+          );
+        }
         if (!href) {
           return (
             <p key={attachment.id} className="text-xs text-muted-foreground">

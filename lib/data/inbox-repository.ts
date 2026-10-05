@@ -38,6 +38,7 @@ import type { InboxListPatchRequest, InboxNotesDeltaRequest, InboxThreadDeltaReq
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { INBOX_ATTACHMENT_BUCKET } from "@/lib/inbox/media/handlers";
+import { canViewPassportMedia, withholdPassportMedia } from "@/lib/inbox/media/passport-visibility";
 import { attachVoiceTranscripts, canViewVoiceTranscripts, type VoiceTranscriptRowForView } from "@/lib/inbox/media/voice-transcript";
 import { isInboxEmailMailboxReady } from "@/lib/inbox/email-mailbox-readiness";
 
@@ -278,7 +279,11 @@ async function loadMessageArtifacts(
   agencyId: string | null,
   messageIds: string[],
   canViewTranscripts: boolean,
+  canViewPassports: boolean,
 ): Promise<{ attachments: InboxAttachment[]; mediaAnalyses: InboxMediaAnalysis[] }> {
+  // A role without passport access never gets the photo link or the model's read-out. Which attachments are passports is read with the service
+  // key because the database hides those analyses from that role too; if it cannot be read, nothing is shown (unknown is not "allowed").
+  const passportAttachmentIds = canViewPassports || messageIds.length === 0 ? new Set<string>() : await loadPassportAttachmentIds(agencyId, messageIds);
   const { data: mediaRows } = messageIds.length > 0
     ? await supabase.from("message_media_analyses")
         .select("id,message_id,attachment_id,kind,status,candidate_fields,confidence,uncertainty,review_fields,candidate_traveller_ids,selected_traveller_id")
@@ -301,7 +306,7 @@ async function loadMessageArtifacts(
         .in("attachment_id", voiceAttachmentIds)
     : { data: [] };
   const attachmentsWithUrls = await Promise.all(((attachmentRows ?? []) as Array<{ id: string; message_id: string; filename: string | null; mime_type: string; storage_path: string | null; metadata: Record<string, unknown>; expires_at: string | null; promoted_document_id: string | null; checksum_sha256: string | null }>).map(async (row) => {
-    if (!row.storage_path) return { ...row, original_href: null as string | null };
+    if (!row.storage_path || passportAttachmentIds.has(row.id)) return { ...row, original_href: null as string | null };
     const signed = await supabase.storage.from(INBOX_ATTACHMENT_BUCKET).createSignedUrl(row.storage_path, 300);
     const version = typeof row.checksum_sha256 === "string" ? `&v=${encodeURIComponent(row.checksum_sha256.slice(0, 12))}` : "";
     return { ...row, original_href: signed.error ? null : `${signed.data.signedUrl}${version}` };
@@ -348,7 +353,20 @@ async function loadMessageArtifacts(
     (transcriptRows ?? []) as Array<VoiceTranscriptRowForView & { attachment_id: string }>,
     canViewTranscripts,
   );
-  return { attachments, mediaAnalyses };
+  return withholdPassportMedia({ attachments, mediaAnalyses, passportAttachmentIds });
+}
+
+/** The attachments among these messages that the model classed as passports, whatever the caller's own row access. */
+async function loadPassportAttachmentIds(agencyId: string | null, messageIds: string[]): Promise<Set<string>> {
+  if (!agencyId) throw new Error("Could not tell which attachments are passports: no agency.");
+  const { data, error } = await createAdminClient()
+    .from("message_media_analyses")
+    .select("attachment_id")
+    .eq("agency_id", agencyId)
+    .eq("kind", "PASSPORT")
+    .in("message_id", messageIds);
+  if (error) throw new Error(`Could not tell which attachments are passports: ${error.message}`);
+  return new Set(((data ?? []) as Array<{ attachment_id: string }>).map((row) => row.attachment_id));
 }
 
 export async function loadInboxConversationData(
@@ -423,7 +441,7 @@ export async function loadInboxConversationData(
     (staffRows ?? []) as { id: string; full_name: string }[]
   ).map((staff) => ({ id: staff.id, name: staff.full_name }));
 
-  const { attachments, mediaAnalyses } = await loadMessageArtifacts(supabase, agencyId, messages.map((message) => message.id), canViewVoiceTranscripts(role));
+  const { attachments, mediaAnalyses } = await loadMessageArtifacts(supabase, agencyId, messages.map((message) => message.id), canViewVoiceTranscripts(role), canViewPassportMedia(role));
 
   return {
     messages,
@@ -692,7 +710,7 @@ export async function loadInboxThreadDelta(request: InboxThreadDeltaRequest): Pr
     (left, right) => sequenceOf(left) - sequenceOf(right) || left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id),
   );
 
-  const { attachments, mediaAnalyses } = await loadMessageArtifacts(supabase, agencyId, messages.map((message) => message.id), canViewVoiceTranscripts(role));
+  const { attachments, mediaAnalyses } = await loadMessageArtifacts(supabase, agencyId, messages.map((message) => message.id), canViewVoiceTranscripts(role), canViewPassportMedia(role));
   const sequences = page.map(sequenceOf).filter((value) => value > 0);
   return {
     messages,
