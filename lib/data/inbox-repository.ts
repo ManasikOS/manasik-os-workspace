@@ -31,6 +31,7 @@ import { requireUser } from "@/lib/dal";
 import { loadProposalsForConversation } from "@/lib/data/identity-graph-repository";
 import { assembleInboxIntelligence } from "@/lib/data/inbox-intelligence-repository";
 import type { InboxIntelligenceData } from "@/lib/inbox/intelligence/rail-view";
+import { INBOX_VIEWER_ROLES } from "@/lib/inbox/mentions";
 import { INBOX_SEARCH_LIMIT, normaliseSearchQuery } from "@/lib/inbox/search-query";
 import { countsByView, queueForView } from "@/lib/inbox/views";
 import { listQueueConversationIds, loadInboxQueuesV2Enabled, loadQueueCounts } from "@/lib/data/inbox-queue-repository";
@@ -423,6 +424,9 @@ export async function loadInboxConversationData(
           .from("staff_profiles")
           .select("id, full_name")
           .eq("status", "ACTIVE")
+          // Only colleagues who can open the Inbox are offered for a mention (SEC-11). Filtered in the query, before the limit, so a colleague
+          // whose name sorts late is not cut off by Guides and others who would only be filtered out afterwards.
+          .in("role", [...INBOX_VIEWER_ROLES])
           .order("full_name")
           .limit(100)
       : Promise.resolve({ data: [] }),

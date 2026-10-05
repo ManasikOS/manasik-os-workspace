@@ -63,6 +63,8 @@ import { acknowledgeIntervention, listInterventions, openIntervention, resolveIn
 import { loadProtectionContext } from "@/lib/data/inbox-risk-repository";
 import { canCloseIntervention, closingCapability } from "@/lib/inbox/risk/interventions";
 import { resolveCapability } from "@/lib/agent/kernel/proposals/capabilities";
+import type { StaffRole } from "@/lib/access/departure-groups-access";
+import { checkMentionedStaff, MENTION_UNAVAILABLE_MESSAGE, type MentionCandidate } from "@/lib/inbox/mentions";
 import { evaluateProtection, refusalMessage } from "@/lib/inbox/risk/protection-gate";
 import { outboundGateText } from "@/lib/inbox/risk/outbound-gate-text";
 import { claimComposerPresence, releaseComposerPresence, syncConcurrentComposerSignal } from "@/lib/data/inbox-composer-presence-repository";
@@ -946,6 +948,7 @@ export async function captureConversationLead(rawConversationId: string): Promis
   const { data: conversation, error } = await supabase
     .from("conversations")
     .select("id, channel, external_conversation_id, contact_name, contact_phone")
+    .eq("agency_id", agencyId)
     .eq("id", conversationId)
     .maybeSingle();
   if (error || !conversation) return { ok: false, error: "Conversation not found." };
@@ -1696,30 +1699,38 @@ export async function addInternalNote(
   const user = await requireUser();
   const { role, name, agencyId } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).sendMessage) return { ok: false, error: "Not permitted." };
+  if (!agencyId) return { ok: false, error: "No agency resolved for your account." };
 
   const parsedNote = inboxInternalNoteSchema.safeParse({ conversationId: rawConversationId, body, mentionedUserIds });
   if (!parsedNote.success) return { ok: false, error: parsedNote.error.issues[0]?.message ?? "Check the note." };
   const { conversationId, body: trimmedBody } = parsedNote.data;
 
   const supabase = await db();
-  const uniqueMentionedUserIds = [...new Set(mentionedUserIds)].filter((id) => id !== user.id);
-  if (uniqueMentionedUserIds.length > 20) return { ok: false, error: "A note can mention up to 20 staff members." };
+  // From the validated note (real ids, at most 20), not from the raw argument.
+  const uniqueMentionedUserIds = [...new Set(parsedNote.data.mentionedUserIds)].filter((id) => id !== user.id);
   if (uniqueMentionedUserIds.length > 0) {
-    if (!agencyId) return { ok: false, error: "No agency resolved for your account." };
     const { data: staff, error: staffError } = await supabase
       .from("staff_profiles")
-      .select("id")
+      .select("id, role, status, role_id")
       .eq("agency_id", agencyId)
       .eq("status", "ACTIVE")
       .in("id", uniqueMentionedUserIds);
-    if (staffError || (staff ?? []).length !== uniqueMentionedUserIds.length) {
-      return { ok: false, error: "One or more mentioned staff members are no longer available." };
-    }
+    if (staffError) return { ok: false, error: MENTION_UNAVAILABLE_MESSAGE };
+    // Only colleagues who can open the Inbox may be mentioned (SEC-11); a custom role that took Inbox access away counts too.
+    const mentionAdmin = createAdminClient();
+    const mentionCheck = await checkMentionedStaff({
+      requestedIds: uniqueMentionedUserIds,
+      candidates: (staff ?? []) as MentionCandidate[],
+      canOpenInbox: (candidate) => resolveCapability(String(candidate.role).toUpperCase() as StaffRole, candidate.role_id ?? null, "inbox", "viewModule", mentionAdmin),
+    });
+    if (!mentionCheck.ok) return mentionCheck;
   }
 
   const { data: note, error } = await supabase
     .from("conversation_notes")
     .insert({
+      // Named, not left to the column default: the conversation must belong to this agency (the table's foreign key checks the pair).
+      agency_id: agencyId,
       conversation_id: conversationId,
       body: trimmedBody,
       author_id: user.id,
@@ -1731,10 +1742,10 @@ export async function addInternalNote(
 
   if (uniqueMentionedUserIds.length > 0) {
     const { error: mentionsError } = await supabase.from("note_mentions").insert(
-      uniqueMentionedUserIds.map((mentioned_user_id) => ({ note_id: note.id, mentioned_user_id })),
+      uniqueMentionedUserIds.map((mentioned_user_id) => ({ agency_id: agencyId, note_id: note.id, mentioned_user_id })),
     );
     if (mentionsError) {
-      await supabase.from("conversation_notes").delete().eq("id", note.id);
+      await supabase.from("conversation_notes").delete().eq("agency_id", agencyId).eq("id", note.id);
       return inboxFailure("addInternalNote.mentions", mentionsError, "Could not add the note.");
     }
   }
@@ -1777,8 +1788,9 @@ export async function createSavedReplyAction(input: unknown): Promise<CreateSave
 /** Per-user drafts deliberately do not revalidate the Inbox on every keystroke. */
 export async function saveConversationDraft(rawConversationId: string, body: string): Promise<ActionResult> {
   const user = await requireUser();
-  const { role } = await getCurrentStaffRole();
+  const { role, agencyId } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).sendMessage) return { ok: false, error: "Not permitted." };
+  if (!agencyId) return { ok: false, error: "No agency resolved for your account." };
   const idCheck = inboxEntityIdSchema.safeParse(rawConversationId);
   if (!idCheck.success) return { ok: false, error: "Conversation not found." };
   const conversationId = idCheck.data;
@@ -1789,13 +1801,14 @@ export async function saveConversationDraft(rawConversationId: string, body: str
     const { error } = await supabase
       .from("conversation_drafts")
       .delete()
+      .eq("agency_id", agencyId)
       .eq("conversation_id", conversationId)
       .eq("author_id", user.id);
     return error ? inboxFailure("saveConversationDraft.delete", error, "Could not save your draft.") : { ok: true };
   }
 
   const { error } = await supabase.from("conversation_drafts").upsert(
-    { conversation_id: conversationId, author_id: user.id, body },
+    { agency_id: agencyId, conversation_id: conversationId, author_id: user.id, body },
     { onConflict: "conversation_id,author_id" },
   );
   return error ? inboxFailure("saveConversationDraft", error, "Could not save your draft.") : { ok: true };
@@ -1901,6 +1914,7 @@ export async function createBookingFromConversation(rawConversationId: string): 
   const { data: conversation, error: conversationError } = await supabase
     .from("conversations")
     .select("lead_id")
+    .eq("agency_id", agencyId)
     .eq("id", conversationId)
     .single();
   if (conversationError || !conversation?.lead_id) return { ok: false, error: "Link a lead before creating a booking." };
@@ -1984,13 +1998,13 @@ export async function selectConversationDepartureGroup(rawInput: {
   const parsedSelection = z.object({ conversationId: inboxEntityIdSchema, departureGroupId: inboxEntityIdSchema }).strict().safeParse(rawInput);
   if (!parsedSelection.success) return { ok: false, error: "That departure group could not be found." };
   const input = parsedSelection.data;
-  const { role, name } = await getCurrentStaffRole();
-  if (!capabilitiesForInbox(role).sendMessage || !capabilitiesForLeads(role).findGroups) {
+  const { role, name, agencyId } = await getCurrentStaffRole();
+  if (!capabilitiesForInbox(role).sendMessage || !capabilitiesForLeads(role).findGroups || !agencyId) {
     return { ok: false, error: "Not permitted to select a departure group." };
   }
 
   const supabase = await db();
-  const { data: conversation } = await supabase.from("conversations").select("lead_id").eq("id", input.conversationId).maybeSingle();
+  const { data: conversation } = await supabase.from("conversations").select("lead_id").eq("agency_id", agencyId).eq("id", input.conversationId).maybeSingle();
   if (!conversation?.lead_id) return { ok: false, error: "Link a lead before selecting a departure group." };
   const store = await loadLeadStore(supabase, { only: ["leads"], leadId: conversation.lead_id as string });
   const lead = store.leads.find((item) => item.id === conversation.lead_id);
@@ -2496,11 +2510,12 @@ export async function sendStaffMessage(
   const supabase = await db();
   const [{ role, agencyId, staffId }, { data: conversation, error: conversationError }] = await Promise.all([
     getCurrentStaffRole(),
-    supabase.from("conversations").select("id, channel, state, handling_mode, assigned_to_id, assigned_to_name, service_window_expires_at, human_agent_window_expires_at").eq("id", conversationId).single(),
+    supabase.from("conversations").select("id, agency_id, channel, state, handling_mode, assigned_to_id, assigned_to_name, service_window_expires_at, human_agent_window_expires_at").eq("id", conversationId).single(),
   ]);
   if (!capabilitiesForInbox(role).sendMessage) return { ok: false, error: "Not permitted." };
-  if (conversationError || !conversation) return { ok: false, error: "Conversation not found." };
   if (!agencyId) return { ok: false, error: "Your account is not linked to an agency." };
+  // The read ran alongside the role lookup (one round trip saved), so it could not name the agency; the row's own agency is checked here instead.
+  if (conversationError || !conversation || conversation.agency_id !== agencyId) return { ok: false, error: "Conversation not found." };
   if (proposalId && !z.string().uuid().safeParse(proposalId).success) return { ok: false, error: "The Copilot proposal reference is not valid." };
   // The file is read back from storage and judged from its own bytes before anything is queued. The browser's word is never proof.
   let stagedFile: Extract<Awaited<ReturnType<typeof verifyStagedAttachment>>, { ok: true }> | null = null;
@@ -2537,7 +2552,7 @@ export async function sendStaffMessage(
   ) {
     if (conversation.channel === "MESSENGER" || conversation.channel === "INSTAGRAM") {
       const { data: supportCases } = await supabase.from("conversation_interventions").select("id")
-        .eq("conversation_id", conversationId).in("status", ["OPEN", "ACKNOWLEDGED"])
+        .eq("agency_id", agencyId).eq("conversation_id", conversationId).in("status", ["OPEN", "ACKNOWLEDGED"])
         .in("kind", ["COMPLAINT", "DISTRESSED_CUSTOMER", "FRAUD_CONCERN", "MEDICAL_URGENCY", "REFUND_REQUEST"]).limit(1);
       const humanAgentAllowed = (conversation.state === "HUMAN_ACTIVE" || conversation.handling_mode === "HUMAN_ACTIVE")
         && (supportCases?.length ?? 0) > 0

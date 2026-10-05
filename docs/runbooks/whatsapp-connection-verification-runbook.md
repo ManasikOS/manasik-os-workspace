@@ -60,6 +60,10 @@ limit 5;
 The row this created should have `signature_valid = false` and `agency_id = null` — never
 Agency B's id.
 
+These rejected-request rows are **capped at 30 a minute** (SEC-7): once a minute has 30, further bad requests still get `401` but are
+not stored, and the server logs one "Webhook requests with a bad signature" warning that minute. So if you run this test during a flood
+of bad requests, your own row may be missing even though the `401` came back. Retry after a minute, or check the request logs.
+
 ---
 
 ## 2. Idempotency — no duplicate on a Meta redelivery

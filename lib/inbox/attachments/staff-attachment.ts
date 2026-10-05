@@ -6,6 +6,9 @@
  * the size must be within the limit, and a Word/Excel/PowerPoint file must not carry macros and a PDF must not carry a launch action or
  * script. That is an allow-list for what an agency should send a customer, not a malware scanner: nothing here inspects content beyond
  * those markers, so a file is recorded `PENDING` for scanning, never `CLEAN`.
+ *
+ * This file is the cheap first pass and is also loaded by the browser. The deeper, server-only look (a PDF's compressed objects and its
+ * `#`-escaped names, the real structure of a Word/Excel/PowerPoint ZIP) is `file-inspection.ts`, run by `verifyStagedAttachment` after this.
  */
 
 import { z } from "zod";

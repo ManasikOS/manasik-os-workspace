@@ -13,6 +13,7 @@ import type { NextRequest } from "next/server";
 import { completeMetaAdsConnection } from "@/app/(main)/management/settings/integrations/ads-actions";
 
 import { getSiteUrl } from "@/lib/site-url";
+import { hasOAuthProviderError, oauthProviderErrorMessage } from "@/lib/setup/oauth-callback-error";
 import { connectorRedirect } from "@/lib/setup/setup-return-server";
 
 import { STATE_COOKIE } from "../start/route";
@@ -32,13 +33,17 @@ async function redirectWithResult(status: "connected" | "error", message?: strin
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state");
-  const oauthError = request.nextUrl.searchParams.get("error_description") ?? request.nextUrl.searchParams.get("error");
+  const providerError = request.nextUrl.searchParams.get("error");
+  const providerErrorDescription = request.nextUrl.searchParams.get("error_description");
 
   const cookieStore = await cookies();
   const expectedState = cookieStore.get(STATE_COOKIE)?.value;
   cookieStore.delete(STATE_COOKIE);
 
-  if (oauthError) return await redirectWithResult("error", oauthError);
+  // The description is written by whoever built the callback URL, so it goes to the log and a fixed sentence goes to the screen (SEC-10).
+  if (hasOAuthProviderError({ error: providerError, description: providerErrorDescription })) {
+    return await redirectWithResult("error", oauthProviderErrorMessage({ provider: "Meta Ads", error: providerError, description: providerErrorDescription }));
+  }
   if (!code || !state || !expectedState || state !== expectedState) {
     return await redirectWithResult("error", "The connection request could not be verified — please try connecting again.");
   }

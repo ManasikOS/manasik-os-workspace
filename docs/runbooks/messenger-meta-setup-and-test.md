@@ -274,7 +274,7 @@ Send me (or write down) these — each one confirms or corrects a decision alrea
 | **`message.app_id` on the echo of the assistant's own reply (T4)** — present? does it equal `META_APP_ID`? | An event with `"is_echo": true` right after the AI reply | Own-echo recognition (F6). Not equal / absent → we rely only on the 10-second deferral. |
 | **`message.app_id` on the echo of your hand-typed Page-inbox reply (T7)** — present or absent? | The echo at T7 | Whether we can tell a person from an app without the deferral |
 | **Token type the connect produced** | §4 note; and whether the card still works next day | F15 / token expiry |
-| **Any `signature_valid = false`** | column above | Wrong `META_APP_SECRET` (a different app's secret) |
+| **Any `signature_valid = false`** | column above | Wrong `META_APP_SECRET` (a different app's secret). These rows are capped at 30 a minute (SEC-7), so during a flood of bad requests some are answered `401` without a row being stored |
 | **Real text limit** — did the ~2,500-character message split, and where? | T3 | Profile says 2,000 characters; unconfirmed |
 | **Customer's real name** — did the placeholder "Messenger customer" become a name? | T1 | Needs "Business Asset User Profile Access"; expected to stay a placeholder until it is approved |
 | Latency of the assistant's reply | `select latency_ms from agent_runs where channel='MESSENGER' order by created_at desc limit 5;` | Meta's 30-second rule (plan §14.1) |

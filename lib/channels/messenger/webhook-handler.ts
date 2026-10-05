@@ -42,6 +42,7 @@ import { isValidMetaHandshake, verifyMetaSignature } from "@/lib/meta/signature"
 import { readChannelToken } from "@/lib/channels/vault";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { readBoundedWebhookBody } from "@/lib/security/webhook-body";
+import { mayRecordUnsignedEvent } from "@/lib/security/unsigned-event-throttle";
 import { processMessengerEvents } from "@/lib/channels/messenger/process-events";
 export { processMessengerEvents };
 export type { MessengerProcessDeps, MessengerProcessResult } from "@/lib/channels/messenger/process-events";
@@ -97,14 +98,17 @@ export async function handleMessengerDelivery(request: NextRequest, channel: Pag
   if (!signatureValid) {
     // Recorded for the audit floor (agency unresolved) but never parsed or processed: a forged payload never
     // reaches a conversation, and only a size stub is stored because the body is attacker-written.
-    await recordChannelWebhookEvent(admin, {
-      provider: channel,
-      agencyId: null,
-      connectionId: null,
-      externalEventId,
-      payload: { rejected: "invalid_signature", bytes: rawBody.length },
-      signatureValid: false,
-    }).catch(() => undefined);
+    // Anyone can send this, so the stubs are capped per minute (SEC-7): the 401 below is never throttled, only the database write.
+    if (await mayRecordUnsignedEvent(admin, "channel_webhook_events")) {
+      await recordChannelWebhookEvent(admin, {
+        provider: channel,
+        agencyId: null,
+        connectionId: null,
+        externalEventId,
+        payload: { rejected: "invalid_signature", bytes: rawBody.length },
+        signatureValid: false,
+      }).catch(() => undefined);
+    }
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
