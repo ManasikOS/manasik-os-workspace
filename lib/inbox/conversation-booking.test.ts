@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveBookingFromLead, type ConversationBookingLead } from "./conversation-booking";
+import { decideExistingBookingForLead, deriveBookingFromLead, type ConversationBookingLead } from "./conversation-booking";
 
 function readyLead(overrides: Partial<ConversationBookingLead> = {}): ConversationBookingLead {
   return {
@@ -52,5 +52,23 @@ describe("deriveBookingFromLead", () => {
     const outcome = deriveBookingFromLead(readyLead({ room_preference: "SINGLE" }));
     expect(outcome.ok).toBe(true);
     if (outcome.ok) expect(outcome.result.roomOccupancyPreference).toBe("SINGLE");
+  });
+});
+
+describe("decideExistingBookingForLead", () => {
+  const existing = { id: "bk-1", booking_reference: "LD-0042", booking_status: "DEPOSIT_PENDING", departure_group_id: "group-1" };
+  it("creates when there is nothing there", () => {
+    expect(decideExistingBookingForLead({ existing: null, selectedDepartureGroupId: "group-1" })).toEqual({ kind: "CREATE" });
+  });
+  it("links an active booking in the group the person chose", () => {
+    for (const booking_status of ["HELD", "DEPOSIT_PENDING", "CONFIRMED", "WAITLIST"]) {
+      expect(decideExistingBookingForLead({ existing: { ...existing, booking_status }, selectedDepartureGroupId: "group-1" })).toEqual({ kind: "ADOPT", bookingId: "bk-1", bookingReference: "LD-0042" });
+    }
+  });
+  it("hands a cancelled booking, or one in another group, to a person, naming the booking", () => {
+    const cancelled = decideExistingBookingForLead({ existing: { ...existing, booking_status: "CANCELLED" }, selectedDepartureGroupId: "group-1" });
+    const elsewhere = decideExistingBookingForLead({ existing, selectedDepartureGroupId: "group-2" });
+    expect(cancelled).toMatchObject({ kind: "BLOCKED", error: expect.stringContaining("LD-0042") });
+    expect(elsewhere).toMatchObject({ kind: "BLOCKED", error: expect.stringContaining("LD-0042") });
   });
 });

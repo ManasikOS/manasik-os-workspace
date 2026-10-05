@@ -44,7 +44,7 @@ import { hasChannelAdapter } from "@/lib/channels/registry";
 import type { ChannelProvider } from "@/lib/inbox/contracts";
 import { linkConversationToLead } from "@/lib/inbox/lead-linking";
 import { deleteConversationPermanently } from "@/lib/inbox/delete-conversation";
-import { deriveBookingFromLead } from "@/lib/inbox/conversation-booking";
+import { decideExistingBookingForLead, deriveBookingFromLead, type ExistingBookingForLead } from "@/lib/inbox/conversation-booking";
 import { loadReplyContextPack } from "@/lib/inbox/reply-context";
 import { loadInboxReplyPack } from "@/lib/inbox/reply-pack-loader";
 import { suggestConversationReply } from "@/lib/ai/surfaces/inbox/workflows";
@@ -1771,6 +1771,18 @@ export async function releaseConversationComposerAction(input: unknown): Promise
   }
 }
 
+/** The booking already holding this lead's reference, null when there is none, "UNREADABLE" when the lookup failed (never guessed as "none"). */
+async function findBookingForLeadReference(supabase: Awaited<ReturnType<typeof db>>, leadId: string, bookingReference: string): Promise<ExistingBookingForLead | null | "UNREADABLE"> {
+  const { data, error } = await supabase
+    .from("departure_group_bookings")
+    .select("id, booking_reference, booking_status, departure_group_id")
+    .eq("lead_id", leadId)
+    .ilike("booking_reference", bookingReference)
+    .maybeSingle();
+  if (error) return "UNREADABLE";
+  return (data as ExistingBookingForLead | null) ?? null;
+}
+
 /**
  * Converts the lead already linked to this conversation using the same
  * capacity-safe booking primitive as the Leads workspace. The action derives
@@ -1804,37 +1816,59 @@ export async function createBookingFromConversation(rawConversationId: string): 
   // A lead from Messenger/Instagram has no number until the customer gives one; a booking with nobody to call is not useful.
   if (!lead.mobile.trim()) return { ok: false, error: "Add the customer's phone number to the lead before creating a booking." };
   const { travellerCount, roomOccupancyPreference } = derived.result;
-  const bookingOutcome = await createGroupBooking(
-    {
-      departureGroupId: lead.selected_departure_group_id!,
-      leadId: lead.id,
-      bookingReference: `LD-${lead.reference.replace(/^LD-/, "")}`,
-      bookingStatus: "DEPOSIT_PENDING",
-      primaryContactName: lead.full_name,
-      primaryContactPhone: lead.mobile,
-      travellerCount,
-      roomOccupancyPreference,
-      packagePricePerPerson: pricePerPerson(store, lead.desired_package_id, lead.journey_type, lead.room_preference),
-      amountPaid: 0,
-    },
-    { client: supabase },
-  );
-  if (!bookingOutcome.ok) return bookingOutcome;
+  const bookingReference = `LD-${lead.reference.replace(/^LD-/, "")}`;
 
-  // The booking points back at the conversation it was created from (MI4.6).
-  await stampConversationSource(createAdminClient(), { agencyId, table: "departure_group_bookings", by: { column: "id", value: bookingOutcome.result.bookingId }, conversationId });
+  // A booking already under this lead's reference is from an earlier attempt that could not link itself (or a click that raced this one):
+  // link that one instead of failing on the reference, unless it is cancelled or in another group, which a person must look at first.
+  const found = await findBookingForLeadReference(supabase, lead.id, bookingReference);
+  if (found === "UNREADABLE") return { ok: false, error: "Could not check whether this lead already has a booking. Try again." };
+  const adoption = decideExistingBookingForLead({ existing: found, selectedDepartureGroupId: lead.selected_departure_group_id! });
+  if (adoption.kind === "BLOCKED") return { ok: false, error: adoption.error };
+
+  let booking: { bookingId: string; bookingReference: string };
+  if (adoption.kind === "ADOPT") {
+    booking = { bookingId: adoption.bookingId, bookingReference: adoption.bookingReference };
+  } else {
+    const bookingOutcome = await createGroupBooking(
+      {
+        departureGroupId: lead.selected_departure_group_id!,
+        leadId: lead.id,
+        bookingReference,
+        bookingStatus: "DEPOSIT_PENDING",
+        primaryContactName: lead.full_name,
+        primaryContactPhone: lead.mobile,
+        travellerCount,
+        roomOccupancyPreference,
+        packagePricePerPerson: pricePerPerson(store, lead.desired_package_id, lead.journey_type, lead.room_preference),
+        amountPaid: 0,
+      },
+      { client: supabase },
+    );
+    if (!bookingOutcome.ok) {
+      // Two clicks at once: the other one may have just made the booking, which is then the one to link.
+      const raced = await findBookingForLeadReference(supabase, lead.id, bookingReference);
+      const racedDecision = raced === "UNREADABLE" ? null : decideExistingBookingForLead({ existing: raced, selectedDepartureGroupId: lead.selected_departure_group_id! });
+      if (racedDecision?.kind !== "ADOPT") return bookingOutcome;
+      booking = { bookingId: racedDecision.bookingId, bookingReference: racedDecision.bookingReference };
+    } else {
+      booking = { bookingId: bookingOutcome.result.bookingId, bookingReference: bookingOutcome.result.bookingReference };
+    }
+  }
+
+  // The booking points back at the conversation it was created from (MI4.6). Filling an empty link is harmless to repeat.
+  await stampConversationSource(createAdminClient(), { agencyId, table: "departure_group_bookings", by: { column: "id", value: booking.bookingId }, conversationId });
 
   // Written column by column and only if the lead is unchanged since it was read (read again if a colleague edited it meanwhile), so a
   // colleague's edit to the same lead is never overwritten.
   const linked = await changeOneLead(supabase, lead.id, (fresh) => markLeadBookedInStore(fresh, {
     leadId: lead.id,
-    bookingId: bookingOutcome.result.bookingId,
-    bookingReference: bookingOutcome.result.bookingReference,
+    bookingId: booking.bookingId,
+    bookingReference: booking.bookingReference,
     actorName: name ?? "Staff",
   }, new Date().toISOString()));
   if (!linked.ok) {
     // The booking exists and holds the seats; say so, instead of leaving the person to retry into a duplicate-reference error.
-    return { ok: false, error: `Booking ${bookingOutcome.result.bookingReference} was created, but it could not be linked to the lead. Open the lead and check it before trying again.` };
+    return { ok: false, error: `Booking ${booking.bookingReference} exists, but it could not be linked to the lead. Try again: it will be linked, not created twice.` };
   }
 
   revalidatePath("/leads");
