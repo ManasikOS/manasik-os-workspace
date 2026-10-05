@@ -53,12 +53,19 @@ vi.mock("@/utils/supabase/server", () => ({
             return query;
           },
           single: async () => ({ data: conversationRow, error: null }),
+          maybeSingle: async () => ({ data: conversationRow, error: null }),
         };
         return query;
       },
       update: (patch: Record<string, unknown>) => {
         conversationUpdates.push(patch);
-        return { eq: () => ({ eq: async () => ({ error: null }) }) };
+        // Chainable like the real client: .eq/.is narrow the write, .select asks for the rows it changed, and awaiting it settles.
+        const write: Record<string, unknown> = {};
+        write.eq = () => write;
+        write.is = () => write;
+        write.select = () => write;
+        write.then = (resolve: (value: unknown) => unknown) => resolve({ data: [{ id: "c1" }], error: null });
+        return write;
       },
     }),
     rpc: (...args: unknown[]) => rpc(...args),
