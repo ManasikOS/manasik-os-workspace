@@ -33,7 +33,7 @@ vi.mock("@/utils/supabase/admin", () => ({ createAdminClient: () => fakeAdmin.ad
 let conversationRow: { id: string; state: string; assigned_to_id: string | null; assigned_to_name: string | null; channel: string; contact_phone: string; external_conversation_id: string } | null;
 let openReviews: Array<{ id: string }>;
 let writeMatchesRows = true;
-let upsertFails = false;
+let openFails = false;
 let templateText = "Hello";
 const updates: Array<{ patch: Record<string, unknown>; filters: Record<string, unknown> }> = [];
 const rpcCalls: string[] = [];
@@ -58,7 +58,7 @@ vi.mock("@/utils/supabase/server", () => ({
       if (table === "conversation_interventions") return { select: () => chain(() => ({ data: openReviews, error: null })) };
       return {
         select: () => chain(() => ({ data: conversationRow, error: null })),
-        upsert: () => chain(() => (upsertFails ? { data: null, error: { message: "boom" } } : { data: { id: CONVERSATION }, error: null })),
+        insert: () => chain(() => (openFails ? { data: null, error: { message: "boom" } } : { data: { id: CONVERSATION }, error: null })),
         update: (patch: Record<string, unknown>) => chain(() => ({ data: writeMatchesRows ? [{ id: CONVERSATION }] : [], error: null }), { patch }),
       };
     },
@@ -80,7 +80,7 @@ beforeEach(() => {
   conversationRow = row("AI_ACTIVE", null);
   openReviews = [];
   writeMatchesRows = true;
-  upsertFails = false;
+  openFails = false;
   updates.length = 0;
   events.length = 0;
   rpcCalls.length = 0;
@@ -226,9 +226,9 @@ describe("startWhatsAppChat — one send per attempt", () => {
     expect(sendApprovedTemplate).toHaveBeenCalledTimes(1);
   });
   it("records the send as soon as Meta accepts it, so a failure opening the chat cannot lead to a second send", async () => {
-    upsertFails = true;
+    openFails = true;
     expect(await start()).toMatchObject({ ok: false });
-    upsertFails = false;
+    openFails = false;
     const retry = await start();
     expect(retry).toMatchObject({ ok: false });
     expect((retry as { error: string }).error).toContain("already sent");
@@ -240,6 +240,23 @@ describe("startWhatsAppChat — one send per attempt", () => {
     expect(await start()).toMatchObject({ ok: false });
     expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
     expect(sendApprovedTemplate).toHaveBeenCalledTimes(2);
+  });
+  it("BUG-8: taking over a colleague's closed chat is written to its history, not done silently", async () => {
+    conversationRow = row("CLOSED", "dddddddd-0000-4000-8000-00000000000a");
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
+    expect(ownerEvents()).toEqual([expect.objectContaining({ conversation_id: CONVERSATION, kind: "OWNER_CHANGED", actor_id: ME })]);
+    expect(updates.find((update) => update.patch.assigned_to_id === ME)?.filters).toMatchObject({ id: CONVERSATION, state: "CLOSED", assigned_to_id: "dddddddd-0000-4000-8000-00000000000a" });
+  });
+  it("BUG-8: a brand-new contact is inserted, and starting the chat writes no owner-change row", async () => {
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
+    expect(ownerEvents()).toEqual([]);
+  });
+  it("BUG-8: a chat that keeps changing under the write is recorded in as it is, with its owner left alone", async () => {
+    conversationRow = row("AI_ACTIVE", null);
+    writeMatchesRows = false;
+    expect(await start()).toEqual({ ok: true, conversationId: CONVERSATION });
+    expect(sendApprovedTemplate).toHaveBeenCalledTimes(1);
+    expect(ownerEvents()).toEqual([]);
   });
   it("refuses an attempt without a key, before anything is sent", async () => {
     const result = await startWhatsAppChat({ phoneNumber: "+94771234567", templateId: TEMPLATE, bodyParameters: [] } as never);

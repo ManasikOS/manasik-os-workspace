@@ -48,7 +48,8 @@ const rpc = vi.fn<(...args: unknown[]) => Promise<{ error: { message: string } |
 const conversationRow = { id: "conv-email-1" };
 let conversationError: { message: string } | null = null;
 let existingConversation: { id: string; state: string; assigned_to_id: string | null; assigned_to_name: string | null; contact_name: string | null } | null = null;
-const upsertSpy = vi.fn();
+const writeSpy = vi.fn();
+let updateMatches = true;
 vi.mock("@/utils/supabase/server", () => ({
   createClient: () => ({
     from: () => ({
@@ -56,13 +57,22 @@ vi.mock("@/utils/supabase/server", () => ({
         const chain: { eq: () => typeof chain; maybeSingle: () => Promise<{ data: typeof existingConversation; error: null }> } = { eq: () => chain, maybeSingle: async () => ({ data: existingConversation, error: null }) };
         return chain;
       },
-      upsert: (row: unknown) => {
-        upsertSpy(row);
+      insert: (row: unknown) => {
+        writeSpy("insert", row);
         return {
-        select: () => ({
-          single: async () => (conversationError ? { data: null, error: conversationError } : { data: conversationRow, error: null }),
-        }),
+          select: () => ({
+            single: async () => (conversationError ? { data: null, error: conversationError } : { data: conversationRow, error: null }),
+          }),
         };
+      },
+      update: (patch: unknown) => {
+        writeSpy("update", patch);
+        const query: { eq: () => typeof query; is: () => typeof query; select: () => Promise<{ data: Array<{ id: string }>; error: null }> } = {
+          eq: () => query,
+          is: () => query,
+          select: async () => ({ data: updateMatches ? [{ id: existingConversation?.id ?? "conv-existing" }] : [], error: null }),
+        };
+        return query;
       },
     }),
     rpc: (...args: unknown[]) => rpc(...args),
@@ -101,7 +111,8 @@ beforeEach(() => {
   };
   conversationError = null;
   existingConversation = null;
-  upsertSpy.mockClear();
+  writeSpy.mockClear();
+  updateMatches = true;
 });
 
 describe("startEmailConversation", () => {
@@ -123,15 +134,28 @@ describe("startEmailConversation", () => {
     const result = await startEmailConversation(input);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("Nadeesha");
-    expect(upsertSpy).not.toHaveBeenCalled();
+    expect(writeSpy).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("BUG-8: stops, queues nothing and changes no owner when a colleague takes the chat after the check", async () => {
+    existingConversation = { id: "conv-existing", state: "AI_ACTIVE", assigned_to_id: null, assigned_to_name: null, contact_name: "Amina" };
+    updateMatches = false;
+    const result = await startEmailConversation(input);
+    expect(result).toMatchObject({ ok: false });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("BUG-8: a brand-new address is inserted rather than upserted over whatever appears", async () => {
+    await startEmailConversation(input);
+    expect(writeSpy).toHaveBeenCalledWith("insert", expect.objectContaining({ channel: "GMAIL", external_conversation_id: "customer@example.com", state: "HUMAN_ACTIVE" }));
   });
 
   it("reuses a closed conversation and keeps the contact name it already has", async () => {
     existingConversation = { id: "conv-existing", state: "CLOSED", assigned_to_id: "someone-else", assigned_to_name: "Nadeesha", contact_name: "Amina" };
     const result = await startEmailConversation(input);
     expect(result.ok).toBe(true);
-    expect(upsertSpy).toHaveBeenCalledWith(expect.objectContaining({ contact_name: "Amina" }));
+    expect(writeSpy).toHaveBeenCalledWith("update", expect.objectContaining({ contact_name: "Amina" }));
   });
 
   it("lowercases and trims the recipient address before it reaches any downstream call", async () => {

@@ -19,6 +19,7 @@ import { assignmentNotification, canTakeInboxConversations, OWNER_CHANGED_EVENT_
 import { claimRefusalMessage, claimTemplateSend, attachTemplateConversation, recordTemplateFailed, recordTemplateSent } from "@/lib/inbox/template-send-claims";
 import { decideReleaseToAi, decideReplyOnOwnedConversation, decideTakeControl, type OwnedConversationFacts } from "@/lib/inbox/ownership-guard";
 import { decideStartOnExistingConversation, type ExistingConversationForStart } from "@/lib/inbox/start-conversation-guard";
+import { openStartedConversation } from "@/lib/inbox/start-conversation-write";
 import { insertReviewEvent } from "@/lib/data/documents-repository";
 import { INBOX_ATTACHMENT_BUCKET } from "@/lib/inbox/media/handlers";
 import { claimInboxAttachmentForPromotion, markInboxAttachmentPromoted, releaseInboxAttachmentClaim } from "@/lib/inbox/retention/promote-attachment";
@@ -1092,26 +1093,31 @@ export async function startWhatsAppChat(rawInput: {
   const now = new Date().toISOString();
   // A name typed now wins; otherwise keep the name the existing conversation already has instead of replacing it with the number.
   const contactName = input.contactName?.trim() || existingChat?.contact_name?.trim() || `+${to}`;
-  const { data: conversation, error: conversationError } = await supabase
-    .from("conversations")
-    .upsert(
-      {
-        agency_id: agencyId,
-        channel: "WHATSAPP",
-        external_conversation_id: to,
-        contact_name: contactName,
-        contact_phone: to,
-        state: "HUMAN_ACTIVE",
-        assigned_to_id: staffId,
-        assigned_to_name: name,
-        last_outbound_at: now,
-      },
-      { onConflict: "agency_id,channel,external_conversation_id" },
-    )
-    .select("id")
-    .single();
-  if (conversationError || !conversation) {
+  // The message is already out, so a chat a colleague picked up in the meantime is recorded in as it is, never taken over.
+  const opened = await openStartedConversation(supabase, {
+    agencyId,
+    channel: "WHATSAPP",
+    externalId: to,
+    staffId,
+    staffName: name,
+    fields: { contact_name: contactName, contact_phone: to, last_outbound_at: now },
+    existing: existingChat,
+    readExisting: () => findExistingConversationForStart(supabase, agencyId, "WHATSAPP", to),
+  });
+  if (!opened.ok) {
     return { ok: false, error: "The message was sent, but the CRM could not open the conversation. Refresh before retrying." };
+  }
+  const conversation = { id: opened.conversationId };
+  // Taking over a closed chat that was someone else's is an owner change like any other, so the history shows it.
+  if (opened.tookOver && opened.previous) {
+    await recordOwnerChange({
+      agencyId,
+      conversationId: conversation.id,
+      actorId: user.id,
+      actorName: name ?? null,
+      from: { id: opened.previous.assigned_to_id, name: opened.previous.assigned_to_name },
+      to: { id: staffId, name },
+    });
   }
 
   await attachTemplateConversation(admin, { agencyId, key: input.clientIdempotencyKey, conversationId: conversation.id as string });
@@ -1180,7 +1186,7 @@ export async function startEmailConversation(rawInput: {
   cc?: string[];
   bcc?: string[];
 }): Promise<StartChatResult> {
-  await requireUser();
+  const user = await requireUser();
   const { role, agencyId, staffId, name } = await getCurrentStaffRole();
   if (!capabilitiesForInbox(role).sendMessage) return { ok: false, error: "Not permitted." };
   if (!agencyId) return { ok: false, error: "No agency resolved for your account." };
@@ -1206,26 +1212,34 @@ export async function startEmailConversation(rawInput: {
     if (refusal) return { ok: false, error: refusal };
   }
   const now = new Date().toISOString();
-  const { data: conversation, error: conversationError } = await supabase
-    .from("conversations")
-    .upsert(
-      {
-        agency_id: agencyId,
-        channel: "GMAIL",
-        external_conversation_id: recipient,
-        contact_name: existingChat?.contact_name?.trim() || recipient,
-        connection_id: connection.id,
-        state: "HUMAN_ACTIVE",
-        assigned_to_id: staffId,
-        assigned_to_name: name,
-        last_outbound_at: now,
-      },
-      { onConflict: "agency_id,channel,external_conversation_id" },
-    )
-    .select("id")
-    .single();
-  if (conversationError || !conversation) {
+  const opened = await openStartedConversation(supabase, {
+    agencyId,
+    channel: "GMAIL",
+    externalId: recipient,
+    staffId,
+    staffName: name,
+    fields: { contact_name: existingChat?.contact_name?.trim() || recipient, connection_id: connection.id, last_outbound_at: now },
+    existing: existingChat,
+    readExisting: () => findExistingConversationForStart(supabase, agencyId, "GMAIL", recipient),
+  });
+  if (!opened.ok) {
     return { ok: false, error: "Could not open the conversation. Refresh before retrying." };
+  }
+  // Nothing is sent yet, so a chat a colleague picked up since the check above stops the email instead of being taken over.
+  if (!opened.tookOver) {
+    const stillTheirs = decideStartOnExistingConversation({ existing: opened.previous, currentStaffId: staffId, contactNoun: "email address" });
+    return { ok: false, error: stillTheirs.ok ? "Someone else changed this conversation just now. Refresh and try again." : stillTheirs.error };
+  }
+  const conversation = { id: opened.conversationId };
+  if (opened.previous) {
+    await recordOwnerChange({
+      agencyId,
+      conversationId: conversation.id,
+      actorId: user.id,
+      actorName: name ?? null,
+      from: { id: opened.previous.assigned_to_id, name: opened.previous.assigned_to_name },
+      to: { id: staffId, name },
+    });
   }
 
   // Mirrors startWhatsAppChat: only matches an existing lead. Creating one is a separate, explicit Inbox action.
