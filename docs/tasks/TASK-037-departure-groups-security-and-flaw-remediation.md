@@ -505,7 +505,21 @@ monthly AI budget is checked inside the model call as before. `lib/inbox/rate-li
 migration: the counter table's `action` column is free text); platform overrides work for it like any other action.
 The tab no longer sends `travellerCount`, `totalBookingValue` or the blockers. Not run in a browser; the action has no
 unit test (its input schema lives in a `"use server"` file and cannot be exported for one).
-SEC-08 to SEC-13 are not started.
+**SEC-08 done in code, with exceptions (2026-10-06):** `lib/validations/departure-groups.ts` gained shared helpers
+`entityId()` (trimmed GUID), `optionalEntityId` (empty string = none), `phoneNumberSchema` and `passportNumberSchema`.
+127 id fields (`departureGroupId`, `bookingId`, `groupPilgrimId`, `flightId`, `chargeId`, etc.) and the optional
+`supplierId` / `leadId` / `linkedReadinessItemId` now require a GUID instead of any non-empty string. `groupBookingSchema`
+caps booking reference (40), names (120), money (1,000,000,000) and travellers (50), validates phone and passport format;
+`editBookingSchema`, `bookingReminderSchema` and `createGroupTaskSchema.ownerName` have length caps. 10 tests in
+`departure-groups-input-hardening.test.ts`. **Correction to the finding:** the traveller list was already required to equal
+`travellerCount`; that part needed no change. `sendBookingReminderInStore` now takes the recipient from the stored booking
+instead of trusting the browser's name and number (the UI already sent the booking's own contact).
+**Not done:** `templateTransportRequirementId` and `visaId` (a visa number, not a row id) are left as free strings; reminder
+text is still composed in the browser and stored as sent (a server-built or re-redacted message for roles without
+`viewFinance` is not done); task owner is still resolved by display name rather than `ownerId`; other schemas' free-text
+fields (flight, hotel, transport, deviation notes) were not audited for length caps. Behaviour change: a phone number with
+letters (e.g. "N/A") or a non-uuid id from an old bookmark/import now fails validation.
+SEC-09 to SEC-13 are not started.
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into
 [`docs/security/access-control.md`](../security/access-control.md) if the new

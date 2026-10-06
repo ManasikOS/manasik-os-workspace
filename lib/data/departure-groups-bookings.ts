@@ -1282,6 +1282,12 @@ export function sendBookingReminderInStore(
   const channelWord = CHANNEL_WORDS[input.channel];
   const kindWord = input.kind === "PAYMENT" ? "Payment" : "Document";
 
+  // The recipient is the booking's own contact, read from the stored row. The
+  // browser sends one too, but a reminder must not be addressable to an
+  // arbitrary number typed into a request.
+  const recipientName = booking.primary_contact_name;
+  const recipientPhone = booking.primary_contact_phone;
+
   data.activity.push({
     id: newId(),
     departure_group_id: booking.departure_group_id,
@@ -1295,7 +1301,7 @@ export function sendBookingReminderInStore(
     entity_id: booking.id,
     before_value: null,
     after_value: { channel: input.channel, message },
-    message: `${kindWord} reminder for ${booking.booking_reference} prepared for ${input.recipientName} (${input.recipientPhone}) by ${channelWord}.`,
+    message: `${kindWord} reminder for ${booking.booking_reference} prepared for ${recipientName} (${recipientPhone}) by ${channelWord}.`,
     is_system: false,
     is_high_impact: false,
     created_at: now,
@@ -1307,8 +1313,8 @@ export function sendBookingReminderInStore(
       bookingReference: booking.booking_reference,
       kind: input.kind,
       channel: input.channel,
-      recipientName: input.recipientName,
-      recipientPhone: input.recipientPhone,
+      recipientName,
+      recipientPhone,
       recordedAt: now,
     },
   };
