@@ -5,9 +5,7 @@ import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabili
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -380,10 +378,11 @@ const OverviewTab = ({
               const blockerTone: Tone =
                 blocker.severity === "CRITICAL" ? "danger" : "warning";
               return (
-                <CardItem
+                <Card
+                  variant="md-shadow"
                   key={blocker.id}
                   className={cn(
-                    "flex flex-row items-center justify-between ",
+                    "flex flex-row items-center rounded-sm px-2 py-1 border-none justify-between ",
                     TONE_STAT_CARD[blockerTone],
                   )}
                 >
@@ -412,7 +411,7 @@ const OverviewTab = ({
                   >
                     {blocker.actionLabel} <ArrowRight className="size-3.5" />
                   </Button>
-                </CardItem>
+                </Card>
               );
             })}
           </div>

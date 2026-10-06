@@ -13,17 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
-import {
-  Archive,
-  Download,
-  Import,
-  MoreVertical,
-  Plus,
-} from "lucide-react";
+import { Archive, Download, Import, MoreVertical, Plus } from "lucide-react";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import dynamic from "next/dynamic";
 import React, { useMemo, useState } from "react";
@@ -87,8 +79,8 @@ import DepartureGroupsKPI from "./departure-groups-kpi-cards/departure-groups-kp
  * whether or not they have permission to open them.
  */
 const ArchivedGroupsSheet = dynamic(() => import("./archived-groups-sheet"));
-const CreateDepartureGroupSheet = dynamic(
-  () => import("./create-departure-group-sheet"),
+const CreateDepartureGroupDialog = dynamic(
+  () => import("./create-departure-group-dialog"),
 );
 const ImportGroupsDialog = dynamic(() => import("./import-groups-dialog"));
 import { buildGroupColumns } from "./groups-table/groups-columns";
@@ -348,7 +340,7 @@ const DepartureGroupsList = ({
   return (
     <>
       {hasOpenedCreate && (
-        <CreateDepartureGroupSheet
+        <CreateDepartureGroupDialog
           open={createOpen}
           onOpenChange={setCreateOpen}
           templates={templates}
@@ -390,6 +382,7 @@ const DepartureGroupsList = ({
             <div className="flex items-center gap-4">
               {can.createGroup && (
                 <Button
+                  // variant={"secondary"}
                   onClick={() => {
                     setHasOpenedCreate(true);
                     setCreateOpen(true);

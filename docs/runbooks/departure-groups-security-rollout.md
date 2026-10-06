@@ -56,15 +56,53 @@ select column_name from information_schema.columns
 
 ## 3. Two-tenant and two-account checks (staging)
 
-Create two agencies (A, B) with a group each, and for agency A a Guide assigned to group 1 but not group 2, plus one user per role you care about.
+`scripts/audits/departure-security-check.mjs` signs in as real test users through the public API, exactly as a browser would, and tries
+to do what must not be possible. It prints PASS / FAIL / SKIP per check and exits 1 on any FAIL. **It has never been run**: there was
+no staging project to point it at when it was written, so expect to adjust a column name or a payload on the first run. It will tell you
+(an insert refused for any reason other than a row-level-security refusal shows as SKIP, never as a false PASS).
 
-| Check | How | Expect |
+**Set up on staging** (never production; the script refuses a production-looking URL and needs `CHECK_I_AM_NOT_PRODUCTION=yes`):
+
+1. Two agencies, **A** and **B**, each with at least one departure group, and ideally a booking, a traveller and one uploaded file in B's first group.
+2. An **ADMIN** user in each agency.
+3. Optional but worth doing: a **GUIDE** in agency A assigned to one group and not another, and any **non-admin** in A (for example Marketing).
+4. Put the details in the environment of the shell you run it from (not in a committed file):
+
+```text
+CHECK_SUPABASE_URL, CHECK_SUPABASE_ANON_KEY      the project URL and its public (anon / publishable) key
+CHECK_A_EMAIL, CHECK_A_PASSWORD                  admin in agency A
+CHECK_B_EMAIL, CHECK_B_PASSWORD                  admin in agency B
+CHECK_GUIDE_EMAIL, CHECK_GUIDE_PASSWORD          optional, guide in agency A
+CHECK_NONADMIN_EMAIL, CHECK_NONADMIN_PASSWORD    optional, non-admin in agency A
+CHECK_I_AM_NOT_PRODUCTION=yes
+```
+
+```bash
+node scripts/audits/departure-security-check.mjs
+```
+
+| Check | What it tries | PASS means |
 |---|---|---|
-| Tenant isolation, direct API | As an agency-A user, query the Supabase REST API for B's `departure_groups`, `departure_group_pricing`, `departure_group_cost_estimates` and the `departure_group_costing` view | zero rows, or a permission error. **A row from B is a release blocker** (the costing view was flagged in DG-23) |
-| Guide scope | As the Guide, call the create-task action for group 2 (a hand-made request) | refused ("You do not have access to that departure group.") |
-| Document download | As agency A, request a signed link for a path starting with B's agency id | refused ("That document reference is invalid.") |
-| Access log | Open one traveller file | one new row in `departure_group_document_access_log` for that user |
-| Advisors | Supabase security advisor (`get_advisors`) | attach the output to the pull request; no new high findings on the new table or function |
+| T1 | A signed-out visitor reads departure tables | zero rows |
+| T2 | A and B each read 18 tables (groups, bookings, travellers, pricing, cost estimates, documents, activity, tasks, flights, hotels, transport, readiness, charges, deviations, access log, milestones, payments, invoices) | every row visible belongs to the caller's agency |
+| T3 | A and B read the costing view (the DG-23 concern) | it shows only groups the caller can already see |
+| T4 | A updates B's group; A inserts a task into B's group | both refused (the insert must be refused by policy, code 42501) |
+| T5 | A calls the atomic-write function as agency B; A sends a stale booking version | refused with 42501; refused with 40001 |
+| T6 | A lists B's traveller files in storage | nothing returned |
+| T7 | Edit and delete an access-log row; write one as someone else or for another agency; a non-admin reads the log | all refused; non-admin sees nothing |
+| T8 | A guide reads all groups and adds a task to an unassigned group | sees only assigned groups; insert refused |
+
+**Reading the result.** Any **FAIL** is a release blocker (a row from the other agency is the serious one). A **SKIP** was *not* checked and is
+not a pass: it means a missing account, an empty table (nothing to leak, so nothing proven) or a payload that needs updating. Fix the setup and run
+again until the checks you care about are PASS, not SKIP. The one thing the script leaves behind is a single labelled row in the access log, only
+when no real row existed to test edits on.
+
+**What the script cannot check:** the server-action rules (price, paid amount, cancel rights, guide scope inside actions). Those need a browser or a
+test that calls the actions; they are covered by unit tests and by the step 5 browser pass.
+
+| Also run | Expect |
+|---|---|
+| Supabase security advisor (`get_advisors`, type security) | attach the output to the pull request; no new high findings on the new table or function |
 
 ## 4. Deploy the code
 
