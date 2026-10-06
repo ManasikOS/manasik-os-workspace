@@ -170,6 +170,20 @@ const AddBookingSheet = ({
     INFANT: pricing.infantPrice ?? adultPrice,
   });
 
+  // A role that cannot record payments may not start a booking as confirmed or
+  // with money already received — the server refuses both — so it starts as a
+  // deposit-pending booking with nothing paid.
+  const startingStatus: BookingStatus =
+    group.salesStatus === "WAITLIST"
+      ? "WAITLIST"
+      : can.recordPayments
+        ? "CONFIRMED"
+        : "DEPOSIT_PENDING";
+  const startingAmountPaid =
+    can.recordPayments && pricing.advanceDeposit
+      ? String(pricing.advanceDeposit)
+      : "0";
+
   const [form, setForm] = useState<FormState>({
     primaryContactName: "",
     primaryContactPhoneCode: "+94",
@@ -178,9 +192,9 @@ const AddBookingSheet = ({
     primaryContactTravellerType: "ADULT",
     travellerCount: "1",
     roomOccupancyPreference: "QUAD",
-    bookingStatus: group.salesStatus === "WAITLIST" ? "WAITLIST" : "CONFIRMED",
+    bookingStatus: startingStatus,
     packagePricePerPerson: defaultPrice,
-    amountPaid: pricing.advanceDeposit ? String(pricing.advanceDeposit) : "0",
+    amountPaid: startingAmountPaid,
   });
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
@@ -245,10 +259,9 @@ const AddBookingSheet = ({
       primaryContactTravellerType: "ADULT",
       travellerCount: "1",
       roomOccupancyPreference: "QUAD",
-      bookingStatus:
-        group.salesStatus === "WAITLIST" ? "WAITLIST" : "CONFIRMED",
+      bookingStatus: startingStatus,
       packagePricePerPerson: defaultPrice,
-      amountPaid: pricing.advanceDeposit ? String(pricing.advanceDeposit) : "0",
+      amountPaid: startingAmountPaid,
     });
   };
 
@@ -534,7 +547,13 @@ const AddBookingSheet = ({
             <SelectMenu
               label="Booking Status"
               value={form.bookingStatus}
-              options={BOOKING_STATUS_CHOICES.map((choice) => ({
+              options={BOOKING_STATUS_CHOICES.filter(
+                (choice) =>
+                  can.recordPayments ||
+                  choice.value === "HELD" ||
+                  choice.value === "DEPOSIT_PENDING" ||
+                  choice.value === "WAITLIST",
+              ).map((choice) => ({
                 value: choice.value,
                 label: choice.label,
               }))}
@@ -576,7 +595,9 @@ const AddBookingSheet = ({
               className="col-span-2"
               error={fieldError("amountPaid")}
               hint={
-                pricing.advanceDeposit
+                !can.recordPayments
+                  ? "Finance records payments. Create the booking without one."
+                  : pricing.advanceDeposit
                   ? `Advance deposit: ${formatExactCurrency(
                       pricing.advanceDeposit,
                       pricing.currency,
@@ -595,6 +616,7 @@ const AddBookingSheet = ({
                   min={0}
                   value={parseInt(form.amountPaid)}
                   onValueChange={(val) => setField("amountPaid", String(val))}
+                  disabled={!can.recordPayments}
                   className="font-number flex-6"
                 />
               </ButtonGroup>

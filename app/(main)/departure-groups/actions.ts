@@ -7,6 +7,10 @@ import { capabilitiesFor } from "@/lib/access/departure-groups-access";
 import { capabilitiesForPackages } from "@/lib/access/packages-access";
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
 import {
+  checkBookingCommercialTerms,
+  type BookingCommercialTermsInput,
+} from "@/lib/data/departure-groups-booking-terms";
+import {
   addGroupFlightLeg,
   addPilgrimCharge,
   addTravellerRelationship,
@@ -540,6 +544,34 @@ export type CreateBookingResult =
     }
   | { ok: false; error: string; fieldErrors?: DepartureGroupFieldErrors };
 
+/**
+ * Price, paid amount and starting status come from the client, so they are
+ * checked here against the caller's real capabilities and the group's own
+ * published rates — see `checkBookingCommercialTerms`.
+ */
+async function checkNewBookingTerms(
+  role: Awaited<ReturnType<typeof getCurrentStaffRole>>["role"],
+  departureGroupId: string,
+  terms: BookingCommercialTermsInput,
+) {
+  const can = capabilitiesFor(role);
+  let pricing = null;
+  if (!can.overrideCapacityAndPrice) {
+    const supabase = createClient(await cookies());
+    const { data, error } = await supabase
+      .from("departure_group_pricing")
+      .select("*")
+      .eq("departure_group_id", departureGroupId)
+      .maybeSingle();
+    if (error) throw error;
+    pricing = data;
+  }
+  return checkBookingCommercialTerms(terms, pricing, {
+    overrideCapacityAndPrice: can.overrideCapacityAndPrice,
+    recordPayments: can.recordPayments,
+  });
+}
+
 export async function createGroupBookingAction(
   input: unknown,
 ): Promise<CreateBookingResult> {
@@ -560,6 +592,15 @@ export async function createGroupBookingAction(
   }
 
   const data = parsed.data;
+
+  const termsCheck = await checkNewBookingTerms(role, data.departureGroupId, data);
+  if (!termsCheck.ok) {
+    return {
+      ok: false,
+      error: termsCheck.error,
+      fieldErrors: { [termsCheck.field]: [termsCheck.error] },
+    };
+  }
 
   const outcome = await createGroupBooking(
     {
@@ -668,6 +709,20 @@ export async function importGroupPilgrimsAction(
     }
 
     const data = parsed.data;
+
+    const termsCheck = await checkNewBookingTerms(role, data.departureGroupId, data);
+    if (!termsCheck.ok) {
+      results.push({
+        bookingNumber,
+        bookingReference: data.bookingReference,
+        primaryContactName: data.primaryContactName,
+        travellerCount: data.travellerCount,
+        ok: false,
+        error: termsCheck.error,
+      });
+      continue;
+    }
+
     const outcome = await createGroupBooking(
       {
         departureGroupId: data.departureGroupId,

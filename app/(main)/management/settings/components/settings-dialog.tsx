@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentProps } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 /**
  * SaaS-style settings dialog — sidebar + content inside a `Dialog`, same
  * large-dialog shell as `CreatePackageDialog` / `AddNewLead` (see
@@ -34,8 +34,6 @@ import {
   XIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -54,28 +52,9 @@ import {
 } from "@/lib/access/settings-access";
 
 import { SectionShell } from "./section-shell";
-import { OrganisationForm } from "../organisation/organisation-form";
-import { BranchList } from "../branches/branch-list";
-import { BranchRulesCard } from "../branches/branch-rules-card";
-import { BrandingForm } from "../branding/branding-form";
-import { OperationalDefaultsForm } from "../operations/operational-defaults-form";
-import ServiceAddonsManager from "../service-addons/service-addons-manager";
-import { TemplateList } from "../communications/template-list";
-import { FinanceDefaultsForm } from "../finance/finance-defaults-form";
-import { IntegrationCard } from "../integrations/integration-card";
-import { MetaPageChannelCard } from "../integrations/meta-page-channel-card";
-import { WhatsAppConnectCard } from "../integrations/whatsapp-connect-card";
-import { TemplateManager } from "../whatsapp-templates/template-manager";
-import { BillingDashboard } from "../whatsapp-billing/billing-dashboard";
-import { SecurityForm } from "../security/security-form";
-import { SessionsCard } from "../security/sessions-card";
-import { AuditLogTable } from "../data/audit-log-table";
-import { ExportCard } from "../data/export-card";
-import { ImportCard } from "../data/import-card";
-import { RetentionCard } from "../data/retention-card";
-import { DangerActions } from "../danger/danger-actions";
-import { EmailSettings } from "../email/email-settings";
 import { getEmailSectionData } from "../email/actions";
+import type { MetaPageChannelCardProps } from "../integrations/meta-page-channel-card";
+import type { WhatsAppConnectCardProps } from "../integrations/whatsapp-connect-card";
 
 import {
   getOrganisationSectionData,
@@ -110,6 +89,8 @@ const SECTION_ICONS: Record<SettingsSectionId, LucideIcon> = {
   danger: TriangleAlert,
 };
 
+type SettingsPageChannelProps = Omit<MetaPageChannelCardProps, "channel" | "canEdit">;
+
 const SECTION_LOADERS: Record<
   SettingsSectionId,
   () => Promise<{ ok: boolean } & Record<string, unknown>>
@@ -130,11 +111,97 @@ const SECTION_LOADERS: Record<
   danger: getDangerSectionData,
 };
 
-/** What a Messenger or Instagram card needs beyond its channel and edit right — loaded by getIntegrationsSectionData. */
-type PageChannelProps = Omit<ComponentProps<typeof MetaPageChannelCard>, "channel" | "canEdit">;
+const OrganisationForm = lazy(() =>
+  import("../organisation/organisation-form").then((module) => ({ default: module.OrganisationForm })),
+);
+const BranchList = lazy(() =>
+  import("../branches/branch-list").then((module) => ({ default: module.BranchList })),
+);
+const BranchRulesCard = lazy(() =>
+  import("../branches/branch-rules-card").then((module) => ({ default: module.BranchRulesCard })),
+);
+const BrandingForm = lazy(() =>
+  import("../branding/branding-form").then((module) => ({ default: module.BrandingForm })),
+);
+const OperationalDefaultsForm = lazy(() =>
+  import("../operations/operational-defaults-form").then((module) => ({ default: module.OperationalDefaultsForm })),
+);
+const ServiceAddonsManager = lazy(() => import("../service-addons/service-addons-manager"));
+const TemplateList = lazy(() =>
+  import("../communications/template-list").then((module) => ({ default: module.TemplateList })),
+);
+const FinanceDefaultsForm = lazy(() =>
+  import("../finance/finance-defaults-form").then((module) => ({ default: module.FinanceDefaultsForm })),
+);
+const IntegrationCard = lazy(() =>
+  import("../integrations/integration-card").then((module) => ({ default: module.IntegrationCard })),
+);
+const MetaPageChannelCard = lazy(() =>
+  import("../integrations/meta-page-channel-card").then((module) => ({ default: module.MetaPageChannelCard })),
+);
+const WhatsAppConnectCard = lazy(() =>
+  import("../integrations/whatsapp-connect-card").then((module) => ({ default: module.WhatsAppConnectCard })),
+);
+const TemplateManager = lazy(() =>
+  import("../whatsapp-templates/template-manager").then((module) => ({ default: module.TemplateManager })),
+);
+const BillingDashboard = lazy(() =>
+  import("../whatsapp-billing/billing-dashboard").then((module) => ({ default: module.BillingDashboard })),
+);
+const SecurityForm = lazy(() =>
+  import("../security/security-form").then((module) => ({ default: module.SecurityForm })),
+);
+const SessionsCard = lazy(() =>
+  import("../security/sessions-card").then((module) => ({ default: module.SessionsCard })),
+);
+const AuditLogTable = lazy(() =>
+  import("../data/audit-log-table").then((module) => ({ default: module.AuditLogTable })),
+);
+const ExportCard = lazy(() =>
+  import("../data/export-card").then((module) => ({ default: module.ExportCard })),
+);
+const ImportCard = lazy(() =>
+  import("../data/import-card").then((module) => ({ default: module.ImportCard })),
+);
+const RetentionCard = lazy(() =>
+  import("../data/retention-card").then((module) => ({ default: module.RetentionCard })),
+);
+const DangerActions = lazy(() =>
+  import("../danger/danger-actions").then((module) => ({ default: module.DangerActions })),
+);
+const EmailSettings = lazy(() =>
+  import("../email/email-settings").then((module) => ({ default: module.EmailSettings })),
+);
+
+const SECTION_CODE_LOADERS: Record<SettingsSectionId, () => Promise<unknown>> = {
+  organisation: () => import("../organisation/organisation-form"),
+  branches: () => Promise.all([import("../branches/branch-list"), import("../branches/branch-rules-card")]),
+  branding: () => import("../branding/branding-form"),
+  operations: () => import("../operations/operational-defaults-form"),
+  "service-addons": () => import("../service-addons/service-addons-manager"),
+  communications: () => import("../communications/template-list"),
+  finance: () => import("../finance/finance-defaults-form"),
+  integrations: () => Promise.all([
+    import("../integrations/integration-card"),
+    import("../integrations/meta-page-channel-card"),
+    import("../integrations/whatsapp-connect-card"),
+  ]),
+  email: () => import("../email/email-settings"),
+  "whatsapp-templates": () => import("../whatsapp-templates/template-manager"),
+  "whatsapp-billing": () => import("../whatsapp-billing/billing-dashboard"),
+  security: () => Promise.all([import("../security/security-form"), import("../security/sessions-card")]),
+  data: () => Promise.all([
+    import("../data/audit-log-table"),
+    import("../data/export-card"),
+    import("../data/import-card"),
+    import("../data/retention-card"),
+  ]),
+  danger: () => import("../danger/danger-actions"),
+};
 
 type SectionEntry =
   | { status: "denied" }
+  | { status: "error" }
   | { status: "ready"; data: Record<string, unknown> };
 
 function SectionSkeleton() {
@@ -216,8 +283,7 @@ function renderSection(
         />
       );
     case "integrations": {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const whatsapp = data.whatsapp as any;
+      const whatsapp = data.whatsapp as WhatsAppConnectCardProps;
       const otherIntegrations = data.otherIntegrations as { id: string }[];
       return (
         <SectionShell
@@ -227,8 +293,8 @@ function renderSection(
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <WhatsAppConnectCard {...whatsapp} />
             {/* Each Meta channel has its own card and its own sign-in, exactly as on the Integrations page. */}
-            <MetaPageChannelCard channel="MESSENGER" {...(data.messenger as PageChannelProps)} canEdit={data.canEdit as boolean} />
-            <MetaPageChannelCard channel="INSTAGRAM" {...(data.instagram as PageChannelProps)} canEdit={data.canEdit as boolean} />
+            <MetaPageChannelCard channel="MESSENGER" {...(data.messenger as SettingsPageChannelProps)} canEdit={data.canEdit as boolean} />
+            <MetaPageChannelCard channel="INSTAGRAM" {...(data.instagram as SettingsPageChannelProps)} canEdit={data.canEdit as boolean} />
             {otherIntegrations.map((integration) => (
               <IntegrationCard
                 key={integration.id}
@@ -341,16 +407,35 @@ export function SettingsDialog({
     if (entries[activeSection] || inFlight.current.has(activeSection)) return;
 
     inFlight.current.add(activeSection);
-    SECTION_LOADERS[activeSection]().then((result) => {
-      inFlight.current.delete(activeSection);
-      setEntries((prev) => ({
-        ...prev,
-        [activeSection]: result.ok
-          ? { status: "ready", data: result }
-          : { status: "denied" },
-      }));
-    });
+    void SECTION_CODE_LOADERS[activeSection]();
+    SECTION_LOADERS[activeSection]()
+      .then((result) => {
+        setEntries((prev) => ({
+          ...prev,
+          [activeSection]: result.ok
+            ? { status: "ready", data: result }
+            : { status: "denied" },
+        }));
+      })
+      .catch(() => {
+        setEntries((prev) => ({
+          ...prev,
+          [activeSection]: { status: "error" },
+        }));
+      })
+      .finally(() => {
+        inFlight.current.delete(activeSection);
+      });
   }, [open, activeSection, entries]);
+
+  function retryActiveSettingsSection() {
+    if (!activeSection) return;
+    setEntries((previousEntries) => {
+      const nextEntries = { ...previousEntries };
+      delete nextEntries[activeSection];
+      return nextEntries;
+    });
+  }
 
   if (!activeSection) return null;
 
@@ -402,6 +487,8 @@ export function SettingsDialog({
                     key={id}
                     type="button"
                     onClick={() => setActiveSection(id)}
+                    onPointerEnter={() => void SECTION_CODE_LOADERS[id]()}
+                    onFocus={() => void SECTION_CODE_LOADERS[id]()}
                     className={cn(
                       "flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-sm transition-colors text-left",
                       isActive
@@ -441,6 +528,8 @@ export function SettingsDialog({
                   key={id}
                   type="button"
                   onClick={() => setActiveSection(id)}
+                  onPointerEnter={() => void SECTION_CODE_LOADERS[id]()}
+                  onFocus={() => void SECTION_CODE_LOADERS[id]()}
                   className={cn(
                     "shrink-0 rounded-full px-3 py-1 text-xs whitespace-nowrap transition-colors",
                     id === activeSection
@@ -464,8 +553,24 @@ export function SettingsDialog({
                     what={SETTINGS_SECTION_LABELS[activeSection]}
                   />
                 </div>
+              ) : entry.status === "error" ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center">
+                  <p className="text-sm font-medium">This settings section could not be loaded.</p>
+                  <p className="text-xs text-muted-foreground">Check your connection, then try again.</p>
+                  <Button variant="outline" size="sm" onClick={retryActiveSettingsSection}>
+                    Try again
+                  </Button>
+                </div>
               ) : (
-                renderSection(activeSection, entry.data)
+                <Suspense
+                  fallback={
+                    <div className="flex-1 overflow-y-auto custom-scroll px-4 sm:px-6 py-5">
+                      <SectionSkeleton />
+                    </div>
+                  }
+                >
+                  {renderSection(activeSection, entry.data)}
+                </Suspense>
               )}
             </div>
           </div>

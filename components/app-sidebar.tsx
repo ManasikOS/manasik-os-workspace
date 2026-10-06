@@ -107,6 +107,8 @@ export function AppSidebar({
   staffId?: string | null;
 }) {
   const [vaultOpen, setVaultOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hasOpenedSettings, setHasOpenedSettings] = useState(false);
 
   const overview: NavItem = {
     title: "Dashboard",
@@ -253,7 +255,6 @@ export function AppSidebar({
       desc: "Manage",
     },
   ];
-  const [hasOpenedSettings, setHasOpenedSettings] = useState(false);
   const adminBar = [
     { title: "Home", link: [overview] },
     { title: "Grow", link: grow },
@@ -290,9 +291,13 @@ export function AppSidebar({
       </SidebarContent>
       <SidebarFooter>
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <SettingsProfileLink role={role} name={name} staffId={staffId} />
-          </DropdownMenuTrigger>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenuTrigger
+                render={<SettingsProfileLink role={role} name={name} staffId={staffId} />}
+              />
+            </SidebarMenuItem>
+          </SidebarMenu>
           <DropdownMenuContent>
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuItem>
@@ -343,6 +348,7 @@ export function AppSidebar({
             <DropdownMenuItem
               onClick={() => {
                 setHasOpenedSettings(true);
+                setSettingsOpen(true);
               }}
             >
               <Settings2 size={10} /> Settings
@@ -354,8 +360,8 @@ export function AppSidebar({
         </DropdownMenu>
         {hasOpenedSettings && (
           <SettingsDialog
-            open={hasOpenedSettings}
-            onOpenChange={setHasOpenedSettings}
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
             role={role}
           />
         )}
@@ -374,9 +380,10 @@ export function AppSidebar({
  * opened, and warmed on hover so the click still feels instant.
  */
 const loadSettingsDialog = () =>
-  import("@/app/(main)/management/settings/components/settings-dialog").then(
-    (module) => module.SettingsDialog,
-  );
+  Promise.all([
+    import("@/app/(main)/management/settings/components/settings-dialog"),
+    import("@/app/(main)/management/settings/organisation/organisation-form"),
+  ]).then(([module]) => module.SettingsDialog);
 const SettingsDialog = dynamic(loadSettingsDialog, { ssr: false });
 
 /** Same posture as Settings: loaded only when the Document Vault is opened. */
@@ -399,10 +406,7 @@ function SettingsProfileLink({
   name?: string | null;
   staffId?: string | null;
 }) {
-  const [open, setOpen] = useState(false);
-  // Mount the dialog (and so download its code) only after the first open;
-  // once mounted it stays, so closing keeps its exit animation and state.
-  const [hasOpenedSettings, setHasOpenedSettings] = useState(false);
+
   const canViewSettings = capabilitiesForSettings(role).viewModule;
   const displayName = name?.trim() || "Account";
   const initials =
@@ -456,33 +460,18 @@ function SettingsProfileLink({
   }
 
   return (
-    <>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            className={cn(
-              "h-13 gap-2.5 rounded-sm transition-colors",
-              open
-                ? "bg-primary/5 text-primary"
-                : "hover:bg-muted-foreground/10",
-            )}
-            onPointerEnter={() => void loadSettingsDialog()}
-            onFocus={() => void loadSettingsDialog()}
-            // onClick={() => {
-            //   setHasOpenedSettings(true);
-            //   setOpen(true);
-            // }}
-          >
-            <div className="flex flex-row items-center gap-2.5 w-full">
-              {avatarRow}
-            </div>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-      {hasOpenedSettings && (
-        <SettingsDialog open={open} onOpenChange={setOpen} role={role} />
+    <SidebarMenuButton
+      className={cn(
+        "h-13 gap-2.5 rounded-sm transition-colors",
+        "hover:bg-muted-foreground/10",
       )}
-    </>
+      onPointerEnter={() => void loadSettingsDialog()}
+      onFocus={() => void loadSettingsDialog()}
+    >
+      <div className="flex flex-row items-center gap-2.5 w-full">
+        {avatarRow}
+      </div>
+    </SidebarMenuButton>
   );
 }
 

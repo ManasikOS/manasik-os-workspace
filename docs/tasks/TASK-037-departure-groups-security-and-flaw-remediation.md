@@ -1,0 +1,443 @@
+# TASK-037 Departure Groups — security and flaw remediation
+
+Audit date: 2026-10-06. Branch: `UI-update`.
+
+## What
+
+Fix the security, authorisation, input-validation and robustness flaws found in
+a review of the Departure Groups module: the list page, the group detail page
+and its tabs, the booking detail routes, the ID-card route, the server actions
+in `app/(main)/departure-groups/**`, the data layer in `lib/data/departure-groups*.ts`,
+access rules in `lib/access/departure-groups-access.ts`, the Zod schemas in
+`lib/validations/departure-groups.ts`, and the supporting migrations and cron routes.
+
+### Scope and honesty about evidence
+
+- This is a **source-code review**. I did not run the app, exercise any flow in a
+  browser, or query the live database. Findings marked **VERIFY** depend on
+  deployed database state (RLS policies, grants, bucket settings) and must be
+  confirmed against the real project with two tenants before being treated as fixed
+  or as exploitable.
+- I read the full action list in `actions.ts` and the files named in each finding.
+  I did not read every line of the roughly 60,000 lines in the module (the large
+  UI dialogs were only sampled), so "no finding" for a file is not a clean bill of health.
+- This doc is **additive**. Two earlier audits already cover money and calculation
+  correctness: [`departure-groups-audit-and-fix-plan.md`](../modules/departure-groups-audit-and-fix-plan.md) (DG-01 to DG-23)
+  and [`departure-groups-coherence-fixes-plan.md`](../modules/departure-groups-coherence-fixes-plan.md).
+  Those are not repeated here. Migrations dated after them (`20261120…capacity_guard`,
+  `20261122…store_atomic_rpc`) suggest part of DG-05 has been addressed; their status
+  has not been re-verified here (see section F).
+
+### What is already done well (keep it)
+
+- Every server action in `actions.ts` begins with `requireUser()`, re-resolves the
+  role server-side and re-checks a capability, then validates with Zod. The
+  stated rule "UI gating is not a security boundary" is followed consistently,
+  with the exceptions listed below.
+- Finer gates exist where the risk is obvious: capacity, price and cost estimate
+  need `overrideCapacityAndPrice`; refunds need `recordPayments`; cancelling a
+  group needs `cancelOrArchiveGroup`; Nusuk fields need `manageDocumentsAndVisa`.
+- Page routes call `notFound()` for guides not assigned to the group and for
+  roles without module access (group page, booking page, ID-card page).
+- Document storage is private, uses short-lived signed URLs (120 s), derives the
+  object key and extension server-side, and enforces a MIME allowlist and 10 MB cap.
+- Cron routes use a constant-time bearer-secret check and refuse to run when
+  `CRON_SECRET` is unset.
+- Tenant isolation migrations exist (`20260824…tenancy`, `20260827…tenant_storage_isolation`,
+  `20261231…fix_child_table_tenant_isolation`) and guide row-scoping is in RLS
+  (`20260903…`, `20260905…`).
+
+---
+
+## Findings
+
+Severity: **P0** exploitable by a legitimate low-privilege user to change money
+or data they should not; **P1** authorisation or integrity gap; **P2** hardening
+or robustness; **P3** maintainability.
+
+### SEC-01 — P0: a Marketing user can set the price, mark a booking paid and confirm it
+
+**Where:** `actions.ts:543` (`createGroupBookingAction`), `actions.ts:629`
+(`importGroupPilgrimsAction`), schema `groupBookingSchema` (`validations/departure-groups.ts:546`),
+`departure-groups-bookings.ts:318-336`.
+
+**What happens:** The only capability checked is `addBookings`, which Marketing
+has. The payload accepts these fields from the client and the data layer uses
+them as given:
+
+- `packagePricePerPerson` (any value from 0) and per-traveller `pricePerPerson`;
+- `amountPaid` (anything up to the total, clamped only by `min(max(…,0), totalValue)`);
+- `bookingStatus` (`CONFIRMED` is allowed);
+- `seatHoldExpiresAt`.
+
+Nothing compares the price to the group's own pricing table, and nothing requires
+`recordPayments` for a non-zero `amountPaid` or `overrideCapacityAndPrice` for a
+non-standard price. The code comments describe repricing and payments as gated,
+but those gates only exist on the edit/move/payment actions. Booking creation is
+the unguarded door.
+
+**Failure scenario:** A Marketing user calls the action directly (Server Actions
+are public POST endpoints) with `packagePricePerPerson: 0`, `amountPaid: 0`,
+`bookingStatus: "CONFIRMED"`. A free confirmed booking now holds seats. Or they
+send a full price with `amountPaid` equal to the total and the booking is
+recorded as paid in full with no ledger entry (this compounds DG-01).
+
+**Fix:**
+1. In both actions, derive the price server-side from `departure_group_pricing`
+   and the room tier. Accept a client price only if it equals the derived price
+   or the caller has `overrideCapacityAndPrice`.
+2. Reject `amountPaid > 0` unless the caller has `recordPayments`. Better: remove
+   `amountPaid` from the create payload and record any deposit through the single
+   payment command planned in DG-01.
+3. Restrict `bookingStatus` on create to `HELD`, `DEPOSIT_PENDING` or `WAITLIST`
+   for roles without `recordPayments`. `CONFIRMED` should be reached through payment.
+4. Apply the same rules to every row in the import action.
+
+**Tests (Vitest):** a Marketing-role call with a lowered price, with `amountPaid > 0`
+and with `CONFIRMED` is each refused; the same calls succeed for Admin with
+override; import rows are checked row by row.
+
+### SEC-02 — P1: cancelling and editing a paid booking needs only `addBookings`
+
+**Where:** `actions.ts:976` (`cancelGroupBookingAction`), `1046` (`updateBookingContactAction`),
+`1096` (`setBookingPayerAction`), `1141`/`1177` (relationships).
+
+**What happens:** `cancelGroupBookingAction` gates only on `addBookings`. The one extra
+check blocks a non-zero `refundAmount` for roles without `recordPayments`, but cancelling
+with no refund still succeeds. That releases seats and rooming and zeroes the booking
+balance (DG-08 documents the financial effect). Marketing can do this to a booking
+with money collected.
+
+**Fix:** Introduce `cancelBookings` (or reuse `editGroupDetails`) as a separate
+capability. Require `recordPayments` or an Admin/Finance approval when
+`amount_paid > 0`. Add the capability to `module-capability-keys.ts` and the
+defaults in `departure-groups-access.ts`.
+
+### SEC-03 — P1: server actions do not apply the group-scope rule that the pages apply
+
+**Where:** `canRoleOpenGroup()` is called only in the three page routes. No action in
+`actions.ts` calls it. Actions take `departureGroupId` from the client and pass it to
+the data layer.
+
+**What happens:**
+- **Guides** (`manageTasks`) can call `createGroupTaskAction` / `updateGroupTaskStatusAction`
+  for any group id. The only barrier is the RLS guide-scoping migration, which covers
+  the 10 core tables. Child tables keyed through a parent (`flight_legs`, `rooms`,
+  `room_assignments`) were added in a follow-up migration. **VERIFY** on the live
+  database that a guide cannot write to a group they are not assigned to, through
+  every table the action touches (tasks, activity logs, readiness items).
+- **Marketing** is limited on the page to sellable groups (`canRoleOpenGroup`), but the
+  booking actions accept any group id, including closed or cancelled groups.
+
+**Fix:** Add one helper, for example `assertCanActOnGroup(groupId)`, that resolves the
+role, assigned group ids and the group's sales status, and call it at the top of every
+action that takes a group id. Keep RLS as the second layer. Add a test per role.
+
+**VERIFY:** two-account test (guide A on group 1, group 2 not assigned) against the
+real project, covering reads and writes.
+
+### SEC-04 — P1: custom role permissions have no effect on this module
+
+**Where:** `departure-groups-access.ts` (static `CAPABILITIES` map) and the comment in
+`actions.ts:179-195` that says module capabilities are "not yet wired to `role_permissions`".
+`module-capability-keys.ts:42` already lists `departure_groups` keys, so the permission
+editor suggests these are configurable.
+
+**What happens:** An admin can edit or grant departure-group permissions for a custom
+role and see them saved, but the module ignores them. The behaviour differs from what
+the settings screen implies, in both directions (a permission removed in the editor is
+still granted by the built-in role map).
+
+**Fix:** Resolve capabilities through `loadDynamicCapabilities(supabase, roleId, "departure_groups", capabilitiesFor(role))`,
+as `packages` already does, in one shared `requireDepartureCapability(key)` helper used
+by all actions and pages. Until that ships, hide the `departure_groups` keys from the
+permission editor so it does not promise something it does not do.
+
+### SEC-05 — P1: uploaded-file references are not bound to the group and traveller
+
+**Where:** `submitDocumentSchema` / `uploadVisaSchema` / `uploadTicketSchema`
+(`validations/departure-groups.ts:427-517`); `departure-groups-documents.ts:500`
+and `:1194`; `document-storage.ts`.
+
+**What happens:**
+- The client sends `filePath` back after uploading. The schema only checks characters
+  and `..`. The data layer stores the value as given. (The staged-ticket path does
+  check the prefix, at `departure-groups.ts:3714`; the document and visa paths do not.)
+  A user can attach any object path in the bucket, including another traveller's
+  passport scan in the same agency, to a document record.
+- Upload URLs are created with `upsert: true`, so a second upload silently overwrites
+  a verified document in storage while the record can still read `VERIFIED`.
+- `createDocumentDownloadUrl(path)` signs any path that does not contain `..`. It does not
+  check that the path starts with the caller's agency id, or that the traveller belongs
+  to a group the caller may open. Cross-agency access depends entirely on storage RLS.
+- Content type and size are taken from the client's declaration. The bucket's own limits
+  help, but the file content is never checked (no magic-byte check; HEIC and PDF are
+  accepted by extension and header only).
+- `createDocumentUploadUrl` validates id format but not that `pilgrimId` belongs to
+  `departureGroupId` in the caller's agency.
+- Opening a passport scan is not recorded anywhere.
+
+**Fix:**
+1. In each submit path, require `filePath.startsWith(`${agencyId}/${groupId}/${pilgrimId}/`)`
+   and that the object exists (server-side `list`/`info`).
+2. Use `upsert: false`, or version file names, and reset status to `SUBMITTED` when a
+   verified document is replaced.
+3. In `createDocumentDownloadUrl`, require the agency prefix, look up the traveller's
+   group, call the group-scope helper from SEC-03, and write an access-log row
+   (who, which traveller, when).
+4. After upload, verify the real size and sniff the first bytes against the declared type.
+5. Confirm the pilgrim row belongs to the group and agency before issuing an upload URL.
+
+**VERIFY:** the storage policies in `20260827…tenant_storage_isolation.sql` are live and
+restrict by agency prefix. The original policies (`20260811…`) were `bucket_id = '…'` only.
+
+### SEC-06 — P1: the agent mute action has no capability check and no input validation
+
+**Where:** `agent-proposal-actions.ts:107` (`setGroupAgentSuppressionAction`).
+
+**What happens:** Any signed-in staff user, including a guide, can mute the operations agent
+for any group id. `days` is not validated: `NaN`, a negative number or a very large value
+reaches `new Date(...).toISOString()`, which throws a `RangeError` (an unhandled 500) for
+out-of-range values. `reason` has no length limit. `groupId` is not checked for format or
+agency (it relies on RLS).
+
+`approveAgentProposalAction` and `rejectAgentProposalAction` accept `proposalId`,
+`editedPayload` and `decisionNote` with no validation here. The service layer does role
+checks (`highRiskRoles`) — **VERIFY** that `editedPayload` is re-validated against the
+proposal's own schema and cannot widen scope, since it carries data into a mutation
+executed under the approver's identity.
+
+**Fix:** Zod-validate all three actions (`z.uuid()` ids, `days` as an integer from 1 to
+90 or null, `reason` max 300, `decisionNote` max 500). Gate muting behind `manageReadiness`
+or a dedicated capability. Wrap the date maths in the validation, not after it.
+
+### SEC-07 — P1: `analyzeBookingAction` skips authentication and trusts client data in an LLM call
+
+**Where:** `[bookingId]/analysis-actions.ts:29`.
+
+**What happens:**
+- It does not call `requireUser()`, contrary to the repo rule. It relies on
+  `getCurrentStaffRole()` returning a denied role when there is no session, which is
+  implicit and easy to break.
+- Input is typed but not validated at runtime: `blockers` (arbitrary array),
+  `bookingTotal` and `bookingTravellerCount` come from the client and go into the
+  analysis and the model prompt. The blockers' text becomes model input, which is a
+  prompt-injection and cost surface, and an arbitrarily large array is not capped.
+- The booking id is never checked to belong to the caller's agency or to a group the
+  role may open; it is only used in two RLS-filtered queries.
+- No rate limit or usage cap on a call that costs money.
+
+**Fix:** Add `requireUser()`. Validate with Zod (uuid, bounded array length and string
+lengths). Recompute blockers, totals and traveller counts on the server from the booking
+row instead of accepting them. Check group access (SEC-03). Route the call through the
+existing AI usage/budget gate used by other surfaces, with a per-user rate limit.
+
+### SEC-08 — P2: input validation is thinner than the rest of the codebase
+
+**Where:** `lib/validations/departure-groups.ts`.
+
+- Almost every id is `z.string().trim().min(1)`, not `z.uuid()`. Malformed ids reach the
+  database layer and surface as generic persistence errors.
+- Missing upper bounds in `groupBookingSchema`: `primaryContactName`, `primaryContactPhone`,
+  `bookingReference`, `travellers[].fullName`, `phone`, `passportNumber` have `min` but no `max`.
+  `travellers` is an unbounded array and is not required to equal `travellerCount`.
+  `packagePricePerPerson`, `amountPaid` and per-traveller price have no `max`, unlike
+  `recordPaymentSchema` (which caps at 1,000,000,000).
+- `createGroupTaskSchema.ownerName` has no max. The owner is resolved by display name
+  (`resolveStaffIdByName`), which is not a stable key and can match the wrong person
+  when two staff share a name. Use `ownerId`.
+- Phone and passport formats are not checked.
+- `bookingReminderSchema` takes `message`, `recipientName` and `recipientPhone` from the
+  client; the comment says a role without finance access gets a draft "that names no
+  amounts", but that redaction happens in the browser. The server stores whatever is sent,
+  and `recipientPhone` is not tied to the booking's own contact.
+
+**Fix:** Shared `idSchema = z.uuid()`, `phoneSchema`, `moneySchema(max)` and
+`shortText(max)` helpers; apply them everywhere; refine `travellers.length === travellerCount`
+when travellers are supplied; take reminder recipient from the booking server-side and build
+(or re-redact) the message server-side for roles without `viewFinance`.
+
+### SEC-09 — P2: bulk import is not idempotent and holds a request open
+
+**Where:** `actions.ts:405` and `629` (up to 200 rows each, processed in a sequential loop,
+each row doing a full store load and write).
+
+**What happens:**
+- A double-click or retry creates duplicates: for bookings the store "re-numbers a reference
+  that was already taken", so a second submit silently creates a second copy under a new
+  reference instead of failing.
+- 200 sequential store loads and writes inside one Server Action risks hitting the platform
+  time limit and leaves a partly imported file. There is no per-user rate limit.
+- Import rows inherit SEC-01 (price, paid amount, status).
+
+**Fix:** Add a client-generated import batch id stored on each created row with a unique
+constraint (one import per batch id); reject a reference collision on import rather than
+renumbering; process in chunks of about 25 with progress returned to the UI, or move large
+imports to a background job; add a per-user rate limit.
+
+### SEC-10 — P2: tenant filtering depends only on RLS; admin-client paths have no second filter
+
+**Where:** `lib/data/departure-groups*.ts` (`agency_id` appears in about 27 places across the
+data files, mostly on inserts); `mutate(..., { client })` accepts an admin client for the
+WhatsApp agent and cron; `release-seat-holds` runs with `agencyId: null`.
+
+**What happens:** For session clients, reads and updates are isolated only by RLS. That is
+acceptable when RLS is correct, but there is no defence in depth. For admin-client callers
+(cron, agent executors) RLS is bypassed, so correctness depends on every caller passing only
+ids that belong to the intended agency. `loadStore({ groupIds })` does not itself assert
+agency ownership of those ids.
+
+**Fix:** In `loadStore`, when an `agencyId` is known, add `.eq("agency_id", agencyId)` on the
+group query and reject ids that do not return. For agent paths, resolve `agencyId` from the
+proposal or conversation and pass it in. Add a Vitest that an admin-client mutation with a
+foreign group id fails.
+
+**VERIFY:** `departure_group_cost_estimates`, `departure_group_pricing` and the costing view
+(see DG-23) with two tenants. Run `get_advisors` (security) on the live project and attach
+the output to the PR.
+
+### SEC-11 — P2: persistence is not all-or-nothing outside one code path
+
+**Where:** `departure-groups.ts:594-620`; only the call at `:2788` passes `atomic: true`;
+the other roughly 76 `mutate()` call sites use `persistStore`, which can throw
+`DeparturePartialWriteError`.
+
+**What happens:** A failure mid-write leaves some collections written and others not. The
+code logs the error and tells an operator to reconcile by hand. This is DG-05 restated as a
+security/integrity risk: it affects seat counts, money and ticket counters.
+
+**Fix:** Make `atomic` the default in `mutate()` once the RPC covers all collections, then
+delete `persistStore`. Until then, flip the flag on the money, seat and cancellation
+mutations first (`recordBookingPayment`, `createGroupBooking`, `cancelGroupBooking`,
+`moveBookingToGroup`, refund and charge approval). Add an integration test that injects a
+failure between collections.
+
+### SEC-12 — P2: personal data handling has no stated retention, access audit or vendor basis
+
+**Where:** passport numbers on `departure_group_pilgrims`, visa and ticket files in
+`pilgrim-documents`, `analysePilgrimTicketAction` / `analysePilgrimVisaAction`.
+
+- Passport numbers and dates of birth are stored as plain columns. No retention period,
+  erasure path or export path is defined for a traveller after a departure completes.
+- Ticket and visa review sends traveller document content to an AI provider. **Decision
+  needed:** confirm the provider agreement, the consent basis, and whether the model call
+  must receive the whole document. Strip or mask fields the review does not need.
+- No audit row is written when someone views or downloads a document (SEC-05).
+- The activity trail stores reminder text verbatim, including recipient phone numbers.
+
+**Fix:** Write a short retention policy (for example, delete or anonymise documents and
+passport numbers N months after return date); add a scheduled job and a per-traveller
+erase action; log document access; mask phone numbers in activity text.
+
+### SEC-13 — P3: maintainability issues that raise the cost of fixing the above
+
+- `actions.ts` is 3,297 lines with about 75 actions; `lib/data/departure-groups.ts` is 4,423
+  lines; several dialogs and sheets exceed 1,400 lines
+  (`create-departure-group-sheet.tsx`, `add-edit-flight-dialog.tsx`, `request-deviation-dialog.tsx`).
+  The repeated "requireUser → role → capability → parse → mutate → revalidate" block is
+  copied by hand in every action, which is how SEC-01, SEC-06 and SEC-07 slipped through.
+- Test coverage for access is thin: three test files exist for the module
+  (`departure-groups-bookings.test.ts`, `departure-groups-copy.test.ts`, `brochure-actions.test.ts`).
+  There is no test that checks the capability matrix per action.
+- `error.tsx` is five lines and `loading.tsx` one line; verify what a user sees on a failed
+  load (and that no internal message leaks). Several actions return raw `error?.message` from
+  storage or Postgres to the browser (`document-storage.ts` lines ~104, 172, 232): replace with
+  generic text and log the detail server-side.
+- `revalidatePath` is called for a subset of the routes a mutation affects (booking route
+  aliases, dashboard and finance consumers). The earlier audit asks for this to be checked
+  against the installed Next.js docs rather than assumed.
+
+**Fix:** Add a small wrapper, for example `departureAction({ capability, schema, scope }, handler)`,
+that performs the common sequence once. Migrate actions to it incrementally while fixing the
+findings above, starting with the P0/P1 ones. Do not mass-refactor in one PR.
+
+---
+
+## Why
+
+The module handles money, passport data and seat inventory for multiple agencies, and its
+actions are public POST endpoints. The existing code gets the common pattern right, but the
+booking-creation path (SEC-01) can bypass the pricing and payment gates the rest of the module
+enforces, and several actions (SEC-03, SEC-06, SEC-07) skip the checks that the pages perform.
+
+## Data model changes
+
+- SEC-05: table `departure_group_document_access_log` (agency_id, staff_id, pilgrim_id,
+  group_id, document_path, action, created_at) with RLS in the same migration (read: ADMIN,
+  CEO; insert: authenticated staff in the same agency). Optional `replaced_at` on documents.
+- SEC-09: nullable `import_batch_id` on `departure_group_bookings` and `departure_groups`,
+  unique together with the reference/code per agency.
+- SEC-12: retention timestamps and an erase function. Needs a policy decision first.
+- SEC-04: none (permission rows already exist).
+- SEC-10 and DG-23: verify and, if missing, set `security_invoker = true` on the costing view.
+  Any change is a migration that includes its RLS or view options, per repo rules.
+
+## Access control changes
+
+- New capability `cancelBookings` (SEC-02) and, optionally, `manageAgentMute` (SEC-06). Add to
+  `departure-groups-access.ts` and `module-capability-keys.ts`; defaults: Admin, Operations
+  (cancel), Admin, Finance, Operations (mute).
+- `departure_groups` capabilities resolved through `loadDynamicCapabilities` (SEC-04).
+- Booking creation: Marketing loses the ability to set price, paid amount and `CONFIRMED`
+  (SEC-01). This is a behaviour change; tell the sales team before release.
+- Guide: group-scope enforcement in actions (SEC-03).
+
+## UI surfaces
+
+- Add Booking sheet and Import Pilgrims dialog (`components/add-booking-sheet.tsx`,
+  `[groupId]/components/import-pilgrims-dialog.tsx`): remove or lock price/paid/status fields
+  for roles without the matching capability; show server errors on the right field.
+- Pilgrims tab booking actions: hide Cancel for roles without `cancelBookings`.
+- Documents and Visa tab: show "replaced" state; show access-log link for Admin/CEO.
+- Agent tab: mute control respects the new capability and shows validation errors.
+- Booking AI Analysis tab: stop sending computed values; call with only the booking id.
+- Use shadcn components and the `InputGroup` pattern for any new inputs, per `AGENTS.md`.
+
+## Implementation order
+
+1. **Release blocker:** SEC-01, SEC-07 (smallest changes, highest impact). Tests first.
+2. SEC-02, SEC-03, SEC-06 together, with the shared `assertCanActOnGroup` / wrapper.
+3. SEC-05 (file binding, upsert, download scoping, access log).
+4. SEC-04 (dynamic capabilities) and SEC-08 (validation helpers), applied as the actions are touched.
+5. SEC-09, SEC-10, SEC-11. SEC-11 overlaps DG-05; plan with that work rather than twice.
+6. SEC-12 after the retention/vendor decisions are made. SEC-13 continuously.
+
+Open one PR per numbered step, per the repo's slice rule.
+
+## Test plan
+
+**Automated (Vitest):**
+- Capability matrix: for each role and each action touched, assert allow/deny (table-driven).
+- SEC-01: Marketing booking with lowered price, `amountPaid > 0`, and `CONFIRMED` each refused;
+  Admin with override allowed; import rows evaluated per row.
+- SEC-03: guide not assigned → denied on task create/update; Marketing on a closed group → denied.
+- SEC-05: `filePath` with another traveller's prefix rejected; download refuses a path outside the
+  agency prefix; replacing a verified document resets its status.
+- SEC-06 / SEC-07: invalid `days`, oversized `reason`, oversized `blockers` rejected; unauthenticated
+  call to `analyzeBookingAction` refused.
+- SEC-09: submitting the same import batch twice creates one set of rows.
+- SEC-10: admin-client mutation with a foreign-agency group id fails.
+- Run `npm run lint`, `npm run typecheck`, `npm run test` before opening each PR.
+
+**Manual / environment (needs two agencies and one account per role):**
+- Run the VERIFY items: guide cross-group write attempt; agency A reading agency B's
+  documents, costing view and pricing rows through the Supabase API directly; storage
+  policies live; `get_advisors` security output.
+- Browser pass per role on list, group detail (all tabs), booking detail, ID card:
+  golden path, permission-denied state, error state and empty state.
+- Confirm the denied-role and error pages show no internal messages.
+
+## Status
+
+In progress. **SEC-01 fixed (2026-10-06):** `lib/data/departure-groups-booking-terms.ts`
+(pure check, 10 Vitest cases) is enforced in `createGroupBookingAction` and per row in
+`importGroupPilgrimsAction`; the Add Booking sheet no longer offers Marketing/Operations a
+confirmed status or a paid amount. Rules: without `recordPayments` the caller can't send
+`amountPaid > 0` or start as `CONFIRMED`/`CANCELLED`; without `overrideCapacityAndPrice` the price
+must equal the group's published tier, live early-bird, child or infant rate. Not yet run in a
+browser. Other callers of `createGroupBooking` (WhatsApp agent, seat-hold proposals) bypass these
+actions and are unchanged. SEC-02 to SEC-13 are not started.
+Items marked VERIFY need a live-database check before they are classed as confirmed defects
+or closed. Update this section as each SEC item ships, and fold final decisions into
+[`docs/security/access-control.md`](../security/access-control.md) if the new
+`assertCanActOnGroup` / action-wrapper pattern becomes standard.
