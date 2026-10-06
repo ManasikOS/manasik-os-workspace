@@ -335,8 +335,9 @@ async function selectRows(
   db: Db,
   table: string,
   build: (query: any) => any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  columns = "*",
 ): Promise<Row[]> {
-  const { data, error } = await build(db.from(table).select("*"));
+  const { data, error } = await build(db.from(table).select(columns));
   if (error) throw new DepartureGroupPersistenceError(table, "select", error);
   return (data ?? []) as Row[];
 }
@@ -358,10 +359,19 @@ export async function loadStore(
 
   if (options.agencyId) {
     // Resolve the agency's own group ids first, then reuse the id scoping every other collection already honours.
-    const agencyGroups = await selectRows(db, COLLECTIONS.groups.table, (query) => {
-      const q = query.eq("agency_id", options.agencyId);
-      return options.includeArchived ? q : q.eq("archived", false);
-    });
+    // When the caller names the groups it wants, only those are checked (ids alone, not every group the agency owns): a
+    // mutation passes the ids it was handed, and an id that belongs to another agency simply drops out here.
+    if (options.groupIds && options.groupIds.length === 0) return store;
+    const agencyGroups = await selectRows(
+      db,
+      COLLECTIONS.groups.table,
+      (query) => {
+        let q = query.eq("agency_id", options.agencyId);
+        if (options.groupIds) q = q.in("id", options.groupIds);
+        return options.includeArchived ? q : q.eq("archived", false);
+      },
+      "id",
+    );
     const agencyIds = agencyGroups.map((row) => String((row as { id: unknown }).id));
     scoped = scoped ? scoped.filter((id) => agencyIds.includes(id)) : agencyIds;
   }

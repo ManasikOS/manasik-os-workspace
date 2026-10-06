@@ -263,6 +263,7 @@ export async function buildOpsSnapshot(
 ): Promise<OpsSnapshot | null> {
   const [data, proposalsResult] = await Promise.all([
     loadStore(client, {
+      agencyId,
       groupIds: [groupId],
       only: [
         "groups",

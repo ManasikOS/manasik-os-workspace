@@ -531,7 +531,17 @@ call against the limiter under new actions `IMPORT_DEPARTURE_GROUPS` (40/user/ho
 **Not done:** no batch id / migration (not needed given the unique constraints); a run that dies mid-batch is not resumable
 automatically, the user re-imports the file and the created rows show as "already in use"; the preview in each dialog is not
 capped, so a very large file still parses fully in the browser. Not run in a browser.
-SEC-10 to SEC-13 are not started.
+**SEC-10 done in code, partly (2026-10-06):** `loadStore` already accepted an `agencyId`; `mutate()` now always passes the
+actor's agency (`actor.agencyId`), so a group id that belongs to another agency never loads for a session user, the agent,
+a proposal executor or a WhatsApp tool, and the mutator reports it as "no longer exists". When the caller names groups, the
+ownership check is an id-only query (`select id ... where id in (...) and agency_id = ...`), not a read of every group the
+agency owns. `buildOpsSnapshot` (agent, service-role client) now passes its `agencyId` too (it accepted one and ignored it).
+5 tests in `departure-groups-repository.agency-scope.test.ts` (fake service-role client: a foreign id loads nothing,
+mixed ids load only the caller's). **Not done:** the seat-hold cron sweeper still runs with no agency (it selects its own
+group ids; adding per-agency batching is a separate change); read pages (`getDepartureGroupDetail`, list) still rely on RLS
+alone for session users; `departure_group_cost_estimates`, `departure_group_pricing` and the costing view still need the
+two-tenant live check (VERIFY, DG-23); `get_advisors` security output has not been run or attached.
+SEC-11 to SEC-13 are not started.
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into
 [`docs/security/access-control.md`](../security/access-control.md) if the new

@@ -651,10 +651,15 @@ export async function mutate<T extends { ok: boolean }>(
   const supabase = await db(options?.client);
   const actor = options?.actor ?? (await currentActor());
 
+  // Scoped to the actor's agency IN THE QUERY, on top of row-level security: a session client is already filtered by RLS, but
+  // the agent, proposal executors and WhatsApp tools run on the service-role client, which RLS does not filter, and a group id
+  // that belongs to another agency must simply not load for any of them. (The seat-hold sweeper has no single agency and
+  // passes none; it selects its own group ids.)
   const store = await loadStore(supabase, {
     groupIds,
     only: MUTABLE_COLLECTIONS,
     includeArchived: true,
+    agencyId: actor.agencyId ?? undefined,
   });
   const before = snapshotStore(store);
 
