@@ -567,7 +567,31 @@ running), so nothing below has executed SQL. What exists:
   Only then set `DEPARTURE_ATOMIC_PERSIST=all`, watch for `DeparturePartialWriteError` (should stop appearing) and unexpected 40001s,
   and finally delete `persistStore` and the flag.
 - The schema fingerprint test still fails (now 2 new migrations); regenerate with `scripts/local/write-schema-fingerprint.sh`.
-SEC-12 to SEC-13 are not started.
+**SEC-12 partly done (2026-10-06); the rest is blocked on decisions that are not mine to make.**
+Done: the parts of SEC-12 that need no policy.
+- Access audit for traveller files: delivered under SEC-05 (`departure_group_document_access_log`).
+- Phone numbers no longer written in full into the permanent activity trail: `maskPhoneNumber()` (`lib/data/departure-groups-privacy.ts`,
+  4 tests) is applied to the reminder entry and to the booking-contact-update entry (message and before/after values, keeping the last
+  three digits). The booking row still holds the real number. Existing trail rows keep the numbers already written to them.
+- The AI vendor setting already exists: `OPENROUTER_DATA_POLICY=deny|zdr` (`lib/ai/openrouter-privacy.ts`), unset by default.
+  **Ops item:** confirm it is set in production and that ticket/visa review still answers with it on.
+Not done, and why: building a deletion job or an erase button without a policy would either delete records the agency must keep
+(booking and payment history, invoices) or give a false sense of compliance. These need an owner's decision first:
+1. **Retention period** for passport numbers, passport/visa/ticket files and traveller phone numbers after the return date
+   (proposal to react to: files and passport numbers erased 24 months after return; booking, payment and invoice records kept for
+   the accounting period your tax advisor sets). Legal/accounting must confirm; I have not.
+2. **What "erase a traveller" means**: proposal is to erase passport number, passport expiry, phone, emergency contact, uploaded
+   files and the file-path columns, keep the traveller's name on booking and invoice records, and write one audit row; it needs a
+   rule for a traveller who still has an open booking or refund.
+3. **Whether passport numbers must be encrypted at rest** (they are plain columns today) - a column-encryption change touching search,
+   the visa module and imports.
+4. **AI review basis**: ticket and visa review sends the traveller's name, passport number and the document image/PDF to the model
+   provider. Confirm the provider agreement and consent wording covers that; I have not seen either.
+5. **Retention for `departure_group_document_access_log`** (proposal: keep 24 months).
+Once 1 and 2 are answered the build is: an agency setting (off by default), a nightly job modelled on the existing
+`inbox-retention` sweep with a dry-run mode, and an Admin-only per-traveller erase action - all needing the same
+database verification as SEC-11.
+SEC-13 is not started.
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into
 [`docs/security/access-control.md`](../security/access-control.md) if the new
