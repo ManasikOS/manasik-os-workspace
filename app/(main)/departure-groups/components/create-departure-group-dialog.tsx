@@ -702,7 +702,7 @@ const CreateDepartureGroupDialog = ({
 
                 {role === "ADMIN" &&
                   templates.some((t) => !t.isOpenForSale) && (
-                    <Card className="flex flex-row items-center justify-between shadow-xs! px-4 py-3 bg-muted/30">
+                    <Card className="flex flex-row items-center justify-between shadow-xs! px-4 py-2 bg-muted/30">
                       <div>
                         <p className="text-sm font-medium text-foreground">
                           Include drafts
@@ -747,8 +747,9 @@ const CreateDepartureGroupDialog = ({
                       <Card
                         key={template.id}
                         onClick={() => chooseTemplate(template)}
+                        variant="md-shadow"
                         className={cn(
-                          "text-left shadow-md!  dark:shadow- border- hover:cursor-pointer border px-3 py-3 transition-colors",
+                          "text-left  hover:cursor-pointer border px-4 py-1.5 transition-colors",
                           isSelected
                             ? "border-primary/10 bg-primary/5"
                             : "border-border/50 hover:bg-muted/50",
@@ -762,12 +763,12 @@ const CreateDepartureGroupDialog = ({
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
                               <Badge
                                 variant="outline"
-                                className="text-[10px] font-number text-muted-foreground"
+                                className="text-xs tabular-nums text-muted-foreground"
                               >
                                 {template.code}
                               </Badge>
                               <span className="text-xs text-muted-foreground">
-                                {JOURNEY_TYPE_LABELS[template.journeyType]} ·{" "}
+                                {/* {JOURNEY_TYPE_LABELS[template.journeyType]} ·{" "} */}
                                 {template.category} · {template.durationLabel}
                               </span>
                             </div>
@@ -802,7 +803,10 @@ const CreateDepartureGroupDialog = ({
                 </div>
                 <div className="py-5">
                   {selected && (
-                    <Card className="rounded-md shadow-md!  min-h-fit gap-1 px-5 py-5">
+                    <Card
+                      variant="md-shadow"
+                      className="rounded-md   min-h-fit gap-1 px-5 py-5"
+                    >
                       <p className="text-sm font-medium text-muted-foreground">
                         Selected Package Template
                       </p>

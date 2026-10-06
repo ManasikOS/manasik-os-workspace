@@ -13,17 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
-import {
-  Archive,
-  Download,
-  Import,
-  MoreVertical,
-  Plus,
-} from "lucide-react";
+import { Archive, Download, Import, MoreVertical, Plus } from "lucide-react";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import dynamic from "next/dynamic";
 import React, { useMemo, useState } from "react";
@@ -390,6 +382,7 @@ const DepartureGroupsList = ({
             <div className="flex items-center gap-4">
               {can.createGroup && (
                 <Button
+                  // variant={"secondary"}
                   onClick={() => {
                     setHasOpenedCreate(true);
                     setCreateOpen(true);

@@ -5,16 +5,22 @@ import { cn } from "@/lib/utils";
 function Card({
   className,
   size = "default",
+  variant = "default",
   style,
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & {
+  size?: "default" | "sm";
+  variant?: "default" | "md-shadow";
+}) {
   return (
     <div
       data-slot="card"
       data-size={size}
       className={cn(
         "group/card relative flex flex-col gap-4 rounded-md border border-muted-foreground/5 bg-card/95 px-6 py-5 text-sm text-card-foreground backdrop-blur-xl transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] dark:border-muted-foreground/5 dark:bg-card/80",
-        "shadow-[0_1px_3px_rgba(0,0,0,0.01),0_10px_10px_rgba(0,0,0,0.02),0_20px_40px_rgba(0,0,0,0.02)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),0_8px_16px_rgba(0,0,0,0.4)]",
+        variant == "default" &&
+          "shadow-[0_1px_3px_rgba(0,0,0,0.01),0_10px_10px_rgba(0,0,0,0.02),0_20px_40px_rgba(0,0,0,0.02)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.2),0_8px_16px_rgba(0,0,0,0.4)]",
+        variant == "md-shadow" && "shadow-sm dark:shadow-lg",
         "has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
         className,
       )}
