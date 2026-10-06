@@ -17,6 +17,9 @@ export const INBOX_RATE_LIMITED_ACTIONS = [
   "PREPARE_OFFER",
   // Not an Inbox action: the booking screen's AI analysis reuses this counter (one extra row per person and hour, no new table).
   "ANALYSE_BOOKING",
+  // Bulk imports on the departure groups screens: one use per server call (a call carries up to 50 rows).
+  "IMPORT_DEPARTURE_GROUPS",
+  "IMPORT_GROUP_BOOKINGS",
 ] as const;
 
 export type InboxRateLimitedAction = (typeof INBOX_RATE_LIMITED_ACTIONS)[number];
@@ -44,6 +47,9 @@ export const DEFAULT_INBOX_RATE_LIMITS: Record<InboxRateLimitedAction, InboxRate
   TRANSLATE: { perUserHourly: 60, perAgencyDaily: 600, whenUnavailable: "ALLOW", noun: "translations" },
   PREPARE_OFFER: { perUserHourly: 120, perAgencyDaily: 1000, whenUnavailable: "ALLOW", noun: "offer messages" },
   // A model call that costs money, so a broken counter refuses rather than opens the door.
+  // Writes real records, so a broken counter refuses. 40 calls an hour is 1,000 rows at the browser's 25 per call.
+  IMPORT_DEPARTURE_GROUPS: { perUserHourly: 40, perAgencyDaily: 200, whenUnavailable: "REFUSE", noun: "group import batches" },
+  IMPORT_GROUP_BOOKINGS: { perUserHourly: 40, perAgencyDaily: 400, whenUnavailable: "REFUSE", noun: "booking import batches" },
   ANALYSE_BOOKING: { perUserHourly: 20, perAgencyDaily: 300, whenUnavailable: "REFUSE", noun: "booking analyses" },
 };
 

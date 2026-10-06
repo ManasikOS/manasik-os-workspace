@@ -519,7 +519,19 @@ text is still composed in the browser and stored as sent (a server-built or re-r
 `viewFinance` is not done); task owner is still resolved by display name rather than `ownerId`; other schemas' free-text
 fields (flight, hotel, transport, deviation notes) were not audited for length caps. Behaviour change: a phone number with
 letters (e.g. "N/A") or a non-uuid id from an old bookmark/import now fails validation.
-SEC-09 to SEC-13 are not started.
+**SEC-09 done in code, with a correction (2026-10-06):** **the finding overstated the duplicate risk.** Group codes are unique per
+agency (`departure_groups_code_agency_unique`), booking references are unique per agency (`unique (agency_id, booking_reference)`),
+and `createGroupBooking` / `isGroupCodeTaken` refuse a taken one before writing, so re-submitting a file produces "already in
+use" failures, not duplicates; the "renumber" path only works inside one loaded store and cannot take a reference that exists.
+What was real: one request doing up to 200 sequential record creations, no per-user limit, and no progress. Fixed: the import
+dialogs now send rows in batches of 25 through `importInChunks` (`lib/import/chunked-import.ts`, 5 tests), show "Importing x of y",
+and stop cleanly at a refused batch with earlier rows reported; the server caps one call at 50 rows (was 200) and counts each
+call against the limiter under new actions `IMPORT_DEPARTURE_GROUPS` (40/user/hour, 200/agency/day) and `IMPORT_GROUP_BOOKINGS`
+(40/user/hour, 400/agency/day), refusing if the counter cannot be read. The import buttons were already disabled while running.
+**Not done:** no batch id / migration (not needed given the unique constraints); a run that dies mid-batch is not resumable
+automatically, the user re-imports the file and the created rows show as "already in use"; the preview in each dialog is not
+capped, so a very large file still parses fully in the browser. Not run in a browser.
+SEC-10 to SEC-13 are not started.
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into
 [`docs/security/access-control.md`](../security/access-control.md) if the new

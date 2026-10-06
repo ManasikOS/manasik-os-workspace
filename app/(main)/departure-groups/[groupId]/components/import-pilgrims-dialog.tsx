@@ -56,6 +56,7 @@ import type {
 } from "../../types";
 import { ROOM_TYPE_LABELS } from "../../utils";
 import { matrixToXlsx, readSpreadsheetFile, XLSX_MIME } from "../../xlsx";
+import { importInChunks } from "@/lib/import/chunked-import";
 import { TONE_CLASS, TONE_TEXT } from "@/lib/ui/tone";
 
 interface PreviewRow {
@@ -95,6 +96,7 @@ const ImportPilgrimsDialog = ({
 }: ImportPilgrimsDialogProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, startImport] = useTransition();
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState<string | null>(null);
@@ -229,24 +231,35 @@ const ImportPilgrimsDialog = ({
     if (validRows.length === 0) return;
 
     startImport(async () => {
-      const result = await importGroupPilgrimsAction(
+      // Sent in small batches so no single request runs long, and so a refusal
+      // (usage limit, lost session) stops cleanly with the earlier rows reported.
+      const outcome = await importInChunks(
         validRows.map((row) => row.candidate.payload),
+        async (chunk) => {
+          const result = await importGroupPilgrimsAction(chunk);
+          return result.ok
+            ? { ok: true as const, results: result.results }
+            : { ok: false as const, error: result.error };
+        },
+        (row, offset) => ({ ...row, bookingNumber: row.bookingNumber + offset }),
+        { onProgress: (done, total) => setProgress({ done, total }) },
       );
+      setProgress(null);
 
-      if (!result.ok) {
-        toast.add({ title: "Import failed", description: result.error });
+      if (outcome.results.length > 0) setResults(outcome.results);
+      const createdBookings = outcome.results.filter((row) => row.ok);
+      const createdTravellers = createdBookings.reduce((sum, row) => sum + row.travellerCount, 0);
+      const summary = `${createdTravellers} pilgrim${
+        createdTravellers === 1 ? "" : "s"
+      } added across ${createdBookings.length} of ${outcome.total} booking${
+        outcome.total === 1 ? "" : "s"
+      }.`;
+
+      if (outcome.stoppedWith) {
+        toast.add({ title: "Import stopped", description: `${summary} ${outcome.stoppedWith}` });
         return;
       }
-
-      setResults(result.results);
-      toast.add({
-        title: "Import complete",
-        description: `${result.createdTravellers} pilgrim${
-          result.createdTravellers === 1 ? "" : "s"
-        } added across ${result.createdBookings} of ${result.totalBookings} booking${
-          result.totalBookings === 1 ? "" : "s"
-        }.`,
-      });
+      toast.add({ title: "Import complete", description: summary });
     });
   };
 
@@ -514,8 +527,11 @@ const ImportPilgrimsDialog = ({
                 onClick={runImport}
               >
                 {isImporting && <Loader2 className="animate-spin" />}
-                Import {validTravellers > 0 ? validTravellers : ""} Pilgrim
-                {validTravellers === 1 ? "" : "s"}
+                {isImporting && progress
+                  ? `Importing ${progress.done} of ${progress.total}…`
+                  : `Import ${validTravellers > 0 ? validTravellers : ""} Pilgrim${
+                      validTravellers === 1 ? "" : "s"
+                    }`}
               </Button>
             </>
           )}

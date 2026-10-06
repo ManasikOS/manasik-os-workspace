@@ -5,6 +5,9 @@ import { cookies } from "next/headers";
 
 import { capabilitiesForPackages } from "@/lib/access/packages-access";
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
+import { IMPORT_MAX_ROWS_PER_CALL } from "@/lib/import/chunked-import";
+import { consumeInboxRateLimit } from "@/lib/inbox/rate-limit/limiter";
+import { createAdminClient } from "@/utils/supabase/admin";
 import {
   checkBookingCancellationRights,
   checkBookingCommercialTerms,
@@ -408,9 +411,9 @@ export type ImportGroupsResult =
 export async function importDepartureGroupsAction(
   input: unknown,
 ): Promise<ImportGroupsResult> {
-  await requireUser();
+  const user = await requireUser();
 
-  const { role, roleId } = await getCurrentStaffRole();
+  const { role, roleId, agencyId } = await getCurrentStaffRole();
   if (!(await getCurrentDepartureCapabilities()).createGroup) {
     return { ok: false, error: "Your role cannot import departure groups." };
   }
@@ -423,12 +426,21 @@ export async function importDepartureGroupsAction(
   if (input.length === 0) {
     return { ok: false, error: "There are no valid rows to import." };
   }
-  if (input.length > 200) {
+  // The import screen sends the file in small batches; a bigger call is a hand-made one.
+  if (input.length > IMPORT_MAX_ROWS_PER_CALL) {
     return {
       ok: false,
-      error: "Import is limited to 200 groups at a time.",
+      error: `Send at most ${IMPORT_MAX_ROWS_PER_CALL} groups per request.`,
     };
   }
+  if (!agencyId) return { ok: false, error: "Your account is not linked to an agency." };
+
+  const allowance = await consumeInboxRateLimit(createAdminClient(), {
+    agencyId,
+    userId: user.id,
+    action: "IMPORT_DEPARTURE_GROUPS",
+  });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
 
   const results: ImportRowResult[] = [];
   let created = 0;
@@ -669,9 +681,9 @@ export type ImportPilgrimsResult =
 export async function importGroupPilgrimsAction(
   input: unknown,
 ): Promise<ImportPilgrimsResult> {
-  await requireUser();
+  const user = await requireUser();
 
-  const { role } = await getCurrentStaffRole();
+  const { role, agencyId } = await getCurrentStaffRole();
   if (!(await getCurrentDepartureCapabilities()).addBookings) {
     return { ok: false, error: "Your role cannot import pilgrims." };
   }
@@ -682,9 +694,18 @@ export async function importGroupPilgrimsAction(
   if (input.length === 0) {
     return { ok: false, error: "There are no valid bookings to import." };
   }
-  if (input.length > 200) {
-    return { ok: false, error: "Import is limited to 200 bookings at a time." };
+  // The import screen sends the file in small batches; a bigger call is a hand-made one.
+  if (input.length > IMPORT_MAX_ROWS_PER_CALL) {
+    return { ok: false, error: `Send at most ${IMPORT_MAX_ROWS_PER_CALL} bookings per request.` };
   }
+  if (!agencyId) return { ok: false, error: "Your account is not linked to an agency." };
+
+  const allowance = await consumeInboxRateLimit(createAdminClient(), {
+    agencyId,
+    userId: user.id,
+    action: "IMPORT_GROUP_BOOKINGS",
+  });
+  if (!allowance.ok) return { ok: false, error: allowance.error };
 
   const results: ImportBookingRowResult[] = [];
   const touchedGroups = new Set<string>();
