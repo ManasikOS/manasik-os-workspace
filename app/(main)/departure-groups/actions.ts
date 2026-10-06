@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 
 import { capabilitiesForPackages } from "@/lib/access/packages-access";
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
+import { runDepartureAction } from "@/lib/data/departure-action";
 import { IMPORT_MAX_ROWS_PER_CALL } from "@/lib/import/chunked-import";
 import { consumeInboxRateLimit } from "@/lib/inbox/rate-limit/limiter";
 import { createAdminClient } from "@/utils/supabase/admin";
@@ -345,7 +346,10 @@ export async function listActiveSuppliersAction(
   }
   const { data, error } = await query;
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("listActiveSuppliersAction failed", error);
+    return { ok: false, error: "The supplier list could not be loaded. Try again." };
+  }
   return {
     ok: true,
     suppliers: (data ?? []).map((row) => ({
@@ -2798,28 +2802,18 @@ export type CreateGroupTaskResult =
 export async function createGroupTaskAction(
   input: unknown,
 ): Promise<CreateGroupTaskResult> {
-  await requireUser();
+  return runDepartureAction(
+    { capability: "manageTasks", denied: "Your role cannot manage tasks.", schema: createGroupTaskSchema },
+    input,
+    async (data): Promise<CreateGroupTaskResult> => {
+      const ownerId = data.ownerName ? await resolveStaffIdByName(createClient(await cookies()), data.ownerName) : null;
+      const outcome = await createGroupTask({ ...data, ownerId });
+      if (!outcome.ok) return { ok: false, error: outcome.error };
 
-  if (!(await getCurrentDepartureCapabilities()).manageTasks) {
-    return { ok: false, error: "Your role cannot manage tasks." };
-  }
-
-  const parsed = createGroupTaskSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Check the highlighted fields and try again.",
-      fieldErrors: toDepartureGroupFieldErrors(parsed.error),
-    };
-  }
-
-  const data = parsed.data;
-  const ownerId = data.ownerName ? await resolveStaffIdByName(createClient(await cookies()), data.ownerName) : null;
-  const outcome = await createGroupTask({ ...data, ownerId });
-  if (!outcome.ok) return { ok: false, error: outcome.error };
-
-  revalidatePath(`/departure-groups/${data.departureGroupId}`);
-  return { ok: true, ...outcome.result };
+      revalidatePath(`/departure-groups/${data.departureGroupId}`);
+      return { ok: true, ...outcome.result };
+    },
+  );
 }
 
 export type UpdateGroupTaskStatusResult =
@@ -3025,25 +3019,17 @@ export type PilgrimDeviationActionResult =
 export async function setPilgrimBaseFareAction(
   input: unknown,
 ): Promise<PilgrimChargeActionResult> {
-  await requireUser();
-  if (!(await getCurrentDepartureCapabilities()).overrideCapacityAndPrice) {
-    return { ok: false, error: "Your role cannot reprice a traveller." };
-  }
+  return runDepartureAction(
+    { capability: "overrideCapacityAndPrice", denied: "Your role cannot reprice a traveller.", schema: setBaseFareSchema },
+    input,
+    async (data): Promise<PilgrimChargeActionResult> => {
+      const outcome = await setPilgrimBaseFare(data);
+      if (!outcome.ok) return { ok: false, error: outcome.error };
 
-  const parsed = setBaseFareSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Check the highlighted fields and try again.",
-      fieldErrors: toDepartureGroupFieldErrors(parsed.error),
-    };
-  }
-
-  const outcome = await setPilgrimBaseFare(parsed.data);
-  if (!outcome.ok) return { ok: false, error: outcome.error };
-
-  revalidatePath(`/departure-groups/${parsed.data.departureGroupId}`);
-  return { ok: true, charge: outcome.charge };
+      revalidatePath(`/departure-groups/${data.departureGroupId}`);
+      return { ok: true, charge: outcome.charge };
+    },
+  );
 }
 
 export type SetPilgrimRoomTypeActionResult =
@@ -3054,25 +3040,17 @@ export type SetPilgrimRoomTypeActionResult =
 export async function setPilgrimRoomTypeAction(
   input: unknown,
 ): Promise<SetPilgrimRoomTypeActionResult> {
-  await requireUser();
-  if (!(await getCurrentDepartureCapabilities()).manageRooming) {
-    return { ok: false, error: "Your role cannot change room occupancy." };
-  }
+  return runDepartureAction(
+    { capability: "manageRooming", denied: "Your role cannot change room occupancy.", schema: setPilgrimRoomTypeSchema },
+    input,
+    async (data): Promise<SetPilgrimRoomTypeActionResult> => {
+      const outcome = await setPilgrimRoomType(data);
+      if (!outcome.ok) return { ok: false, error: outcome.error };
 
-  const parsed = setPilgrimRoomTypeSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false,
-      error: "Check the highlighted fields and try again.",
-      fieldErrors: toDepartureGroupFieldErrors(parsed.error),
-    };
-  }
-
-  const outcome = await setPilgrimRoomType(parsed.data);
-  if (!outcome.ok) return { ok: false, error: outcome.error };
-
-  revalidatePath(`/departure-groups/${parsed.data.departureGroupId}`);
-  return { ok: true };
+      revalidatePath(`/departure-groups/${data.departureGroupId}`);
+      return { ok: true };
+    },
+  );
 }
 
 /**
@@ -3295,26 +3273,26 @@ export type EraseTravellerDataResult =
  * record stay. Refused while the traveller's trip has not finished.
  */
 export async function eraseTravellerDataAction(input: unknown): Promise<EraseTravellerDataResult> {
-  await requireUser();
+  return runDepartureAction(
+    {
+      capability: "eraseTravellerData",
+      denied: "Your role cannot erase traveller details.",
+      schema: eraseTravellerDataSchema,
+      invalidMessage: (error) => error.issues[0]?.message ?? "That request is invalid.",
+    },
+    input,
+    async (data): Promise<EraseTravellerDataResult> => {
+      const outcome = await eraseTravellerSensitiveData({
+        departureGroupId: data.departureGroupId,
+        pilgrimId: data.pilgrimId,
+        reason: "REQUEST",
+      });
+      if (!outcome.ok) return { ok: false, error: outcome.error };
 
-  if (!(await getCurrentDepartureCapabilities()).eraseTravellerData) {
-    return { ok: false, error: "Your role cannot erase traveller details." };
-  }
-
-  const parsed = eraseTravellerDataSchema.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "That request is invalid." };
-  }
-
-  const outcome = await eraseTravellerSensitiveData({
-    departureGroupId: parsed.data.departureGroupId,
-    pilgrimId: parsed.data.pilgrimId,
-    reason: "REQUEST",
-  });
-  if (!outcome.ok) return { ok: false, error: outcome.error };
-
-  revalidatePath(`/departure-groups/${parsed.data.departureGroupId}`);
-  return { ok: true, filesRemoved: outcome.filesRemoved, personRecordErased: outcome.personRecordErased };
+      revalidatePath(`/departure-groups/${data.departureGroupId}`);
+      return { ok: true, filesRemoved: outcome.filesRemoved, personRecordErased: outcome.personRecordErased };
+    },
+  );
 }
 
 export async function getInvoiceLetterheadAction(): Promise<InvoiceLetterhead> {

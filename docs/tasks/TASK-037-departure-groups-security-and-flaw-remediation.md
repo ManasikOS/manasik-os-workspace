@@ -605,7 +605,23 @@ passport numbers must be encrypted at rest (SEC-12 item 3), and the AI provider 
   no undo; take a database and storage backup first.
 - Not tested: the wrapper, the action, the sweep and the storage deletion (they need a database and a bucket); nothing run in a browser.
   The schema fingerprint test still fails (3 new migrations); regenerate it.
-SEC-13 is not started.
+**SEC-13 partly done (2026-10-06).** Done:
+- `runDepartureAction()` (`lib/data/departure-action.ts`, 5 tests): runs the sign-in, capability check and Zod validation once, in a fixed order,
+  and hands the handler a parsed payload; group scope still comes from `mutate()`. Four actions moved onto it as the pattern
+  (`createGroupTaskAction`, `setPilgrimBaseFareAction`, `setPilgrimRoomTypeAction`, `eraseTravellerDataAction`). **The other ~65 actions still carry
+  the hand-written sequence**; move each over when it is next changed, not in one sweep.
+- Capability matrix test (`departure-groups-access.test.ts`, now 22 tests): an explicit who-may-do-what table for 13 sensitive capabilities, a
+  guide-can-do-nothing-else check, a check that the permission editor's key list equals the capabilities the code defines, that every role has the
+  same keys, and which roles see which tabs. Changing a role's rights now fails a test until the table is edited on purpose.
+- One raw database message returned to the browser removed (`listActiveSuppliersAction`); the others were fixed under SEC-05 and SEC-06.
+Not done: splitting the large files (`actions.ts` ~3,300 lines, `departure-groups.ts` ~4,500, the 1,400-1,500-line sheets and dialogs);
+testing the Server Actions themselves end to end (they need a session and a database); the `revalidatePath` coverage audit against the installed
+Next.js docs (booking route aliases, dashboard and finance consumers); the shared route error boundary (`components/route-error-boundary.tsx`)
+shows `error.message`, which Next replaces with a generic text for server errors in production but not for errors thrown in the browser. Check
+that in a production build before relying on it.
+The ordered rollout and checks are in [`docs/runbooks/departure-groups-security-rollout.md`](../runbooks/departure-groups-security-rollout.md). **All 13 findings now have a status.** What blocks calling the task done: apply and verify the 3 migrations (SEC-05 access log, SEC-11 atomic v2, SEC-12
+erasure marker, and regenerate the schema fingerprint), the live two-tenant and two-account checks marked VERIFY, a browser pass per role, and the
+open decisions (passport encryption, AI provider basis, WhatsApp number/email erasure).
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into
 [`docs/security/access-control.md`](../security/access-control.md) if the new
