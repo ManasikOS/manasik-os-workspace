@@ -81,6 +81,11 @@ export interface DepartureGroupCapabilities {
   manageTravellerCustomisations: boolean;
   /** Sign off a discount, price correction, or any charge flagged `requiresApproval`. */
   approveDiscounts: boolean;
+  /**
+   * Permanently erase a traveller's passport, contact and file details (see
+   * `departure-groups-erasure.ts`). Irreversible, so Admin only.
+   */
+  eraseTravellerData: boolean;
   /** See a traveller's price breakdown at all. Guides see the deviation, never the amount. */
   viewPilgrimPricing: boolean;
 }
@@ -111,6 +116,7 @@ const NONE: DepartureGroupCapabilities = {
   manageTravellerCustomisations: false,
   approveDiscounts: false,
   viewPilgrimPricing: false,
+  eraseTravellerData: false,
 };
 
 const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
@@ -140,6 +146,7 @@ const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
     manageTravellerCustomisations: true,
     approveDiscounts: true,
     viewPilgrimPricing: true,
+    eraseTravellerData: true,
   },
   // Full visibility, read-only day to day. Escalation happens through tasks,
   // which is why `manageTasks` stays on.

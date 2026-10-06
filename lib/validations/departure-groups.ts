@@ -1621,3 +1621,12 @@ export const muteAgentOnGroupSchema = z.object({
     .nullable(),
   reason: z.string().trim().max(300, { error: "Keep the reason under 300 characters." }),
 });
+
+/* ── Erasing a traveller's sensitive details ──────────────────────────────── */
+
+/** `confirm` must be literally true: the screen asks first, and a hand-made request has to say so too. */
+export const eraseTravellerDataSchema = z.object({
+  departureGroupId: entityId(),
+  pilgrimId: entityId(),
+  confirm: z.literal(true, { error: "Confirm the erasure to continue." }),
+});

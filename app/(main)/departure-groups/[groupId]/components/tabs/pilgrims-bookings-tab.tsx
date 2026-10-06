@@ -26,6 +26,7 @@ import {
 } from "@/lib/access/departure-groups-access";
 import { capabilitiesForFinance } from "@/lib/access/finance-access";
 import {
+  Eraser,
   ArrowRightLeft,
   ArrowUpFromLine,
   Ban,
@@ -84,6 +85,7 @@ import {
 import { manifestToCsv, manifestToMatrix } from "../../../manifest";
 import { matrixToXlsx, XLSX_MIME } from "../../../xlsx";
 import CancelBookingDialog from "../cancel-booking-dialog";
+import EraseTravellerDataDialog from "../erase-traveller-data-dialog";
 import EditBookingDialog from "../edit-booking-dialog";
 import ImportPilgrimsDialog from "../import-pilgrims-dialog";
 import InvoicePreviewDialog from "../invoice-preview-dialog";
@@ -164,6 +166,7 @@ const PilgrimsBookingsTab = ({
     kind: ReminderKind;
   } | null>(null);
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+  const [eraseTraveller, setEraseTraveller] = useState<{ id: string; fullName: string } | null>(null);
   const [invoiceBookingId, setInvoiceBookingId] = useState<string | null>(null);
   const [editBookingId, setEditBookingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -677,6 +680,16 @@ const PilgrimsBookingsTab = ({
                                   <ArrowRightLeft /> Move to Another Group
                                 </DropdownMenuItem>
                               )}
+                              {can.eraseTravellerData && (
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onClick={() =>
+                                    setEraseTraveller({ id: row.id, fullName: row.fullName })
+                                  }
+                                >
+                                  <Eraser /> Erase Sensitive Details
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               {can.sendGroupCommunications && (
                                 <DropdownMenuItem
@@ -1074,6 +1087,15 @@ const PilgrimsBookingsTab = ({
           booking={editBooking}
           open={editBookingId !== null}
           onClose={() => setEditBookingId(null)}
+        />
+      )}
+
+      {can.eraseTravellerData && (
+        <EraseTravellerDataDialog
+          traveller={eraseTraveller}
+          departureGroupId={group.id}
+          open={eraseTraveller !== null}
+          onClose={() => setEraseTraveller(null)}
         />
       )}
 

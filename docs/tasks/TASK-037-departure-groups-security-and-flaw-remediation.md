@@ -575,22 +575,36 @@ Done: the parts of SEC-12 that need no policy.
   three digits). The booking row still holds the real number. Existing trail rows keep the numbers already written to them.
 - The AI vendor setting already exists: `OPENROUTER_DATA_POLICY=deny|zdr` (`lib/ai/openrouter-privacy.ts`), unset by default.
   **Ops item:** confirm it is set in production and that ticket/visa review still answers with it on.
-Not done, and why: building a deletion job or an erase button without a policy would either delete records the agency must keep
-(booking and payment history, invoices) or give a false sense of compliance. These need an owner's decision first:
-1. **Retention period** for passport numbers, passport/visa/ticket files and traveller phone numbers after the return date
-   (proposal to react to: files and passport numbers erased 24 months after return; booking, payment and invoice records kept for
-   the accounting period your tax advisor sets). Legal/accounting must confirm; I have not.
-2. **What "erase a traveller" means**: proposal is to erase passport number, passport expiry, phone, emergency contact, uploaded
-   files and the file-path columns, keep the traveller's name on booking and invoice records, and write one audit row; it needs a
-   rule for a traveller who still has an open booking or refund.
-3. **Whether passport numbers must be encrypted at rest** (they are plain columns today) - a column-encryption change touching search,
-   the visa module and imports.
-4. **AI review basis**: ticket and visa review sends the traveller's name, passport number and the document image/PDF to the model
-   provider. Confirm the provider agreement and consent wording covers that; I have not seen either.
-5. **Retention for `departure_group_document_access_log`** (proposal: keep 24 months).
-Once 1 and 2 are answered the build is: an agency setting (off by default), a nightly job modelled on the existing
-`inbox-retention` sweep with a dry-run mode, and an Admin-only per-traveller erase action - all needing the same
-database verification as SEC-11.
+**Decisions made (2026-10-06, by the product owner):** retention is **24 months** after the group's return date (also applied to
+the document access log, counted from each row's own date); "erase a traveller" means erasing **sensitive data** (identity, contact
+and file details), not the traveller's name or any booking, payment or invoice record. Not yet decided / not confirmed: whether
+passport numbers must be encrypted at rest (SEC-12 item 3), and the AI provider agreement and consent wording for ticket/visa review
+(item 4) - both still open, neither built.
+
+**Built, not verified against a database (2026-10-06):**
+- `lib/data/departure-groups-erasure.ts` (13 tests): the rules and the erase itself. Request: allowed only once the trip has ended or the
+  group/booking was cancelled. Retention: only 24+ months after return, and not while the booking owes money or a refund is pending.
+  Cleared on the traveller: phone, passport number/expiry/country, date of birth, visa number and note, visa/ticket file paths, the
+  AI-extracted text and issues, emergency contact; on each document record: file path, name, size, notes. Kept: name, document status,
+  booking, payments, invoices. The audit entry names no detail.
+- `eraseTravellerSensitiveData()` (`departure-groups.ts`): checks the rules on a copy first, deletes the stored files FIRST (if that fails
+  nothing changes), then the database change through `mutate()`, then clears the shared Pilgrims-module person record's passport,
+  national ID, date of birth and emergency contact only when none of that person's other journeys still has un-erased details.
+  **Not erased:** the person's WhatsApp number and email (they identify the customer in the inbox), medical notes and support-case
+  attachments (other modules). Decide whether those must go too.
+- Admin-only action `eraseTravellerDataAction` (new capability `eraseTravellerData`, Admin only; Zod requires `confirm: true`) and an
+  "Erase Sensitive Details" item on each traveller's menu in the Pilgrims & Bookings tab, with a type-ERASE confirmation dialog.
+- Migration `20270117090000_traveller_sensitive_data_erasure.sql`: `departure_group_pilgrims.sensitive_data_erased_at` + a partial index.
+  **Apply it before deploying this code**, or the sweep's query fails.
+- Retention sweep: `/api/cron/traveller-data-retention` (`lib/data/traveller-data-retention.ts`), 50 travellers per agency per run.
+  **Safe by default:** it only reports what it WOULD erase unless `TRAVELLER_RETENTION_LIVE=true`, and `?dryRun=1` forces a dry run. It is
+  deliberately NOT scheduled (listed as unscheduled in `invoke-cron-route-allow-list.test.ts`); schedule it with a new migration only
+  after a person has read the dry-run numbers.
+- Rollout order: apply migration -> deploy -> call the route with the cron secret and read the dry-run totals (`travellersErased` is the
+  would-erase count) -> spot-check a few travellers -> set `TRAVELLER_RETENTION_LIVE=true` -> schedule. Erasure is permanent and there is
+  no undo; take a database and storage backup first.
+- Not tested: the wrapper, the action, the sweep and the storage deletion (they need a database and a bucket); nothing run in a browser.
+  The schema fingerprint test still fails (3 new migrations); regenerate it.
 SEC-13 is not started.
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into

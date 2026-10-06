@@ -34,6 +34,7 @@ import {
   assignGroupPilgrimToRoom,
   autoAssignGroupRooms,
   cancelGroupBooking,
+  eraseTravellerSensitiveData,
   changeBookingRoomPreference,
   createDepartureGroup,
   createGroupBooking,
@@ -124,6 +125,7 @@ import {
   cancelDeviationSchema,
   changeRoomPreferenceSchema,
   decideDeviationSchema,
+  eraseTravellerDataSchema,
   createDepartureGroupSchema,
   createGroupTaskSchema,
   deleteRoomSchema,
@@ -3281,6 +3283,38 @@ export interface InvoiceLetterhead {
   invoiceFooter: string;
   /** Short-lived; the caller must not cache this beyond the current page load. */
   logoUrl: string | null;
+}
+
+export type EraseTravellerDataResult =
+  | { ok: true; filesRemoved: number; personRecordErased: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Erases one traveller's passport, contact and file details at a person's request ("Erase Sensitive
+ * Details"). Admin only and irreversible; the traveller's name and every booking, payment and invoice
+ * record stay. Refused while the traveller's trip has not finished.
+ */
+export async function eraseTravellerDataAction(input: unknown): Promise<EraseTravellerDataResult> {
+  await requireUser();
+
+  if (!(await getCurrentDepartureCapabilities()).eraseTravellerData) {
+    return { ok: false, error: "Your role cannot erase traveller details." };
+  }
+
+  const parsed = eraseTravellerDataSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "That request is invalid." };
+  }
+
+  const outcome = await eraseTravellerSensitiveData({
+    departureGroupId: parsed.data.departureGroupId,
+    pilgrimId: parsed.data.pilgrimId,
+    reason: "REQUEST",
+  });
+  if (!outcome.ok) return { ok: false, error: outcome.error };
+
+  revalidatePath(`/departure-groups/${parsed.data.departureGroupId}`);
+  return { ok: true, filesRemoved: outcome.filesRemoved, personRecordErased: outcome.personRecordErased };
 }
 
 export async function getInvoiceLetterheadAction(): Promise<InvoiceLetterhead> {

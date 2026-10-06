@@ -69,6 +69,7 @@ describe("invoke_cron_route allow-list", () => {
     // Routes that exist but are deliberately not scheduled through pg_cron. Add a route here only with a reason.
     const notScheduledThroughPgCron: Record<string, string> = {
       "onboarding-signup-alert": "never scheduled on a timer; no pg_cron job exists for it",
+      "traveller-data-retention": "permanent erasure: runs as a dry run until TRAVELLER_RETENTION_LIVE=true, and is scheduled only after a person has read the dry-run numbers (TASK-037, SEC-12)",
     };
     const cronRoutesDirectory = join(process.cwd(), "app/api/cron");
     const routeNames = readdirSync(cronRoutesDirectory, { withFileTypes: true })

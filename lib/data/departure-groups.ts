@@ -20,7 +20,12 @@ import { cache } from "react";
 
 import { colomboDayKey } from "@/lib/date";
 import { loadAssignedGroupIds } from "@/lib/data/team-repository";
-import { verifyStoredTravellerFile } from "@/lib/data/departure-groups-uploads";
+import { verifyStoredTravellerFile, TRAVELLER_FILE_BUCKET } from "@/lib/data/departure-groups-uploads";
+import {
+  collectTravellerFilePaths,
+  eraseTravellerSensitiveFieldsInStore,
+  type ErasureReason,
+} from "@/lib/data/departure-groups-erasure";
 
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
 import {
@@ -4517,3 +4522,102 @@ async function resolveTemplate(
 }
 
 export { DEFAULT_COPY_OPTIONS };
+
+/* ── Erasing a traveller's sensitive details ──────────────────────────────── */
+
+export type EraseTravellerOutcome =
+  | { ok: true; filesRemoved: number; personRecordErased: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Erases one traveller's passport, contact and file details (see `departure-groups-erasure.ts`
+ * for exactly what, and what stays).
+ *
+ * Order matters. The stored files are deleted FIRST: if that fails nothing has changed and the
+ * request can simply be repeated. Doing it the other way round could clear the record that points
+ * at a file and then fail to delete the file, leaving a passport scan nobody can find or remove.
+ * The database change then goes through `mutate()` (agency-scoped, one transaction when atomic
+ * persistence is on). Last, the shared person record behind the traveller (Pilgrims module) has its
+ * passport and ID details cleared, but only when none of that person's other journeys still has
+ * un-erased details - someone travelling again next year keeps theirs.
+ *
+ * Not erased here: the person's WhatsApp number and email (they are how the agency's inbox
+ * recognises a customer), medical notes and support-case attachments (other modules).
+ */
+export async function eraseTravellerSensitiveData(
+  input: { departureGroupId: string; pilgrimId: string; reason: ErasureReason },
+  options?: {
+    client?: Db;
+    actor?: GroupActor;
+    /** Check the rules and count the files, but change nothing. Used by the retention sweep's dry run. */
+    dryRun?: boolean;
+  },
+): Promise<EraseTravellerOutcome> {
+  const supabase = await db(options?.client);
+  const agencyId = options?.actor?.agencyId ?? (await getCurrentStaffRole()).agencyId ?? undefined;
+
+  const store = await loadStore(supabase, {
+    groupIds: [input.departureGroupId],
+    only: ["groups", "pilgrims", "pilgrimDocuments", "bookings"],
+    includeArchived: true,
+    agencyId,
+  });
+
+  // Dry run on a copy: the rules (and "is this traveller even here") are decided before anything is touched.
+  const preview = structuredClone(store);
+  const actor = options?.actor ?? (await currentActor());
+  const check = eraseTravellerSensitiveFieldsInStore(preview, input, actor);
+  if (!check.ok) return check;
+
+  const filePaths = collectTravellerFilePaths(store, input.pilgrimId);
+  if (options?.dryRun) return { ok: true, filesRemoved: filePaths.length, personRecordErased: false };
+  if (filePaths.length > 0) {
+    const { error } = await supabase.storage.from(TRAVELLER_FILE_BUCKET).remove(filePaths);
+    if (error) {
+      console.error("eraseTravellerSensitiveData: could not remove stored files", error.message);
+      return { ok: false, error: "The stored files could not be removed, so nothing was erased. Try again." };
+    }
+  }
+
+  const outcome = await mutate(
+    [input.departureGroupId],
+    (data, mutationActor) => eraseTravellerSensitiveFieldsInStore(data, input, mutationActor),
+    { client: options?.client, actor: options?.actor },
+  );
+  if (!outcome.ok) return outcome;
+
+  let personRecordErased = false;
+  const personId = outcome.result.personId;
+  if (personId) {
+    const { count, error: othersError } = await supabase
+      .from("departure_group_pilgrims")
+      .select("id", { count: "exact", head: true })
+      .eq("pilgrim_id", personId)
+      .is("sensitive_data_erased_at", null);
+    if (othersError) {
+      console.error("eraseTravellerSensitiveData: could not check the person's other journeys", othersError.message);
+    } else if ((count ?? 0) === 0) {
+      const { error: personError } = await supabase
+        .from("pilgrims")
+        .update({
+          passport_number: null,
+          passport_expiry: null,
+          passport_issue_country: null,
+          national_id: null,
+          date_of_birth: null,
+          emergency_contact_name: null,
+          emergency_contact_relationship: null,
+          emergency_contact_phone: null,
+          emergency_contact_alt_phone: null,
+        })
+        .eq("id", personId);
+      if (personError) {
+        console.error("eraseTravellerSensitiveData: could not clear the person record", personError.message);
+      } else {
+        personRecordErased = true;
+      }
+    }
+  }
+
+  return { ok: true, filesRemoved: filePaths.length, personRecordErased };
+}
