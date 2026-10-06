@@ -75,6 +75,7 @@ import { addDays, format } from "date-fns";
 import SearchInput from "@/components/ui/search-input";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import SectionHeading from "@/components/section-heading";
 
 const COPY_LABELS: { key: keyof TemplateCopyOptions; label: string }[] = [
   { key: "itinerary", label: "Journey itinerary" },
@@ -1074,7 +1075,7 @@ const CreateDepartureGroupDialog = ({
                     />
                   </Field>
 
-                  <Card className="sm:col-span-2 flex flex-row items-center justify-between ">
+                  <Card className="sm:col-span-2 shadow-xs! px-4.5 py-3 flex flex-row items-center justify-between ">
                     <div>
                       <p className="text-sm font-medium text-foreground">
                         Waitlist enabled
@@ -1137,9 +1138,9 @@ const CreateDepartureGroupDialog = ({
                     </p>
                   </div>
 
-                  <Card className="p-4 gap-3">
+                  <Card className="p-4 gap-3  shadow-sm dark:shadow-xl ">
                     <p className="text-sm font-medium text-foreground">
-                      Room occupancy pricing
+                      Room occupancy pricing{" "}
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       <Field label="Currency">
@@ -1211,7 +1212,7 @@ const CreateDepartureGroupDialog = ({
                     )}
                   </Card>
 
-                  <Card className="p-4 gap-3">
+                  <Card className="p-4 gap-3 shadow-sm dark:shadow-xl ">
                     <p className="text-sm font-medium text-foreground">
                       Internal cost estimate (per pilgrim)
                     </p>
@@ -1515,17 +1516,13 @@ function SelectMenu({
   const selected = options.find((option) => option.value === value);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            className="justify-between w-full font-normal"
-          >
-            {selected?.label ?? "Select..."}
-            <ChevronDown />
-          </Button>
-        }
-      />
+      <DropdownMenuTrigger className={"w-full"}>
+        <InputGroupInput
+          value={selected?.label ?? "Select..."}
+          readOnly
+          className="w-full cursor-pointer"
+        />
+      </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-48">
         {options.map((option) => (
           <DropdownMenuItem
