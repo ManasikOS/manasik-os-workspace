@@ -541,7 +541,33 @@ mixed ids load only the caller's). **Not done:** the seat-hold cron sweeper stil
 group ids; adding per-agency batching is a separate change); read pages (`getDepartureGroupDetail`, list) still rely on RLS
 alone for session users; `departure_group_cost_estimates`, `departure_group_pricing` and the costing view still need the
 two-tenant live check (VERIFY, DG-23); `get_advisors` security output has not been run or attached.
-SEC-11 to SEC-13 are not started.
+**SEC-11 built but switched OFF, and not verified against a database (2026-10-06).** I could not run Postgres here (Docker was not
+running), so nothing below has executed SQL. What exists:
+- `buildAtomicDiff()` in `departure-groups-repository.ts` (extracted from `persistStoreAtomic`, 6 tests in
+  `departure-groups-repository.atomic-diff.test.ts`): the diff sent to the database, now also carrying `expectedVersions`
+  (the `row_version` loaded for every updated booking).
+- Migration `20270116090000_departure_store_atomic_rpc_v2.sql`: new function `apply_departure_store_changes_atomic_v2` (a NEW name;
+  the live `apply_departure_store_changes_atomic` used by booking creation is untouched). Same one-transaction, tenant-checked,
+  parent-before-child apply, plus (1) the booking row-version guard (raises 40001, nothing written, which `mutate()` already
+  turns into "updated elsewhere, refresh") and (2) column lists taken from the keys actually in each payload, so a missing
+  `row_version` is no longer inserted as an explicit NULL.
+- `mutate()`: with env `DEPARTURE_ATOMIC_PERSIST=all`, every mutation with a resolved agency goes through v2 (explicit
+  `atomic: true` callers also use v2); a caller with no agency (seat-hold sweeper) keeps the row-by-row path. **Unset = no change
+  in behaviour**, apart from the migration file existing.
+- Why this does not close SEC-11 yet: it only does once the function is applied and checked. Checks to run on a local database
+  (`bash scripts/local/rebuild-from-migrations.sh` with the local Supabase stack up), then on staging with the flag on:
+  1. the migration applies cleanly and `\df+ apply_departure_store_changes_atomic_v2` shows security invoker, no PUBLIC execute;
+  2. create a booking, record a payment, cancel it, move it, edit a flight, assign a room: each succeeds and the rows match what
+     the row-by-row path writes (compare a before/after row dump of one group);
+  3. force a failure mid-mutation (e.g. a check-violating value in the last collection written) and confirm NOTHING from that
+     mutation persisted, which is the point of the change;
+  4. two payments on one booking started from the same loaded version: exactly one succeeds, the other gets the
+     "updated elsewhere" message;
+  5. a call with another agency's row or `p_agency_id` is refused (SQLSTATE 42501).
+  Only then set `DEPARTURE_ATOMIC_PERSIST=all`, watch for `DeparturePartialWriteError` (should stop appearing) and unexpected 40001s,
+  and finally delete `persistStore` and the flag.
+- The schema fingerprint test still fails (now 2 new migrations); regenerate with `scripts/local/write-schema-fingerprint.sh`.
+SEC-12 to SEC-13 are not started.
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into
 [`docs/security/access-control.md`](../security/access-control.md) if the new

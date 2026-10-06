@@ -583,6 +583,17 @@ const currentActor = cache(async (): Promise<GroupActor> => {
 
 /* ── Unit of work ─────────────────────────────────────────────────────────── */
 
+/**
+ * Whether every mutation is written through the version-aware database function
+ * (`apply_departure_store_changes_atomic_v2`) instead of one table at a time.
+ * Set `DEPARTURE_ATOMIC_PERSIST=all` only after migration
+ * `20270116090000_departure_store_atomic_rpc_v2.sql` is applied; with it unset
+ * nothing changes.
+ */
+function atomicEverywhere(): boolean {
+  return process.env.DEPARTURE_ATOMIC_PERSIST === "all";
+}
+
 /** Verifies an attached traveller file's real bytes before it is recorded against anyone. */
 async function checkAttachedFile(filePath: string | null | undefined) {
   const path = filePath?.trim();
@@ -683,7 +694,13 @@ export async function mutate<T extends { ok: boolean }>(
 
   try {
     if (options?.atomic) {
-      await persistStoreAtomic(supabase, before, store, actor.agencyId);
+      await persistStoreAtomic(supabase, before, store, actor.agencyId, atomicEverywhere() ? "v2" : "v1");
+    } else if (atomicEverywhere() && actor.agencyId) {
+      // Every mutation in one transaction, with the booking row-version guard.
+      // Off until the v2 function has been applied and checked against a real
+      // database (see TASK-037, SEC-11). A caller with no single agency (the
+      // seat-hold sweeper) cannot use it and keeps the row-by-row path.
+      await persistStoreAtomic(supabase, before, store, actor.agencyId, "v2");
     } else {
       await persistStore(supabase, before, store, actor.agencyId);
     }

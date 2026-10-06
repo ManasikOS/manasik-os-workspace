@@ -634,21 +634,33 @@ export class DeparturePartialWriteError extends Error {
  * together with the seat projection. The ordinary path below remains for
  * legacy mutations until they are migrated to the same RPC boundary.
  */
-export async function persistStoreAtomic(
-  db: Db,
+/**
+ * What one mutation changes, in the shape the database function takes. Pure, so
+ * the diff - which is where an atomic write can go wrong - is unit-tested without
+ * a database.
+ *
+ * `expectedVersions` maps each UPDATED row of a version-guarded collection (the
+ * bookings, whose money columns are the sharpest lost-update risk) to the
+ * `row_version` this process loaded. The version-aware function refuses the whole
+ * mutation if any of them has moved, exactly as the row-by-row path does.
+ */
+export interface AtomicDiff {
+  changes: Record<string, Row[]>;
+  deletes: Record<string, string[]>;
+  newBookingIds: string[];
+  expectedVersions: Record<string, unknown>;
+}
+
+export function buildAtomicDiff(
   before: DepartureGroupStore,
   after: DepartureGroupStore,
-  agencyId: string | null,
-): Promise<void> {
-  if (!agencyId) {
-    throw new DepartureGroupPersistenceError("departure_store", "insert", {
-      message: "Atomic departure mutation requires a resolved agency.",
-    });
-  }
-
+  agencyId: string,
+): AtomicDiff {
   const changes: Record<string, Row[]> = {};
   const deletes: Record<string, string[]> = {};
   const newBookingIds: string[] = [];
+  const expectedVersions: Record<string, unknown> = {};
+
   for (const name of WRITE_ORDER) {
     const spec = COLLECTIONS[name];
     const previous = new Map(
@@ -661,6 +673,7 @@ export async function persistStoreAtomic(
       if (old && sameRow(old, row)) continue;
       const isInsert = !old;
       if (name === "bookings" && isInsert) newBookingIds.push(key);
+      if (!isInsert && spec.versionColumn) expectedVersions[key] = old![spec.versionColumn];
       const stampAgency = isInsert && row.agency_id == null;
       const written = stripped(
         stampAgency ? { ...row, agency_id: agencyId } : row,
@@ -678,15 +691,52 @@ export async function persistStoreAtomic(
     if (removed.length > 0) deletes[spec.table] = removed;
   }
 
-  const { error } = await db.rpc("apply_departure_store_changes_atomic", {
-    p_changes: changes,
-    p_deletes: deletes,
-    p_agency_id: agencyId,
-    p_new_booking_ids: newBookingIds,
-  });
+  return { changes, deletes, newBookingIds, expectedVersions };
+}
+
+/**
+ * Which database function applies a diff atomically.
+ *
+ *   * `apply_departure_store_changes_atomic` - the original, used by booking
+ *     creation. It has no row-version guard.
+ *   * `apply_departure_store_changes_atomic_v2` - the same transaction plus the
+ *     row-version guard, so it can safely carry every mutation.
+ */
+export type AtomicApplyVersion = "v1" | "v2";
+
+export async function persistStoreAtomic(
+  db: Db,
+  before: DepartureGroupStore,
+  after: DepartureGroupStore,
+  agencyId: string | null,
+  version: AtomicApplyVersion = "v1",
+): Promise<void> {
+  if (!agencyId) {
+    throw new DepartureGroupPersistenceError("departure_store", "insert", {
+      message: "Atomic departure mutation requires a resolved agency.",
+    });
+  }
+
+  const diff = buildAtomicDiff(before, after, agencyId);
+
+  const { error } =
+    version === "v2"
+      ? await db.rpc("apply_departure_store_changes_atomic_v2", {
+          p_changes: diff.changes,
+          p_deletes: diff.deletes,
+          p_agency_id: agencyId,
+          p_new_booking_ids: diff.newBookingIds,
+          p_expected_versions: diff.expectedVersions,
+        })
+      : await db.rpc("apply_departure_store_changes_atomic", {
+          p_changes: diff.changes,
+          p_deletes: diff.deletes,
+          p_agency_id: agencyId,
+          p_new_booking_ids: diff.newBookingIds,
+        });
   if (error) {
     throw new DepartureGroupPersistenceError(
-      "apply_departure_store_changes_atomic",
+      version === "v2" ? "apply_departure_store_changes_atomic_v2" : "apply_departure_store_changes_atomic",
       "insert",
       error,
     );
