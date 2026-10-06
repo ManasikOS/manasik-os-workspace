@@ -436,7 +436,13 @@ confirmed status or a paid amount. Rules: without `recordPayments` the caller ca
 `amountPaid > 0` or start as `CONFIRMED`/`CANCELLED`; without `overrideCapacityAndPrice` the price
 must equal the group's published tier, live early-bird, child or infant rate. Not yet run in a
 browser. Other callers of `createGroupBooking` (WhatsApp agent, seat-hold proposals) bypass these
-actions and are unchanged. SEC-02 to SEC-13 are not started.
+actions and are unchanged. **SEC-02 fixed (2026-10-06):** new capability `cancelBookings` (Admin, Finance, Operations; not
+Marketing, CEO, Visa, Guide) in `departure-groups-access.ts` and `module-capability-keys.ts`.
+`cancelGroupBookingAction` requires it, and additionally requires `recordPayments` when the stored
+`amount_paid` is above zero (`checkBookingCancellationRights`, read from the database, not the client).
+Cancel menu items and the dialog in the pilgrims tab and booking detail view now use the new
+capability. Not yet run in a browser. Still open under SEC-02: contact edit, payer and relationship
+actions still need only `addBookings`, which I judged lower risk. SEC-03 to SEC-13 are not started.
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into
 [`docs/security/access-control.md`](../security/access-control.md) if the new

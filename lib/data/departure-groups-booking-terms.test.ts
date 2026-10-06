@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  checkBookingCancellationRights,
   checkBookingCommercialTerms,
   type BookingCommercialTermsInput,
 } from "./departure-groups-booking-terms";
@@ -107,5 +108,23 @@ describe("checkBookingCommercialTerms", () => {
       now,
     );
     expect(outcome.ok).toBe(true);
+  });
+});
+
+describe("checkBookingCancellationRights", () => {
+  it("refuses a role without cancelBookings", () => {
+    expect(checkBookingCancellationRights({ cancelBookings: false, recordPayments: false }, 0).ok).toBe(false);
+  });
+
+  it("lets a cancel-capable role cancel an unpaid booking", () => {
+    expect(checkBookingCancellationRights({ cancelBookings: true, recordPayments: false }, 0).ok).toBe(true);
+  });
+
+  it("refuses a paid booking without recordPayments", () => {
+    expect(checkBookingCancellationRights({ cancelBookings: true, recordPayments: false }, 1).ok).toBe(false);
+  });
+
+  it("lets finance-capable roles cancel a paid booking", () => {
+    expect(checkBookingCancellationRights({ cancelBookings: true, recordPayments: true }, 50000).ok).toBe(true);
   });
 });

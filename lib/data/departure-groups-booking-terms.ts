@@ -131,3 +131,25 @@ export function checkBookingCommercialTerms(
 
   return { ok: true };
 }
+
+/**
+ * Who may cancel a booking. Withdrawing a seat needs `cancelBookings`; a
+ * booking that already holds money additionally needs `recordPayments`,
+ * because cancelling closes its balance and leaves a refund question that only
+ * a finance-capable role should be answering.
+ */
+export function checkBookingCancellationRights(
+  caller: { cancelBookings: boolean; recordPayments: boolean },
+  amountPaid: number,
+): { ok: true } | { ok: false; error: string } {
+  if (!caller.cancelBookings) {
+    return { ok: false, error: "Your role cannot cancel bookings." };
+  }
+  if (amountPaid > 0 && !caller.recordPayments) {
+    return {
+      ok: false,
+      error: "This booking has payments recorded against it. Ask finance or an administrator to cancel it.",
+    };
+  }
+  return { ok: true };
+}

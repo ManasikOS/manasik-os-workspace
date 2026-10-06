@@ -55,6 +55,13 @@ export interface DepartureGroupCapabilities {
   manageTasks: boolean;
   manageDocumentsAndVisa: boolean;
   addBookings: boolean;
+  /**
+   * Cancel an existing booking — releases its seats and rooming and closes its
+   * balance. Deliberately separate from `addBookings`: the role that sells a
+   * seat is not automatically trusted to withdraw one. A booking that already
+   * has money on it additionally needs `recordPayments`.
+   */
+  cancelBookings: boolean;
   /** Payments tab, invoices, refunds. */
   viewFinance: boolean;
   recordPayments: boolean;
@@ -93,6 +100,7 @@ const NONE: DepartureGroupCapabilities = {
   manageTasks: false,
   manageDocumentsAndVisa: false,
   addBookings: false,
+  cancelBookings: false,
   viewFinance: false,
   recordPayments: false,
   viewSupplierCosts: false,
@@ -122,6 +130,7 @@ const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
     manageTasks: true,
     manageDocumentsAndVisa: true,
     addBookings: true,
+    cancelBookings: true,
     viewFinance: true,
     recordPayments: true,
     viewSupplierCosts: true,
@@ -148,6 +157,7 @@ const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
     ...NONE,
     viewModule: true,
     viewFinance: true,
+    cancelBookings: true,
     recordPayments: true,
     viewSupplierCosts: true,
     manageReadiness: true,
@@ -180,6 +190,7 @@ const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
     manageTasks: true,
     manageDocumentsAndVisa: true,
     addBookings: true,
+    cancelBookings: true,
     viewSupplierCosts: true,
     viewSensitiveTravellerData: true,
     sendGroupCommunications: true,

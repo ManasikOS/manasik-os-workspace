@@ -433,7 +433,7 @@ export default function BookingDetailView({
                     <ArrowRightLeft /> Move to Another Group
                   </DropdownMenuItem>
                 )}
-                {can.addBookings && (
+                {can.cancelBookings && (
                   <DropdownMenuItem
                     variant="destructive"
                     onClick={() => setCancelOpen(true)}
@@ -1028,7 +1028,7 @@ export default function BookingDetailView({
         />
       )}
 
-      {can.addBookings && (
+      {can.cancelBookings && (
         <CancelBookingDialog
           booking={booking}
           travellers={travellers}

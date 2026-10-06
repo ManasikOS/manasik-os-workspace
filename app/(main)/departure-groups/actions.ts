@@ -7,6 +7,7 @@ import { capabilitiesFor } from "@/lib/access/departure-groups-access";
 import { capabilitiesForPackages } from "@/lib/access/packages-access";
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
 import {
+  checkBookingCancellationRights,
   checkBookingCommercialTerms,
   type BookingCommercialTermsInput,
 } from "@/lib/data/departure-groups-booking-terms";
@@ -1035,7 +1036,7 @@ export async function cancelGroupBookingAction(
 
   const { role } = await getCurrentStaffRole();
   const can = capabilitiesFor(role);
-  if (!can.addBookings) {
+  if (!can.cancelBookings) {
     return { ok: false, error: "Your role cannot cancel bookings." };
   }
 
@@ -1049,6 +1050,26 @@ export async function cancelGroupBookingAction(
   }
 
   const data = parsed.data;
+
+  // Money already on the booking is decided server-side from the stored row,
+  // never from anything the client says about it.
+  const { data: bookingRow, error: bookingLookupError } = await createClient(
+    await cookies(),
+  )
+    .from("departure_group_bookings")
+    .select("amount_paid")
+    .eq("id", data.bookingId)
+    .eq("departure_group_id", data.departureGroupId)
+    .maybeSingle();
+  if (bookingLookupError) throw bookingLookupError;
+  if (!bookingRow) {
+    return { ok: false, error: "That booking no longer exists." };
+  }
+  const rights = checkBookingCancellationRights(
+    { cancelBookings: can.cancelBookings, recordPayments: can.recordPayments },
+    Number((bookingRow as { amount_paid: number | null }).amount_paid ?? 0),
+  );
+  if (!rights.ok) return { ok: false, error: rights.error };
 
   if (data.refundAmount !== undefined && data.refundAmount > 0 && !can.recordPayments) {
     return {

@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Logo } from "@/components/logo";
 import { AgencySwitcher } from "@/components/agency-switcher";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -99,7 +99,6 @@ export function AppSidebar({
   role,
   memberships = [],
   name,
-  staffId,
 }: {
   role: StaffRole;
   memberships?: AgencyMembership[];
@@ -109,6 +108,7 @@ export function AppSidebar({
   const [vaultOpen, setVaultOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hasOpenedSettings, setHasOpenedSettings] = useState(false);
+  const canViewSettings = capabilitiesForSettings(role).viewModule;
 
   const overview: NavItem = {
     title: "Dashboard",
@@ -294,7 +294,7 @@ export function AppSidebar({
           <SidebarMenu>
             <SidebarMenuItem>
               <DropdownMenuTrigger
-                render={<SettingsProfileLink role={role} name={name} staffId={staffId} />}
+                render={<SettingsProfileLink profileName={name} />}
               />
             </SidebarMenuItem>
           </SidebarMenu>
@@ -345,14 +345,16 @@ export function AppSidebar({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
 
-            <DropdownMenuItem
-              onClick={() => {
-                setHasOpenedSettings(true);
-                setSettingsOpen(true);
-              }}
-            >
-              <Settings2 size={10} /> Settings
-            </DropdownMenuItem>
+            {canViewSettings && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setHasOpenedSettings(true);
+                  setSettingsOpen(true);
+                }}
+              >
+                <Settings2 size={10} /> Settings
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem>
               <Bug2 size={10} /> Send Feedback
             </DropdownMenuItem>
@@ -390,25 +392,19 @@ const SettingsDialog = dynamic(loadSettingsDialog, { ssr: false });
 const VaultDialog = dynamic(() => import("@/components/vault/vault-dialog"), { ssr: false });
 
 /**
- * Sits where a "Settings" nav row used to be — clicking it opens the
- * settings dialog in place (local `open` state, same as `CreatePackageDialog`
- * / `AddNewLead`), not a page navigation. Denied roles (Guide) have no
- * Settings section at all, so it falls back to a plain link to their own
- * Team profile, mirroring `app/(main)/management/settings/page.tsx`'s
- * redirect.
+ * Account-menu trigger that also warms the settings code for roles that can
+ * open it. The menu item itself remains capability-gated in `AppSidebar`.
  */
 function SettingsProfileLink({
-  role,
-  name,
-  staffId,
+  profileName,
+  className,
+  onPointerEnter,
+  onFocus,
+  ...triggerProps
 }: {
-  role: StaffRole;
-  name?: string | null;
-  staffId?: string | null;
-}) {
-
-  const canViewSettings = capabilitiesForSettings(role).viewModule;
-  const displayName = name?.trim() || "Account";
+  profileName?: string | null;
+} & Omit<ComponentProps<typeof SidebarMenuButton>, "children" | "name">) {
+  const displayName = profileName?.trim() || "Account";
   const initials =
     displayName
       .split(/\s+/)
@@ -437,36 +433,22 @@ function SettingsProfileLink({
     </>
   );
 
-  if (!canViewSettings) {
-    return (
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            className="h-11 gap-2.5 rounded-xs transition-colors hover:bg-primary/10"
-            render={
-              <Link
-                href={
-                  staffId ? `/management/team/${staffId}` : "/management/team"
-                }
-                className="flex flex-row items-center gap-2.5 w-full"
-              >
-                {avatarRow}
-              </Link>
-            }
-          />
-        </SidebarMenuItem>
-      </SidebarMenu>
-    );
-  }
-
   return (
     <SidebarMenuButton
+      {...triggerProps}
       className={cn(
         "h-13 gap-2.5 rounded-sm transition-colors",
         "hover:bg-muted-foreground/10",
+        className,
       )}
-      onPointerEnter={() => void loadSettingsDialog()}
-      onFocus={() => void loadSettingsDialog()}
+      onPointerEnter={(event) => {
+        onPointerEnter?.(event);
+        void loadSettingsDialog();
+      }}
+      onFocus={(event) => {
+        onFocus?.(event);
+        void loadSettingsDialog();
+      }}
     >
       <div className="flex flex-row items-center gap-2.5 w-full">
         {avatarRow}

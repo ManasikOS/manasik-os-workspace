@@ -702,7 +702,7 @@ const PilgrimsBookingsTab = ({
                                   <MegaphoneIcon /> Send Document Reminder
                                 </DropdownMenuItem>
                               )}
-                              {can.addBookings && (
+                              {can.cancelBookings && (
                                 <DropdownMenuItem
                                   variant="destructive"
                                   onClick={() =>
@@ -784,7 +784,7 @@ const PilgrimsBookingsTab = ({
                             <MegaphoneIcon /> Send Document Reminder
                           </ContextMenuItem>
                         )}
-                        {can.addBookings && (
+                        {can.cancelBookings && (
                           <ContextMenuItem
                             variant="destructive"
                             onClick={() => setCancelBookingId(row.bookingId)}
@@ -968,7 +968,7 @@ const PilgrimsBookingsTab = ({
                           <FileText /> Generate Invoice
                         </ContextMenuItem>
                       )}
-                      {can.addBookings &&
+                      {can.cancelBookings &&
                         booking.bookingStatus !== "CANCELLED" && (
                           <ContextMenuItem
                             variant="destructive"
