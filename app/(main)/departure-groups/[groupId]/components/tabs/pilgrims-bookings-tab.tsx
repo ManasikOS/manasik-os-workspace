@@ -1,6 +1,7 @@
 "use client";
 
 import SectionHeading from "@/components/section-heading";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,7 +22,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { capabilitiesForFinance } from "@/lib/access/finance-access";
@@ -146,7 +146,7 @@ const PilgrimsBookingsTab = ({
   transports,
   serviceAddons,
 }: PilgrimsBookingsTabProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const canInvoice = capabilitiesForFinance(role).createInvoices;
   const router = useRouter();
   const [isSeatPending, startSeatTransition] = useTransition();

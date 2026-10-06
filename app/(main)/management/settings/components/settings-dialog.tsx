@@ -42,6 +42,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PermissionDenied } from "@/components/ui/tone-badge";
 import { cn } from "@/lib/utils";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
@@ -87,6 +94,23 @@ const SECTION_ICONS: Record<SettingsSectionId, LucideIcon> = {
   security: ShieldCheck,
   data: Database,
   danger: TriangleAlert,
+};
+
+const SECTION_DESCRIPTIONS: Record<SettingsSectionId, string> = {
+  organisation: "Agency identity, locale and contact details used across customer-facing documents.",
+  branches: "Office locations, branch ownership and cross-branch operating rules.",
+  branding: "Brand assets and the information pilgrims can see in their portal.",
+  operations: "Default rules for groups, documents, readiness and inbox handling.",
+  "service-addons": "Optional services that can be added to bookings and packages.",
+  communications: "Reusable customer messages for routine booking and travel updates.",
+  finance: "Default currency, payment terms, invoice details and receiving accounts.",
+  integrations: "Connected channels and services available to this agency.",
+  email: "Outgoing and incoming email delivery, templates and connection checks.",
+  "whatsapp-templates": "Meta-approved messages used outside the customer service window.",
+  "whatsapp-billing": "WhatsApp usage, attributed costs, budgets and alerts.",
+  security: "Account protection, access defaults and active staff sessions.",
+  data: "Audit history, imports, exports and record retention.",
+  danger: "High-impact agency actions that always require explicit confirmation.",
 };
 
 type SettingsPageChannelProps = Omit<MetaPageChannelCardProps, "channel" | "canEdit">;
@@ -204,17 +228,19 @@ type SectionEntry =
   | { status: "error" }
   | { status: "ready"; data: Record<string, unknown> };
 
-function SectionSkeleton() {
+function SettingsSectionSkeleton({ section }: { section: SettingsSectionId }) {
   return (
-    <div className="flex flex-col gap-4">
-      <Skeleton className="h-6 w-64" />
-      <Skeleton className="h-4 w-96" />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+    <SectionShell title={SETTINGS_SECTION_LABELS[section]} description={SECTION_DESCRIPTIONS[section]}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2" aria-label="Loading settings">
         <Skeleton className="h-32 w-full" />
         <Skeleton className="h-32 w-full" />
       </div>
-    </div>
+    </SectionShell>
   );
+}
+
+function preloadSettingsSectionCode(section: SettingsSectionId) {
+  void SECTION_CODE_LOADERS[section]().catch(() => undefined);
 }
 
 function renderSection(
@@ -233,7 +259,7 @@ function renderSection(
       );
     case "branches":
       return (
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scroll   flex flex-col gap-8">
+        <div className="flex flex-col [&>section]:min-h-0 [&>section]:shrink-0">
           <BranchList
             branches={data.branches as never}
             managers={data.managers as never}
@@ -336,7 +362,7 @@ function renderSection(
       );
     case "security":
       return (
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scroll px-4 sm:px-6 py-5 flex flex-col gap-8">
+        <div className="flex flex-col [&>section]:min-h-0 [&>section]:shrink-0">
           <SecurityForm
             settings={data.settings as never}
             canEdit={data.canEdit as boolean}
@@ -407,7 +433,7 @@ export function SettingsDialog({
     if (entries[activeSection] || inFlight.current.has(activeSection)) return;
 
     inFlight.current.add(activeSection);
-    void SECTION_CODE_LOADERS[activeSection]();
+    preloadSettingsSectionCode(activeSection);
     SECTION_LOADERS[activeSection]()
       .then((result) => {
         setEntries((prev) => ({
@@ -463,9 +489,9 @@ export function SettingsDialog({
         </Button>
 
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          <aside className="hidden bg-card md:flex w-44 lg:w-56 shrink-0 flex-col gap-0.5 border-r border-border/50 px-2 lg:px-3 py-4 overflow-y-auto custom-scroll">
+          <aside className="hidden w-52 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border/50 bg-card px-3 py-4 custom-scroll md:flex lg:w-64">
             <div className="mb-4 px-1">
-              <h2 className="font-heading text-base lg:text-xl font-semibold leading-tight tracking-tight">
+              <h2 className="font-heading text-base font-medium leading-tight lg:text-xl">
                 Settings
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground leading-snug">
@@ -487,10 +513,12 @@ export function SettingsDialog({
                     key={id}
                     type="button"
                     onClick={() => setActiveSection(id)}
-                    onPointerEnter={() => void SECTION_CODE_LOADERS[id]()}
-                    onFocus={() => void SECTION_CODE_LOADERS[id]()}
+                    onPointerEnter={() => preloadSettingsSectionCode(id)}
+                    onFocus={() => preloadSettingsSectionCode(id)}
+                    aria-current={isActive ? "page" : undefined}
+                    title={SETTINGS_SECTION_LABELS[id]}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-sm px-2.5 py-2 text-sm transition-colors text-left",
+                      "flex items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-sm transition-colors text-left",
                       isActive
                         ? isDanger
                           ? "bg-destructive/15 text-destructive"
@@ -501,7 +529,7 @@ export function SettingsDialog({
                     )}
                   >
                     <Icon className="size-4 shrink-0" />
-                    <span className="truncate">
+                    <span className="min-w-0 leading-snug">
                       {SETTINGS_SECTION_LABELS[id]}
                     </span>
                   </button>
@@ -511,62 +539,64 @@ export function SettingsDialog({
           </aside>
 
           <div className="flex flex-1 min-w-0 flex-col overflow-hidden">
-            <div className="md:hidden flex items-center justify-between border-b border-border/50 bg-muted/30 px-4 py-3">
+            <div className="flex items-center justify-between border-b border-border/50 bg-muted/30 px-4 py-3 md:hidden">
               <div>
-                <h2 className="font-heading text-base font-semibold leading-tight">
+                <h2 className="font-heading text-base font-medium leading-tight">
                   Settings
                 </h2>
                 <p className="text-[11px] text-muted-foreground">
-                  {SETTINGS_SECTION_LABELS[activeSection]}
+                  Agency, operations & security
                 </p>
               </div>
             </div>
 
-            <div className="md:hidden flex items-center gap-1 overflow-x-auto px-3 py-2 border-b border-border/50">
-              {sections.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setActiveSection(id)}
-                  onPointerEnter={() => void SECTION_CODE_LOADERS[id]()}
-                  onFocus={() => void SECTION_CODE_LOADERS[id]()}
-                  className={cn(
-                    "shrink-0 rounded-full px-3 py-1 text-xs whitespace-nowrap transition-colors",
-                    id === activeSection
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "text-muted-foreground hover:bg-primary/10",
-                  )}
-                >
-                  {SETTINGS_SECTION_LABELS[id]}
-                </button>
-              ))}
+            <div className="border-b border-border/50 px-4 py-3 md:hidden">
+              <label htmlFor="mobile-settings-section" className="sr-only">
+                Settings section
+              </label>
+              <Select
+                value={activeSection}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  setActiveSection(value as SettingsSectionId);
+                }}
+              >
+                <SelectTrigger id="mobile-settings-section" className="w-full">
+                  <SelectValue>{SETTINGS_SECTION_LABELS[activeSection]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {sections.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {SETTINGS_SECTION_LABELS[id]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="flex-1  min-h-0 flex flex-col overflow-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto custom-scroll">
               {!entry ? (
-                <div className="flex-1 overflow-y-auto custom-scroll px-4 sm:px-6 py-5">
-                  <SectionSkeleton />
-                </div>
+                <SettingsSectionSkeleton section={activeSection} />
               ) : entry.status === "denied" ? (
-                <div className="flex-1 overflow-y-auto custom-scroll px-4 sm:px-6 py-5">
+                <SectionShell title={SETTINGS_SECTION_LABELS[activeSection]} description={SECTION_DESCRIPTIONS[activeSection]}>
                   <PermissionDenied
                     what={SETTINGS_SECTION_LABELS[activeSection]}
                   />
-                </div>
+                </SectionShell>
               ) : entry.status === "error" ? (
-                <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center">
-                  <p className="text-sm font-medium">This settings section could not be loaded.</p>
-                  <p className="text-xs text-muted-foreground">Check your connection, then try again.</p>
-                  <Button variant="outline" size="sm" onClick={retryActiveSettingsSection}>
-                    Try again
-                  </Button>
-                </div>
+                <SectionShell title={SETTINGS_SECTION_LABELS[activeSection]} description={SECTION_DESCRIPTIONS[activeSection]}>
+                  <div className="flex min-h-52 flex-col items-center justify-center gap-3 rounded-sm border border-dashed px-4 py-8 text-center">
+                    <p className="text-sm font-medium">This settings section could not be loaded.</p>
+                    <p className="text-xs text-muted-foreground">Check your connection, then try again.</p>
+                    <Button variant="outline" size="sm" onClick={retryActiveSettingsSection}>
+                      Try again
+                    </Button>
+                  </div>
+                </SectionShell>
               ) : (
                 <Suspense
                   fallback={
-                    <div className="flex-1 overflow-y-auto custom-scroll px-4 sm:px-6 py-5">
-                      <SectionSkeleton />
-                    </div>
+                    <SettingsSectionSkeleton section={activeSection} />
                   }
                 >
                   {renderSection(activeSection, entry.data)}

@@ -11,13 +11,13 @@ interface InputFormCardProps {
 const InputFormCard = ({ children, title, icon, desc }: InputFormCardProps) => {
   return (
     <Card className="px-5 py-3 bg-card/70!">
-      <div className="flex gap-1">
-        <div className="mt-0.5">{icon}</div>
+      <div className="flex items-start gap-2">
+        <div className="mt-0.5 text-muted-foreground">{icon}</div>
         <div>
-          <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <h2 className="text-base font-medium text-foreground">
             {title}
           </h2>
-          {desc && <p className="text-sm text-muted-foreground">{desc}</p>}{" "}
+          {desc && <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{desc}</p>}
         </div>
       </div>
       {children}

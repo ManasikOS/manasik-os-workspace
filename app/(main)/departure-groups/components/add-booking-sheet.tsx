@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -133,7 +133,7 @@ const AddBookingSheet = ({
   existingBookingCount,
   role,
 }: AddBookingSheetProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [isPending, startTransition] = useTransition();
   const [errors, setErrors] = useState<DepartureGroupFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);

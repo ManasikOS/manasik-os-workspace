@@ -45,7 +45,7 @@ export function DangerActions({
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="flex-row items-center justify-between gap-4 py-4">
+      <Card className="items-start justify-between gap-4 px-4 py-4 sm:flex-row sm:items-center">
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
             <Archive className="size-4" /> Archive Branch
@@ -56,7 +56,7 @@ export function DangerActions({
           {branches.length > 0 && (
             <div className="mt-2 max-w-xs">
               <SelectDropdown
-                label=""
+                label="Branch"
                 value={branchId}
                 onChange={setBranchId}
                 options={branches.map((b) => ({
@@ -70,6 +70,7 @@ export function DangerActions({
         <Button
           variant="destructive"
           size="sm"
+          className="w-full sm:w-auto"
           disabled={!selectedBranch}
           onClick={() => setPending("ARCHIVE_BRANCH")}
         >
@@ -77,7 +78,7 @@ export function DangerActions({
         </Button>
       </Card>
 
-      <Card className="flex-row items-center justify-between gap-4 py-4">
+      <Card className="items-start justify-between gap-4 px-4 py-4 sm:flex-row sm:items-center">
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
             <ShieldOff className="size-4" /> Deactivate Agency Portal
@@ -89,15 +90,16 @@ export function DangerActions({
           </span>
         </div>
         <Button
-          variant="destructive"
+          variant={portalActive ? "destructive" : "default"}
           size="sm"
+          className="w-full sm:w-auto"
           onClick={() => setPending("TOGGLE_PORTAL")}
         >
           {portalActive ? "Deactivate Portal" : "Reactivate Portal"}
         </Button>
       </Card>
 
-      <Card className="flex-row items-center justify-between gap-4 py-4">
+      <Card className="items-start justify-between gap-4 px-4 py-4 sm:flex-row sm:items-center">
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
             <Download className="size-4" /> Export All Agency Data
@@ -107,15 +109,16 @@ export function DangerActions({
           </span>
         </div>
         <Button
-          variant="destructive"
+          variant="outline"
           size="sm"
+          className="w-full sm:w-auto"
           onClick={() => setPending("EXPORT_ALL")}
         >
           Request Export
         </Button>
       </Card>
 
-      <Card className="flex-row items-center justify-between gap-4 py-4 border-destructive/40">
+      <Card className="items-start justify-between gap-4 border-destructive/40 px-4 py-4 sm:flex-row sm:items-center">
         <div className="flex flex-col gap-1">
           <span className="text-sm font-medium text-foreground flex items-center gap-1.5">
             <Trash2 className="size-4 text-destructive" /> Reset to Factory
@@ -130,6 +133,7 @@ export function DangerActions({
         <Button
           variant="destructive"
           size="sm"
+          className="w-full sm:w-auto"
           disabled={!isDev}
           onClick={() => setPending("RESET_ALL_DATA")}
         >

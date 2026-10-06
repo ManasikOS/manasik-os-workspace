@@ -17,6 +17,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -225,10 +226,17 @@ export function MetaPageChannelCard({ channel, status, accountName, assistantEna
         <fieldset className="flex flex-col gap-2 rounded-md border p-3">
           <legend className="px-1 text-xs font-medium">{copy.choiceTitle}</legend>
           {choices.map((choice) => (
-            <label key={choice.id} className="flex items-start gap-2 text-sm">
-              <input className="mt-1" type="radio" name={`${channel.toLowerCase()}-choice`} checked={pickedId === choice.id} onChange={() => setPickedId(choice.id)} />
+            <Button
+              key={choice.id}
+              type="button"
+              variant="outline"
+              aria-pressed={pickedId === choice.id}
+              onClick={() => setPickedId(choice.id)}
+              className="h-auto w-full justify-start whitespace-normal py-2 text-left"
+            >
+              <Check className={pickedId === choice.id ? "size-4 opacity-100" : "size-4 opacity-0"} />
               <span>{choice.label}</span>
-            </label>
+            </Button>
           ))}
           <div>
             <Button size="sm" disabled={busy || !pickedId} onClick={handleChoose}>

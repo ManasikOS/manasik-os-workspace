@@ -1,6 +1,7 @@
 "use client";
 
 import SectionHeading from "@/components/section-heading";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -14,7 +15,6 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import {
@@ -89,7 +89,7 @@ const GuideOperationsTab = ({
   readinessItems,
   role,
 }: GuideOperationsTabProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [createTaskOpen, setCreateTaskOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);

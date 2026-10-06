@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +27,6 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
@@ -89,7 +89,7 @@ const EditGroupDetailsSheet = ({
   open,
   onClose,
 }: EditGroupDetailsSheetProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 

@@ -1,6 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
+import { InputGroupInput } from "@/components/ui/input-group";
 import InputFormCard from "@/components/ui/input-form-card";
 import { ACCOUNT_SECURITY_UNAVAILABLE_REASON } from "@/lib/data/settings-copy";
 
@@ -49,7 +49,7 @@ export function AccountSecurityCard({
 
       <div className="mt-3 max-w-xs">
         <Field label="Auto-log out inactive sessions after (minutes)">
-          <Input
+          <InputGroupInput
             type="number"
             min={5}
             value={sessionIdleTimeoutMinutes}

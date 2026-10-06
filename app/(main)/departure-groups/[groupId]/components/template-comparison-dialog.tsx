@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -12,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -104,7 +104,7 @@ const TemplateComparisonDialog = ({
   open,
   onClose,
 }: TemplateComparisonDialogProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
 
   const confirmedHotels = accommodations.filter(
     (a) => a.status === "CONFIRMED" || a.status === "COMPLETED",

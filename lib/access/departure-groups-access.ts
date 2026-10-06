@@ -227,8 +227,11 @@ export function capabilitiesFor(role: StaffRole): DepartureGroupCapabilities {
 }
 
 /** Tabs a role may open. Hidden tabs are never rendered, not merely disabled. */
-export function visibleTabsFor(role: StaffRole): DepartureGroupTabId[] {
-  const can = capabilitiesFor(role);
+export function visibleTabsFor(
+  role: StaffRole,
+  resolved?: DepartureGroupCapabilities,
+): DepartureGroupTabId[] {
+  const can = resolved ?? capabilitiesFor(role);
   const tabs: DepartureGroupTabId[] = ["overview", "pilgrims", "flights"];
 
   tabs.push("hotels", "transport");
@@ -274,6 +277,28 @@ export function canRoleOpenGroup(
       group.salesStatus === "SELLING" ||
       group.salesStatus === "LIMITED_AVAILABILITY" ||
       group.salesStatus === "WAITLIST"
+    );
+  }
+  return true;
+}
+
+/**
+ * The write-side twin of `canRoleOpenGroup`: may this role act on this group at
+ * all? Takes only the two fields it needs so the data layer can call it on a
+ * stored row, not just a list item. A Server Action is a public endpoint, so the
+ * pages' `notFound()` is not enough — the same rule has to hold at the write.
+ */
+export function canRoleActOnGroup(
+  group: { id: string; sales_status: string },
+  role: StaffRole,
+  assignedGroupIds: string[],
+): boolean {
+  if (role === "GUIDE") return assignedGroupIds.includes(group.id);
+  if (role === "MARKETING") {
+    return (
+      group.sales_status === "SELLING" ||
+      group.sales_status === "LIMITED_AVAILABILITY" ||
+      group.sales_status === "WAITLIST"
     );
   }
   return true;

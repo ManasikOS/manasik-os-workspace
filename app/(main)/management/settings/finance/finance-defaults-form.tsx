@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import InputFormCard from "@/components/ui/input-form-card";
-import { Input } from "@/components/ui/input";
+import { InputGroupInput } from "@/components/ui/input-group";
 import { toast } from "@/components/ui/toast";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import { CURRENCY_OPTIONS, PAYMENT_METHOD_LABELS } from "@/lib/data/settings-copy";
@@ -106,7 +106,7 @@ export function FinanceDefaultsForm({ settings, canEdit }: { settings: AgencySet
             <SelectDropdown value={defaultCurrency} onChange={setDefaultCurrency} options={CURRENCY_OPTIONS} disabled={!canEdit} />
           </Field>
           <Field label="Default Payment Terms">
-            <Input value={defaultPaymentTerms} onChange={(e) => setDefaultPaymentTerms(e.target.value)} disabled={!canEdit} />
+            <InputGroupInput value={defaultPaymentTerms} onChange={(e) => setDefaultPaymentTerms(e.target.value)} disabled={!canEdit} />
           </Field>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import PageHeader from "@/components/page-header";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import {
   Tabs,
   TabsList,
@@ -17,7 +18,6 @@ import {
 import { toast } from "@/components/ui/toast";
 import { capabilitiesForVault } from "@/lib/access/vault-access";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import {
@@ -114,7 +114,7 @@ const DepartureGroupDetailView = ({
   initialEdit = false,
   initialCompare = false,
 }: DepartureGroupDetailViewProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const canCreateBrochure = capabilitiesForVault(role).manageVault;
   const { group } = detail;
   const router = useRouter();

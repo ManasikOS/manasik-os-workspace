@@ -10,6 +10,7 @@
  */
 
 import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import React, { useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
-import { capabilitiesFor } from "@/lib/access/departure-groups-access";
 import type { DepartureGroupCapabilities } from "@/lib/access/departure-groups-access";
 
 import {
@@ -56,9 +56,10 @@ const ProposalDecisionDialog = ({ proposal, role, open, onClose }: ProposalDecis
     setError(null);
   });
 
+  const can = useDepartureCapabilities(role);
+
   if (!proposal) return null;
 
-  const can = capabilitiesFor(role);
   const capabilityKey = proposal.requiredCapability as keyof DepartureGroupCapabilities;
   const hasCapability = can[capabilityKey] === true;
   const isHighRisk = proposal.risk === "HIGH";

@@ -11,10 +11,10 @@ import { cookies } from "next/headers";
 
 import {
   canRoleOpenGroup,
-  capabilitiesFor,
 } from "@/lib/access/departure-groups-access";
 import { capabilitiesForFinance } from "@/lib/access/finance-access";
 import {
+  getCurrentDepartureCapabilities,
   getCurrentStaffRole,
   getDepartureGroupDetail,
   listMoveTargetGroups,
@@ -26,7 +26,7 @@ import { createClient } from "@/utils/supabase/server";
 export async function loadBookingDetailData(groupId: string, bookingId: string) {
   const { role, staffId } = await getCurrentStaffRole();
 
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.viewModule) notFound();
 
   const detail = await getDepartureGroupDetail(groupId, role);
@@ -63,6 +63,7 @@ export async function loadBookingDetailData(groupId: string, bookingId: string) 
     serviceAddons: detail.serviceAddons,
     moveTargets,
     role,
+    capabilities: can,
     canInvoice,
     overdueBookingIds: detail.payments?.overdueBookingIds ?? [],
     campaignAttribution,

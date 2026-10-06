@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cancelBookingSchema } from "@/lib/validations/departure-groups";
@@ -65,7 +65,7 @@ const CancelBookingDialog = ({
   open,
   onClose,
 }: CancelBookingDialogProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 

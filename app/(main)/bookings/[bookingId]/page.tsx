@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { loadBookingDetailData, resolveGroupIdForBooking } from "@/app/(main)/departure-groups/[groupId]/bookings/[bookingId]/load-booking-detail";
+import { DepartureCapabilitiesProvider } from "@/app/(main)/departure-groups/capabilities-context";
 import BookingDetailView from "@/app/(main)/departure-groups/[groupId]/bookings/[bookingId]/components/booking-detail-view";
 
 /**
@@ -24,5 +25,11 @@ export default async function CanonicalBookingDetailPage({
 
   const data = await loadBookingDetailData(groupId, bookingId);
 
-  return <BookingDetailView {...data} />;
+  const { capabilities, ...viewProps } = data;
+
+  return (
+    <DepartureCapabilitiesProvider value={capabilities}>
+      <BookingDetailView {...viewProps} />
+    </DepartureCapabilitiesProvider>
+  );
 }

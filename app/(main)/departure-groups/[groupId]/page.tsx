@@ -3,10 +3,10 @@ import { cookies } from "next/headers";
 
 import {
   canRoleOpenGroup,
-  capabilitiesFor,
   visibleTabsFor,
 } from "@/lib/access/departure-groups-access";
 import {
+  getCurrentDepartureCapabilities,
   getCurrentStaffRole,
   getDepartureGroupDetail,
   listGroupBranches,
@@ -17,6 +17,7 @@ import { loadAssignedGroupIds } from "@/lib/data/team-repository";
 import { createClient } from "@/utils/supabase/server";
 
 import DepartureGroupDetailView from "./components/departure-group-detail";
+import { DepartureCapabilitiesProvider } from "../capabilities-context";
 import type { DepartureGroupTabId } from "../types";
 
 export default async function DepartureGroupPage({
@@ -37,7 +38,7 @@ export default async function DepartureGroupPage({
   ]);
   const { role, staffId, agencyId } = await getCurrentStaffRole();
 
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   // A role without module access must not be able to reach it by URL.
   if (!can.viewModule) notFound();
 
@@ -61,7 +62,7 @@ export default async function DepartureGroupPage({
       : Promise.resolve({ state: null, latestRun: null, openProposals: [], recentDecisions: [] }),
   ]);
 
-  const tabs = visibleTabsFor(role);
+  const tabs = visibleTabsFor(role, can);
   // The list's row actions deep-link here: "Add Booking" with ?tab=pilgrims&add=1,
   // "Edit" with ?edit=1 and "Compare with template" with ?compare=1.
   const wantsAddBooking = add === "1";
@@ -72,6 +73,7 @@ export default async function DepartureGroupPage({
       : "overview";
 
   return (
+    <DepartureCapabilitiesProvider value={can}>
     <DepartureGroupDetailView
       detail={detail}
       role={role}
@@ -84,5 +86,6 @@ export default async function DepartureGroupPage({
       initialEdit={edit === "1"}
       initialCompare={compare === "1"}
     />
+    </DepartureCapabilitiesProvider>
   );
 }

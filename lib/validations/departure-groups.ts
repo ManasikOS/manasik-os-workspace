@@ -1544,3 +1544,46 @@ export function toDepartureGroupFieldErrors(
 ): DepartureGroupFieldErrors {
   return z.flattenError(error).fieldErrors as DepartureGroupFieldErrors;
 }
+
+/* ── Departure operations agent ───────────────────────────────────────────── */
+
+/** Longest a person may mute the agent on one group in a single action. */
+export const AGENT_MUTE_MAX_DAYS = 90;
+
+/** Biggest edited payload accepted for a proposal, as serialised JSON. */
+const MAX_EDITED_PAYLOAD_CHARS = 20_000;
+
+export const approveAgentProposalSchema = z.object({
+  proposalId: z.uuid({ error: "That proposal reference is invalid." }),
+  editedPayload: z
+    .unknown()
+    .refine(
+      (value) => {
+        if (value === undefined) return true;
+        try {
+          return JSON.stringify(value).length <= MAX_EDITED_PAYLOAD_CHARS;
+        } catch {
+          return false;
+        }
+      },
+      { error: "The edited proposal is too large." },
+    )
+    .optional(),
+});
+
+export const rejectAgentProposalSchema = z.object({
+  proposalId: z.uuid({ error: "That proposal reference is invalid." }),
+  decisionNote: z.string().trim().max(500, { error: "Keep the note under 500 characters." }).optional(),
+});
+
+/** `days: null` un-mutes. */
+export const muteAgentOnGroupSchema = z.object({
+  groupId: z.uuid({ error: "That departure group reference is invalid." }),
+  days: z
+    .number({ error: "Choose how many days to mute for." })
+    .int({ error: "Days must be a whole number." })
+    .min(1, { error: "Mute for at least one day." })
+    .max(AGENT_MUTE_MAX_DAYS, { error: `Mute for at most ${AGENT_MUTE_MAX_DAYS} days.` })
+    .nullable(),
+  reason: z.string().trim().max(300, { error: "Keep the reason under 300 characters." }),
+});

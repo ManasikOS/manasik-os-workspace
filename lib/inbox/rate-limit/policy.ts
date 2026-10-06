@@ -15,6 +15,8 @@ export const INBOX_RATE_LIMITED_ACTIONS = [
   "SUGGEST_REPLY",
   "TRANSLATE",
   "PREPARE_OFFER",
+  // Not an Inbox action: the booking screen's AI analysis reuses this counter (one extra row per person and hour, no new table).
+  "ANALYSE_BOOKING",
 ] as const;
 
 export type InboxRateLimitedAction = (typeof INBOX_RATE_LIMITED_ACTIONS)[number];
@@ -41,6 +43,8 @@ export const DEFAULT_INBOX_RATE_LIMITS: Record<InboxRateLimitedAction, InboxRate
   SUGGEST_REPLY: { perUserHourly: 40, perAgencyDaily: 600, whenUnavailable: "ALLOW", noun: "Copilot suggestions" },
   TRANSLATE: { perUserHourly: 60, perAgencyDaily: 600, whenUnavailable: "ALLOW", noun: "translations" },
   PREPARE_OFFER: { perUserHourly: 120, perAgencyDaily: 1000, whenUnavailable: "ALLOW", noun: "offer messages" },
+  // A model call that costs money, so a broken counter refuses rather than opens the door.
+  ANALYSE_BOOKING: { perUserHourly: 20, perAgencyDaily: 300, whenUnavailable: "REFUSE", noun: "booking analyses" },
 };
 
 /** A row of `inbox_rate_limit_overrides`. A null column keeps the default. */

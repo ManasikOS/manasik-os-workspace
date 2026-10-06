@@ -19,9 +19,14 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 
 import { colomboDayKey } from "@/lib/date";
+import { loadAssignedGroupIds } from "@/lib/data/team-repository";
+import { verifyStoredTravellerFile } from "@/lib/data/departure-groups-uploads";
 
+import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
 import {
+  canRoleActOnGroup,
   capabilitiesFor,
+  type DepartureGroupCapabilities,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import {
@@ -544,6 +549,27 @@ const loadCurrentStaffRole = async (): Promise<{
 export const getCurrentStaffRole = cache(() => withTiming("getCurrentStaffRole", loadCurrentStaffRole));
 
 /**
+ * The signed-in person's Departure Groups capabilities: their base role's
+ * built-in set, with any custom-role overrides saved in `role_permissions`
+ * merged over it — the same resolution every other module already uses (see
+ * `lib/access/dynamic-capabilities.ts`). Every server-side check in this
+ * module should read this, not `capabilitiesFor(role)` directly, or a custom
+ * role's saved permissions silently do nothing. One lookup per request.
+ */
+export const getCurrentDepartureCapabilities = cache(
+  async (): Promise<DepartureGroupCapabilities> => {
+    const { role, roleId } = await getCurrentStaffRole();
+    const supabase = createClient(await cookies());
+    return loadDynamicCapabilities(
+      supabase,
+      roleId,
+      "departure_groups",
+      capabilitiesFor(role),
+    );
+  },
+);
+
+/**
  * The acting staff member, for the audit columns.
  *
  * `actor_id`, `completed_by` and `assigned_by` are foreign keys into
@@ -556,6 +582,34 @@ const currentActor = cache(async (): Promise<GroupActor> => {
 });
 
 /* ── Unit of work ─────────────────────────────────────────────────────────── */
+
+/** Verifies an attached traveller file's real bytes before it is recorded against anyone. */
+async function checkAttachedFile(filePath: string | null | undefined) {
+  const path = filePath?.trim();
+  if (!path) return { ok: true as const };
+  return verifyStoredTravellerFile(await db(), path);
+}
+
+async function refuseUnscopedGroups(
+  supabase: Db,
+  store: DepartureGroupStore,
+  groupIds: string[],
+): Promise<string | null> {
+  if (groupIds.length === 0) return null;
+  const { role, staffId } = await getCurrentStaffRole();
+  if (role !== "GUIDE" && role !== "MARKETING") return null;
+
+  const assignedGroupIds =
+    role === "GUIDE" && staffId ? await loadAssignedGroupIds(supabase, staffId) : [];
+  for (const groupId of groupIds) {
+    const group = store.groups.find((row) => row.id === groupId);
+    // A missing group is the mutator's own "no longer exists" error.
+    if (group && !canRoleActOnGroup(group, role, assignedGroupIds)) {
+      return "You do not have access to that departure group.";
+    }
+  }
+  return null;
+}
 
 /**
  * Runs one mutation against the database.
@@ -603,6 +657,16 @@ export async function mutate<T extends { ok: boolean }>(
     includeArchived: true,
   });
   const before = snapshotStore(store);
+
+  // A signed-in person's write, as opposed to the agent or a cron sweep (which
+  // pass their own client/actor and are scoped by their callers): the role must
+  // be allowed to act on every group this mutation touches. The pages already
+  // refuse these groups with notFound(), but a Server Action is a public POST
+  // endpoint and takes the group id from the client.
+  if (!options?.client && !options?.actor) {
+    const refusal = await refuseUnscopedGroups(supabase, store, groupIds);
+    if (refusal) return { ok: false, error: refusal } as unknown as T;
+  }
 
   const outcome = run(store, actor);
   if (!outcome.ok) return outcome;
@@ -1616,7 +1680,7 @@ export async function loadMoreGroupActivity(
   role: StaffRole,
   limit = 100,
 ): Promise<GroupActivityLog[]> {
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   const supabase = await db();
   const { data, error } = await supabase
     .from("departure_group_activity_logs")
@@ -1677,7 +1741,11 @@ export const getDepartureGroupDetail = cache(
     const row = data.groups.find((g) => g.id === groupId);
     if (!row) return null;
 
-    const can = capabilitiesFor(role);
+    // A session-less caller (`client`) has no custom role to resolve — it gets
+    // the base role's set, as before.
+    const can = client
+      ? capabilitiesFor(role)
+      : await getCurrentDepartureCapabilities();
     const snapshotRow = snapshotFor(groupId, data);
     // Margin is a Finance-only figure — not fetched at all for a role that
     // could never see it, the same posture as `viewSupplierCosts` elsewhere
@@ -3410,9 +3478,11 @@ export function flagGroupPilgrimFlightIssue(
 }
 
 /** Attaches an uploaded ticket file to one pilgrim ("Upload Ticket"). */
-export function uploadGroupPilgrimTicket(
+export async function uploadGroupPilgrimTicket(
   input: RecordTicketUploadInput,
 ): Promise<RecordTicketUploadOutcome> {
+  const fileCheck = await checkAttachedFile(input.filePath);
+  if (!fileCheck.ok) return { ok: false, error: fileCheck.error };
   return mutate([input.departureGroupId], (data, actor) =>
     recordTicketUploadInStore(data, input, actor),
   );
@@ -4163,9 +4233,11 @@ export function markGroupTransportConfirmed(input: {
 /* ── Documents & visa ─────────────────────────────────────────────────────── */
 
 /** Marks a pilgrim's documents verified. */
-export function submitGroupPilgrimDocument(
+export async function submitGroupPilgrimDocument(
   input: SubmitDocumentInput,
 ): Promise<DocumentOutcome> {
+  const fileCheck = await checkAttachedFile(input.filePath);
+  if (!fileCheck.ok) return { ok: false, error: fileCheck.error };
   return mutate([input.departureGroupId], (data, actor) =>
     submitPilgrimDocumentInStore(data, input, actor),
   );
@@ -4238,9 +4310,11 @@ export function markGroupVisasUnderReview(input: {
 }
 
 /** Records an issued visa for one pilgrim. */
-export function uploadGroupPilgrimVisa(
+export async function uploadGroupPilgrimVisa(
   input: UploadVisaInput,
 ): Promise<VisaDecisionOutcome> {
+  const fileCheck = await checkAttachedFile(input.filePath);
+  if (!fileCheck.ok) return { ok: false, error: fileCheck.error };
   return mutate([input.departureGroupId], (data, actor) =>
     uploadPilgrimVisaInStore(data, input, actor),
   );

@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { WhatsAppTemplateRow } from "@/lib/types/whatsapp";
 
@@ -91,12 +90,12 @@ export function TemplateManager({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <p className="text-sm text-muted-foreground">
           Templates are how you message a customer outside the 24-hour reply window — order updates, reminders, and
           marketing. Every template needs Meta&apos;s approval before it can be sent.
         </p>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex shrink-0 flex-wrap gap-2">
           <Button size="sm" variant="outline" disabled={busy} onClick={handleSync}>
             Sync from Meta
           </Button>
@@ -110,17 +109,17 @@ export function TemplateManager({
                 </DialogHeader>
                 <div className="flex flex-col gap-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium" htmlFor="wat-name">Name</label>
-                      <Input id="wat-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. departure_reminder" />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-xs font-medium" htmlFor="wat-lang">Language</label>
-                      <Input id="wat-lang" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en" />
-                    </div>
+                    <InputGroup>
+                      <InputGroupAddon align="block-start"><InputGroupText>Name</InputGroupText></InputGroupAddon>
+                      <InputGroupInput id="wat-name" aria-label="Template name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. departure_reminder" />
+                    </InputGroup>
+                    <InputGroup>
+                      <InputGroupAddon align="block-start"><InputGroupText>Language</InputGroupText></InputGroupAddon>
+                      <InputGroupInput id="wat-lang" aria-label="Template language" value={language} onChange={(e) => setLanguage(e.target.value)} placeholder="en" />
+                    </InputGroup>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium" htmlFor="wat-category">Category</label>
+                  <InputGroup>
+                    <InputGroupAddon align="block-start"><InputGroupText>Category</InputGroupText></InputGroupAddon>
                     <Select
                       value={category}
                       onValueChange={(value) => setCategory(value as typeof category)}
@@ -134,26 +133,27 @@ export function TemplateManager({
                         <SelectItem value="AUTHENTICATION">Authentication — one-time codes</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium" htmlFor="wat-header">Header (optional)</label>
-                    <Input id="wat-header" value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Short header text" />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium" htmlFor="wat-body">Body</label>
-                    <Textarea
+                  </InputGroup>
+                  <InputGroup>
+                    <InputGroupAddon align="block-start"><InputGroupText>Header (optional)</InputGroupText></InputGroupAddon>
+                    <InputGroupInput id="wat-header" aria-label="Template header" value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Short header text" />
+                  </InputGroup>
+                  <InputGroup>
+                    <InputGroupAddon align="block-start"><InputGroupText>Body</InputGroupText></InputGroupAddon>
+                    <InputGroupTextarea
                       id="wat-body"
+                      aria-label="Template body"
                       value={bodyText}
                       onChange={(e) => setBodyText(e.target.value)}
                       placeholder="Hi {{1}}, your departure to Makkah on {{2}} is confirmed."
                       rows={4}
                     />
-                    <p className="text-[11px] text-muted-foreground">Use <code>{"{{1}}"}</code>, <code>{"{{2}}"}</code>… for variables filled in at send time.</p>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium" htmlFor="wat-footer">Footer (optional)</label>
-                    <Input id="wat-footer" value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Royal Al-Fathima Travels" />
-                  </div>
+                  </InputGroup>
+                  <p className="text-[11px] text-muted-foreground">Use <code>{"{{1}}"}</code>, <code>{"{{2}}"}</code>… for variables filled in at send time.</p>
+                  <InputGroup>
+                    <InputGroupAddon align="block-start"><InputGroupText>Footer (optional)</InputGroupText></InputGroupAddon>
+                    <InputGroupInput id="wat-footer" aria-label="Template footer" value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Royal Al-Fathima Travels" />
+                  </InputGroup>
                 </div>
                 <DialogFooter>
                   <Button disabled={busy || !name || !bodyText} onClick={handleCreate}>
@@ -171,6 +171,7 @@ export function TemplateManager({
       {templates.length === 0 ? (
         <p className="text-sm text-muted-foreground">No templates yet.</p>
       ) : (
+        <div className="overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow>
@@ -204,6 +205,7 @@ export function TemplateManager({
             ))}
           </TableBody>
         </Table>
+        </div>
       )}
     </div>
   );

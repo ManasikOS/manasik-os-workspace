@@ -1,12 +1,9 @@
 "use client";
 
-import { Loader2, Palette } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import InputFormCard from "@/components/ui/input-form-card";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import type { AgencySettingsRow, PortalFlags } from "@/lib/types/settings";
 

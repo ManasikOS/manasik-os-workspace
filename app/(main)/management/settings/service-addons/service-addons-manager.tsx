@@ -4,6 +4,7 @@ import SectionHeading from "@/components/section-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -27,7 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { TONE_CLASS } from "@/lib/ui/tone";
@@ -195,14 +195,14 @@ export default function ServiceAddonsManager({
   return (
     <>
       <div className="flex flex-col gap-6">
-        <Card className="gap-4">
+        <Card className="gap-4 px-4 py-4 pr-14 sm:px-5 sm:pr-14">
           <SectionHeading
             title="Service add-ons"
             description="Chargeable add-ons that can be attached to a traveller's package — Qurbani, wheelchair assistance, extra baggage, and more."
             act={
               canEdit ? (
                 <Button variant="secondary" onClick={openNew}>
-                  <Plus /> Add Service
+                  <Plus /> Add service
                 </Button>
               ) : undefined
             }
@@ -297,7 +297,8 @@ export default function ServiceAddonsManager({
                             <Button
                               variant="ghost"
                               size="xs"
-                              title="Edit"
+                              title={`Edit ${addon.name}`}
+                              aria-label={`Edit ${addon.name}`}
                               onClick={() => openEdit(addon)}
                             >
                               <Pencil className="size-3.5" />
@@ -306,6 +307,7 @@ export default function ServiceAddonsManager({
                               variant="ghost"
                               size="xs"
                               title={addon.active ? "Deactivate" : "Activate"}
+                              aria-label={`${addon.active ? "Deactivate" : "Activate"} ${addon.name}`}
                               disabled={isPending}
                               onClick={() => toggleActive(addon)}
                             >
@@ -314,7 +316,8 @@ export default function ServiceAddonsManager({
                             <Button
                               variant="ghost"
                               size="xs"
-                              title="Delete"
+                              title={`Delete ${addon.name}`}
+                              aria-label={`Delete ${addon.name}`}
                               disabled={isPending}
                               onClick={() => setDeletingId(addon.id)}
                             >
@@ -349,33 +352,34 @@ export default function ServiceAddonsManager({
 
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted-foreground">Code</label>
-                <Input
+              <InputGroup>
+                <InputGroupAddon align="block-start"><InputGroupText>Code</InputGroupText></InputGroupAddon>
+                <InputGroupInput
+                  aria-label="Add-on code"
                   value={form.code}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, code: e.target.value }))
                   }
                   placeholder="QURBANI"
                 />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted-foreground">Name</label>
-                <Input
+              </InputGroup>
+              <InputGroup>
+                <InputGroupAddon align="block-start"><InputGroupText>Name</InputGroupText></InputGroupAddon>
+                <InputGroupInput
+                  aria-label="Add-on name"
                   value={form.name}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, name: e.target.value }))
                   }
                   placeholder="Qurbani / Hadi"
                 />
-              </div>
+              </InputGroup>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">
-                Description
-              </label>
-              <Textarea
+            <InputGroup>
+              <InputGroupAddon align="block-start"><InputGroupText>Description</InputGroupText></InputGroupAddon>
+              <InputGroupTextarea
+                aria-label="Add-on description"
                 rows={2}
                 value={form.description}
                 onChange={(e) =>
@@ -383,13 +387,11 @@ export default function ServiceAddonsManager({
                 }
                 placeholder="Optional description shown to staff"
               />
-            </div>
+            </InputGroup>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted-foreground">
-                  Category
-                </label>
+              <InputGroup>
+                <InputGroupAddon align="block-start"><InputGroupText>Category</InputGroupText></InputGroupAddon>
                 <Select
                   value={form.category}
                   onValueChange={(value) =>
@@ -407,9 +409,9 @@ export default function ServiceAddonsManager({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted-foreground">Unit</label>
+              </InputGroup>
+              <InputGroup>
+                <InputGroupAddon align="block-start"><InputGroupText>Unit</InputGroupText></InputGroupAddon>
                 <Select
                   value={form.unit}
                   onValueChange={(value) =>
@@ -427,14 +429,13 @@ export default function ServiceAddonsManager({
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </InputGroup>
             </div>
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">
-                Default price (LKR)
-              </label>
-              <Input
+            <InputGroup>
+              <InputGroupAddon align="block-start"><InputGroupText>Default price (LKR)</InputGroupText></InputGroupAddon>
+              <InputGroupInput
+                aria-label="Default price in LKR"
                 type="number"
                 value={form.defaultAmount}
                 onChange={(e) =>
@@ -445,42 +446,29 @@ export default function ServiceAddonsManager({
                 }
                 placeholder="Leave empty if price varies"
               />
-            </div>
+            </InputGroup>
 
             <div className="flex flex-col gap-2">
-              <label className="text-xs text-muted-foreground">
-                Journey types
-              </label>
-              <div className="flex gap-2">
+              <span className="text-xs font-medium text-muted-foreground">Journey types</span>
+              <div className="flex flex-wrap gap-4">
                 {JOURNEY_TYPES.map((jt) => (
-                  <button
-                    key={jt.value}
-                    type="button"
-                    onClick={() => toggleJourneyType(jt.value)}
-                    className={cn(
-                      "rounded-md border px-3 py-1.5 text-xs transition-colors",
-                      form.journeyTypes.includes(jt.value)
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border/50 hover:bg-muted/50 text-foreground",
-                    )}
-                  >
+                  <label key={jt.value} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                    <Checkbox checked={form.journeyTypes.includes(jt.value)} onCheckedChange={() => toggleJourneyType(jt.value)} />
                     {jt.label}
-                  </button>
+                  </label>
                 ))}
               </div>
             </div>
 
             <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={form.createsDeviation}
-                onChange={(e) =>
+                onCheckedChange={(checked) =>
                   setForm((prev) => ({
                     ...prev,
-                    createsDeviation: e.target.checked,
+                    createsDeviation: checked === true,
                   }))
                 }
-                className="rounded"
               />
               Creates a deviation (needs operational arrangement)
             </label>

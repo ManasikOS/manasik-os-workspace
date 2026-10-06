@@ -1,6 +1,7 @@
 "use client";
 
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -20,7 +21,6 @@ import {
 } from "@/components/ui/input-group";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -79,7 +79,7 @@ const MoveBookingDialog = ({
   open,
   onClose,
 }: MoveBookingDialogProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 

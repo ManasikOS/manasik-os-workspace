@@ -1,11 +1,11 @@
 "use client";
 
 import SectionHeading from "@/components/section-heading";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -177,7 +177,7 @@ const OverviewTab = ({
   onNavigate,
   agentState,
 }: OverviewTabProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const { group, readiness, payments, blockers, suppliers, recentActivity } =
     overview;
   const criticalBlockerCount = blockers.filter(

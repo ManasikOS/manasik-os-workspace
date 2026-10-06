@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
 
 /**
@@ -74,14 +74,15 @@ export function ConfirmDangerDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-2">
-          <label className="text-xs font-medium text-muted-foreground">
-            {expectedHint}
-          </label>
-          <Input
+          <InputGroup>
+            <InputGroupAddon align="block-start"><InputGroupText>{expectedHint}</InputGroupText></InputGroupAddon>
+          <InputGroupInput
+            aria-label={expectedHint}
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             placeholder={expectedText}
           />
+          </InputGroup>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
 

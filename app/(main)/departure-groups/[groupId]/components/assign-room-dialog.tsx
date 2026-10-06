@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +19,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { assignRoomSchema } from "@/lib/validations/departure-groups";
@@ -74,7 +74,7 @@ const AssignRoomDialog = ({
   open,
   onClose,
 }: AssignRoomDialogProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [isPending, startTransition] = useTransition();
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

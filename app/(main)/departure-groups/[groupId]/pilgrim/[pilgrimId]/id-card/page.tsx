@@ -4,9 +4,9 @@ import { notFound } from "next/navigation";
 import { agencyAssetSignedUrl } from "@/app/(main)/management/settings/branding/logo-storage";
 import {
   canRoleOpenGroup,
-  capabilitiesFor,
 } from "@/lib/access/departure-groups-access";
 import {
+  getCurrentDepartureCapabilities,
   getCurrentStaffRole,
   getDepartureGroupDetail,
 } from "@/lib/data/departure-groups";
@@ -36,7 +36,7 @@ export default async function PilgrimIdCardPage({
   const { groupId, pilgrimId } = await params;
   const { role, staffId } = await getCurrentStaffRole();
 
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.viewModule) notFound();
   if (!can.viewSensitiveTravellerData) notFound();
 

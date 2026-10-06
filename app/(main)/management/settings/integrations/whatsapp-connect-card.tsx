@@ -9,6 +9,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -231,14 +232,15 @@ export function WhatsAppConnectCard({
           <legend className="px-1 text-xs font-medium">Which WhatsApp number should this CRM use?</legend>
           {choices.flatMap((account) =>
             account.numbers.map((number) => (
-              <label key={number.id} className="flex items-start gap-2 text-sm">
-                <input
-                  className="mt-1"
-                  type="radio"
-                  name="whatsapp-account"
-                  checked={picked?.phoneNumberId === number.id}
-                  onChange={() => setPicked({ wabaId: account.wabaId, phoneNumberId: number.id })}
-                />
+              <Button
+                key={number.id}
+                type="button"
+                variant="outline"
+                aria-pressed={picked?.phoneNumberId === number.id}
+                onClick={() => setPicked({ wabaId: account.wabaId, phoneNumberId: number.id })}
+                className="h-auto w-full justify-start whitespace-normal py-2 text-left"
+              >
+                <Check className={picked?.phoneNumberId === number.id ? "size-4 shrink-0 opacity-100" : "size-4 shrink-0 opacity-0"} />
                 <span>
                   {number.displayPhoneNumber}
                   <span className="block text-xs text-muted-foreground">
@@ -246,7 +248,7 @@ export function WhatsAppConnectCard({
                     {number.isMetaTestNumber && " · Meta test number, cannot receive real customer messages"}
                   </span>
                 </span>
-              </label>
+              </Button>
             )),
           )}
           <div>

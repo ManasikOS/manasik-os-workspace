@@ -1,6 +1,7 @@
 "use client";
 
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   ROLE_LABELS,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
@@ -84,7 +84,7 @@ const PilgrimDocumentsDrawer = ({
   open,
   onClose,
 }: PilgrimDocumentsDrawerProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -509,7 +509,7 @@ function DocumentRow({
   onReject: () => void;
   onWaive: () => void;
 }) {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   // The template names the role that signs each requirement off; Admin may
   // always act, because somebody has to be able to unblock a group.
   const mayVerify =

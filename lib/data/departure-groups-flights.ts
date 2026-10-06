@@ -7,6 +7,7 @@
  */
 
 import { newId } from "@/lib/data/departure-groups-ids";
+import { refuseFileOutsidePilgrimFolder } from "@/lib/data/departure-groups-upload-guard";
 import type {
   DepartureGroupFlightLegRow,
   DepartureGroupFlightRow,
@@ -1242,6 +1243,9 @@ export function recordTicketUploadInStore(
       error: `${pilgrim.full_name_snapshot}'s booking has been cancelled.`,
     };
   }
+
+  const misplacedFile = refuseFileOutsidePilgrimFolder(input.filePath, actor.agencyId, input.departureGroupId, pilgrim.id);
+  if (misplacedFile) return { ok: false, error: misplacedFile };
 
   pilgrim.ticket_file_path = input.filePath;
   pilgrim.ticket_file_name = input.fileName;

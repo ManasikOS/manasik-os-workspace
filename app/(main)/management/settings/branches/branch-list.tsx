@@ -46,7 +46,7 @@ export function BranchList({
         {branches.map((branch) => (
           <Card
             key={branch.id}
-            className="flex-row items-center justify-between gap-4 py-3 px-4"
+            className="items-start justify-between gap-3 px-4 py-3 sm:flex-row sm:items-center"
           >
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
@@ -72,7 +72,9 @@ export function BranchList({
             {canEdit && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
+                aria-label={`Edit ${branch.name}`}
+                title={`Edit ${branch.name}`}
                 onClick={() => setEditing(branch)}
               >
                 <Edit2 size={20} />
@@ -83,7 +85,7 @@ export function BranchList({
 
         {branches.length === 0 && (
           <Card className="items-center justify-center py-8 text-sm text-muted-foreground">
-            No branches yet.
+            No branches have been added yet.
           </Card>
         )}
 
@@ -93,7 +95,7 @@ export function BranchList({
             className="self-end"
             onClick={() => setEditing("new")}
           >
-            <Plus className="size-4" /> Add Branch
+            <Plus className="size-4" /> Add branch
           </Button>
         )}
       </div>

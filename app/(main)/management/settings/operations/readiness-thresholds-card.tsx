@@ -1,7 +1,3 @@
-import { Gauge } from "lucide-react";
-
-import InputFormCard from "@/components/ui/input-form-card";
-import { Input } from "@/components/ui/input";
 import { ToneBadge } from "@/components/ui/tone-badge";
 import {
   CRITICAL_FLAG_LABELS,
@@ -65,7 +61,7 @@ export function ReadinessThresholdsCard({
           error={fieldErrors.readinessAtRiskThreshold}
         >
           <div className="flex items-center gap-2">
-            <Input
+            <InputGroupInput
               type="number"
               min={0}
               max={100}
@@ -81,7 +77,7 @@ export function ReadinessThresholdsCard({
           hint="Derived — anything below At Risk."
         >
           <div className="flex items-center gap-2">
-            <Input value={`Below ${atRiskThreshold}%`} readOnly disabled />
+            <InputGroupInput value={`Below ${atRiskThreshold}%`} readOnly disabled />
             <ToneBadge tone={READINESS_TONE.BLOCKED} label="Blocked" />
           </div>
         </Field>

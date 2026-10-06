@@ -442,7 +442,70 @@ Marketing, CEO, Visa, Guide) in `departure-groups-access.ts` and `module-capabil
 `amount_paid` is above zero (`checkBookingCancellationRights`, read from the database, not the client).
 Cancel menu items and the dialog in the pilgrims tab and booking detail view now use the new
 capability. Not yet run in a browser. Still open under SEC-02: contact edit, payer and relationship
-actions still need only `addBookings`, which I judged lower risk. SEC-03 to SEC-13 are not started.
+actions still need only `addBookings`, which I judged lower risk. **SEC-03 fixed in code (2026-10-06):** rather than add a check to ~75 actions, the rule is enforced
+at the one chokepoint every group write passes through, `mutate()` in `lib/data/departure-groups.ts`
+(`refuseUnscopedGroups`, using the new pure `canRoleActOnGroup` in `departure-groups-access.ts`).
+For a signed-in person's write (not the agent or cron, which pass their own client/actor): a Guide may
+only write to groups they are assigned to, and Marketing only to groups on sale (SELLING, LIMITED_AVAILABILITY,
+WAITLIST), matching the pages. RLS stays as the second layer. Tests: `departure-groups-access.test.ts`
+(pure rule only; `mutate()` itself is not unit-tested). **Still open under SEC-03:** the live-database
+two-account guide check (VERIFY); the agent/cron/proposal-executor paths are not scoped here (their callers
+scope them, see SEC-10); read-side group-id endpoints for roles that can open documents/tickets are SEC-05.
+**SEC-04 done in code (2026-10-06):** new `getCurrentDepartureCapabilities()` in
+`lib/data/departure-groups.ts` merges the saved `role_permissions` row for `departure_groups` over the base
+role's set (via `loadDynamicCapabilities`, one lookup per request). All server checks in `actions.ts`,
+`document-storage.ts`, `analysis-actions.ts`, the data layer's cost/activity redaction, the list, group,
+booking-detail (both routes) and ID-card pages now use it. The UI reads the same value through a new
+`DepartureCapabilitiesProvider` / `useDepartureCapabilities(role)` (`departure-groups/capabilities-context.tsx`),
+falling back to the base role where no provider wraps the screen (e.g. the Add Booking sheet on `/bookings`).
+`visibleTabsFor` takes the resolved set. **Not done:** other modules that call the departure-groups
+`capabilitiesFor(role)` directly (campaigns, itinerary-services, flights-tickets, inbox, sidebar, passport
+visibility) still use the base role; hard-coded `role === "GUIDE"` / `"MARKETING"` scoping stays role-based by
+design. No unit test covers the merge itself (it is the shared, already-used `loadDynamicCapabilities`) and it
+has not been tried in a browser with a real custom role. **SEC-05 done in code (2026-10-06), migration not yet applied:**
+- Path binding: `submitPilgrimDocumentInStore`, `uploadPilgrimVisaInStore` and `recordTicketUploadInStore`
+  refuse a `filePath` that is not directly inside `<agency>/<group>/<pilgrim>/` (`refuseFileOutsidePilgrimFolder`,
+  `lib/data/departure-groups-upload-guard.ts`), so every caller (departure groups, documents, pilgrims modules) is covered.
+- Real bytes: `submitGroupPilgrimDocument`, `uploadGroupPilgrimVisa` and `uploadGroupPilgrimTicket` first download the
+  stored object and check size and magic bytes against the type its key claims (`lib/data/departure-groups-uploads.ts`).
+  A rejected file is refused but not deleted from storage.
+- No overwrite: upload URLs use `upsert: false` and a unique file name per upload; a re-upload goes through submit,
+  which already resets the document to SUBMITTED and clears verification. Old files are left in storage (orphaned).
+- Upload URLs now require UUID ids, that the traveller is on the group (RLS-scoped lookup) and the Guide/Marketing group
+  scope; raw storage error text is no longer returned to the browser.
+- Download: `createDocumentDownloadUrl` accepts only paths of the shapes this module writes, in the caller's own agency,
+  applies the group scope, and writes a row to the new `departure_group_document_access_log` before issuing the link
+  (if the log write fails, no link is issued). Migration `20270115090000_departure_group_document_access_log.sql`
+  (append-only, RLS: insert own rows, ADMIN/CEO read). **Apply it before deploying the code**, or every document open fails.
+- Tests: `departure-groups-upload-guard.test.ts` (path rules, sniffing, binding). Not tested: the Server Actions and
+  storage calls themselves; nothing run in a browser. No UI yet for reading the access log (Admin/CEO can query the table).
+- Behaviour changes to tell staff about: replacing a traveller's file keeps the old file in storage; links to a path
+  that does not match `<agency>/<group>/<traveller|_ticket-intake>/<file>` no longer open.
+- **Known failing test:** `lib/ops/gate/schema-baseline.test.ts` fails until `supabase/schema-fingerprint.json` is
+  regenerated for the new migration (`bash scripts/local/write-schema-fingerprint.sh`, needs a local database built from
+  the migrations). Not done; the hashes must not be written by hand.
+**SEC-06 done in code (2026-10-06):** `approveAgentProposalSchema`, `rejectAgentProposalSchema` and
+`muteAgentOnGroupSchema` (in `lib/validations/departure-groups.ts`, 5 tests) now validate all three agent actions:
+uuid ids, `days` an integer 1-90 or null (the `NaN`/huge-value `RangeError` is gone), reason max 300, decision note
+max 500, edited payload max 20,000 characters serialised. `setGroupAgentSuppressionAction` now requires
+`manageReadiness` (Admin, Finance, Operations, Visa; not Guide/Marketing/CEO), confirms the group exists in the caller's
+agency before writing, applies the Guide/Marketing group scope, and returns a generic error instead of the raw database
+message. The Mute control is hidden for roles without `manageReadiness`. Reviewed `approveProposal` in
+`lib/agent/kernel/proposals/service.ts`: it already loads the proposal by agency, checks the per-kind capability and
+high-risk approver roles, re-validates an edited payload against the executor's own schema, forbids editing HIGH-risk
+proposals and re-checks a dependency hash, so no change was needed there. Not run in a browser; the actions themselves
+have no unit test.
+**SEC-07 done in code (2026-10-06):** `analyzeBookingAction` now calls `requireUser()`, validates its input with Zod
+and accepts only `{ bookingId }` (uuid). Blockers, traveller count and booking total are recomputed on the server from
+the stored booking (`getDepartureGroupDetail` + `identifyBookingBlockers`), so nothing the browser sends reaches the model
+prompt. The caller must have `viewModule` and pass `canRoleOpenGroup` for the booking's group. Before the model is called
+(and only when there is something to explain) the call is counted with the existing Inbox limiter under a new action
+`ANALYSE_BOOKING` (20 per person per hour, 300 per agency per day, refuses if the counter cannot be read); the agency's
+monthly AI budget is checked inside the model call as before. `lib/inbox/rate-limit/policy.ts` gained the action (no
+migration: the counter table's `action` column is free text); platform overrides work for it like any other action.
+The tab no longer sends `travellerCount`, `totalBookingValue` or the blockers. Not run in a browser; the action has no
+unit test (its input schema lives in a `"use server"` file and cannot be exported for one).
+SEC-08 to SEC-13 are not started.
 Items marked VERIFY need a live-database check before they are classed as confirmed defects
 or closed. Update this section as each SEC item ships, and fold final decisions into
 [`docs/security/access-control.md`](../security/access-control.md) if the new

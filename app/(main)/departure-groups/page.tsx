@@ -6,6 +6,7 @@ import {
   filterGroupsForRole,
 } from "@/lib/access/departure-groups-access";
 import {
+  getCurrentDepartureCapabilities,
   getCurrentStaffRole,
   listDepartureGroups,
   listPackageTemplateOptions,
@@ -14,6 +15,7 @@ import { loadAssignedGroupIds } from "@/lib/data/team-repository";
 import { createClient } from "@/utils/supabase/server";
 
 import DepartureGroupsList from "./components/departure-groups-list";
+import { DepartureCapabilitiesProvider } from "./capabilities-context";
 
 export default async function DepartureGroupsPage({
   searchParams,
@@ -22,7 +24,7 @@ export default async function DepartureGroupsPage({
 }) {
   const { role, staffId } = await getCurrentStaffRole();
 
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   // A role without module access must not be able to reach it by URL.
   if (!can.viewModule) notFound();
 
@@ -63,6 +65,7 @@ export default async function DepartureGroupsPage({
       : null;
 
   return (
+    <DepartureCapabilitiesProvider value={can}>
     <DepartureGroupsList
       groups={groups}
       archivedGroups={archivedGroups}
@@ -72,5 +75,6 @@ export default async function DepartureGroupsPage({
       autoOpenCreate={create === "1"}
       initialCreateTemplateId={initialCreateTemplateId}
     />
+    </DepartureCapabilitiesProvider>
   );
 }

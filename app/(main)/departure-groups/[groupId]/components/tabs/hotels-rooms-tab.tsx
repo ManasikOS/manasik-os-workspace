@@ -1,6 +1,7 @@
 "use client";
 
 import SectionHeading from "@/components/section-heading";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -13,7 +14,6 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import {
@@ -185,7 +185,7 @@ const HotelsRoomsTab = ({
   manifest,
   role,
 }: HotelsRoomsTabProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [isConfirming, startConfirming] = useTransition();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 

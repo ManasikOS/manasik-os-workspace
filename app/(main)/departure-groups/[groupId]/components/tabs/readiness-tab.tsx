@@ -1,6 +1,7 @@
 "use client";
 
 import SectionHeading from "@/components/section-heading";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,7 +15,6 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -101,7 +101,7 @@ const STATUS_FILTERS: (ReadinessItemStatus | "ALL")[] = [
  * offset by finished communication tasks.
  */
 const ReadinessTab = ({ items, summary, role }: ReadinessTabProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [statusFilter, setStatusFilter] = useState<ReadinessItemStatus | "ALL">(
     "ALL",
   );

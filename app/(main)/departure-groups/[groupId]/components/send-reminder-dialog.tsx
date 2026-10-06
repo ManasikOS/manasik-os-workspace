@@ -1,6 +1,7 @@
 "use client";
 
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -104,7 +104,7 @@ const SendReminderDialog = ({
   open,
   onClose,
 }: SendReminderDialogProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [isPending, startTransition] = useTransition();
 
   const [channel, setChannel] = useState<Channel>("WHATSAPP");

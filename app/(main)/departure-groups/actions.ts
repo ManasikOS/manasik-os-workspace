@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 
-import { capabilitiesFor } from "@/lib/access/departure-groups-access";
 import { capabilitiesForPackages } from "@/lib/access/packages-access";
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
 import {
@@ -39,6 +38,7 @@ import {
   flagGroupPilgrimFlightIssue,
   generateGroupCode,
   generateGroupRooms,
+  getCurrentDepartureCapabilities,
   getCurrentStaffRole,
   isGroupCodeTaken,
   loadMoreGroupActivity,
@@ -221,7 +221,7 @@ export async function createDepartureGroupAction(
   await requireUser();
 
   const { role, roleId } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).createGroup) {
+  if (!(await getCurrentDepartureCapabilities()).createGroup) {
     return {
       ok: false,
       error: "Your role cannot create departure groups.",
@@ -325,8 +325,7 @@ export async function listActiveSuppliersAction(
   supplierTypes?: string[],
 ): Promise<ListActiveSuppliersResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).viewModule) {
+  if (!(await getCurrentDepartureCapabilities()).viewModule) {
     return { ok: false, error: "Your role cannot view suppliers." };
   }
 
@@ -366,8 +365,7 @@ export async function generateGroupCodeAction(
 ): Promise<GenerateGroupCodeResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).createGroup) {
+  if (!(await getCurrentDepartureCapabilities()).createGroup) {
     return { ok: false, error: "Your role cannot create departure groups." };
   }
 
@@ -413,7 +411,7 @@ export async function importDepartureGroupsAction(
   await requireUser();
 
   const { role, roleId } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).createGroup) {
+  if (!(await getCurrentDepartureCapabilities()).createGroup) {
     return { ok: false, error: "Your role cannot import departure groups." };
   }
   const packagesGate = await requireCreateGroupFromPackageCapability(role, roleId);
@@ -555,7 +553,7 @@ async function checkNewBookingTerms(
   departureGroupId: string,
   terms: BookingCommercialTermsInput,
 ) {
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   let pricing = null;
   if (!can.overrideCapacityAndPrice) {
     const supabase = createClient(await cookies());
@@ -579,7 +577,7 @@ export async function createGroupBookingAction(
   await requireUser();
 
   const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).addBookings) {
+  if (!(await getCurrentDepartureCapabilities()).addBookings) {
     return { ok: false, error: "Your role cannot add bookings." };
   }
 
@@ -674,7 +672,7 @@ export async function importGroupPilgrimsAction(
   await requireUser();
 
   const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).addBookings) {
+  if (!(await getCurrentDepartureCapabilities()).addBookings) {
     return { ok: false, error: "Your role cannot import pilgrims." };
   }
 
@@ -817,8 +815,7 @@ export async function recordBookingPaymentAction(
 ): Promise<RecordPaymentResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).recordPayments) {
+  if (!(await getCurrentDepartureCapabilities()).recordPayments) {
     return { ok: false, error: "Your role cannot record payments." };
   }
 
@@ -893,8 +890,7 @@ export async function changeRoomPreferenceAction(
 ): Promise<ChangeRoomPreferenceResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.manageRooming) {
     return { ok: false, error: "Your role cannot change room preferences." };
   }
@@ -969,8 +965,7 @@ export async function sendBookingReminderAction(
 ): Promise<SendReminderResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.sendGroupCommunications) {
     return {
       ok: false,
@@ -1034,8 +1029,7 @@ export async function cancelGroupBookingAction(
 ): Promise<CancelBookingResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.cancelBookings) {
     return { ok: false, error: "Your role cannot cancel bookings." };
   }
@@ -1124,8 +1118,7 @@ export async function updateBookingContactAction(
 ): Promise<EditBookingResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.addBookings) {
     return { ok: false, error: "Your role cannot edit bookings." };
   }
@@ -1174,8 +1167,7 @@ export async function setBookingPayerAction(
 ): Promise<SetBookingPayerResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.addBookings) {
     return { ok: false, error: "Your role cannot edit bookings." };
   }
@@ -1219,8 +1211,7 @@ export async function addTravellerRelationshipAction(
 ): Promise<AddTravellerRelationshipResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.addBookings) {
     return { ok: false, error: "Your role cannot edit bookings." };
   }
@@ -1255,8 +1246,7 @@ export async function removeTravellerRelationshipAction(
 ): Promise<RemoveTravellerRelationshipResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.addBookings) {
     return { ok: false, error: "Your role cannot edit bookings." };
   }
@@ -1307,8 +1297,7 @@ export async function moveBookingToGroupAction(
 ): Promise<MoveBookingResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.editGroupDetails) {
     return {
       ok: false,
@@ -1371,8 +1360,7 @@ async function setArchived(
 ): Promise<ArchiveResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).cancelOrArchiveGroup) {
+  if (!(await getCurrentDepartureCapabilities()).cancelOrArchiveGroup) {
     return {
       ok: false,
       error: `Your role cannot ${archived ? "archive" : "restore"} departure groups.`,
@@ -1416,8 +1404,7 @@ export async function upsertGroupFlightAction(
 ): Promise<UpsertFlightResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return { ok: false, error: "Your role cannot manage flights." };
   }
 
@@ -1473,8 +1460,7 @@ export async function addGroupFlightLegAction(
 ): Promise<AddFlightLegResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return { ok: false, error: "Your role cannot manage flights." };
   }
 
@@ -1517,8 +1503,7 @@ export async function updateGroupFlightLegAction(
 ): Promise<UpdateFlightLegResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return { ok: false, error: "Your role cannot manage flights." };
   }
 
@@ -1548,8 +1533,7 @@ export async function removeGroupFlightLegAction(
 ): Promise<RemoveFlightLegResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return { ok: false, error: "Your role cannot manage flights." };
   }
 
@@ -1575,8 +1559,7 @@ export async function recordFlightTicketingAction(
 ): Promise<FlightTicketingResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return { ok: false, error: "Your role cannot manage flights." };
   }
 
@@ -1621,8 +1604,7 @@ export async function markFlightTicketsIssuedAction(
 ): Promise<MarkFlightTicketsIssuedResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return { ok: false, error: "Your role cannot manage flights." };
   }
 
@@ -1724,8 +1706,8 @@ export async function createAccommodationAction(
 ): Promise<AccommodationResult> {
   const user = await requireUser();
 
-  const { role, name, staffId } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageAccommodation) {
+  const { name, staffId } = await getCurrentStaffRole();
+  if (!(await getCurrentDepartureCapabilities()).manageAccommodation) {
     return { ok: false, error: "Your role cannot manage accommodation." };
   }
 
@@ -1762,8 +1744,8 @@ export async function updateAccommodationAction(
 ): Promise<AccommodationResult> {
   const user = await requireUser();
 
-  const { role, name, staffId } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageAccommodation) {
+  const { name, staffId } = await getCurrentStaffRole();
+  if (!(await getCurrentDepartureCapabilities()).manageAccommodation) {
     return { ok: false, error: "Your role cannot manage accommodation." };
   }
 
@@ -1800,8 +1782,7 @@ export async function setAccommodationVoucherAction(
 ): Promise<AccommodationResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageAccommodation) {
+  if (!(await getCurrentDepartureCapabilities()).manageAccommodation) {
     return { ok: false, error: "Your role cannot manage accommodation." };
   }
 
@@ -1828,8 +1809,7 @@ export async function setAccommodationReferenceAction(
 ): Promise<AccommodationResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageAccommodation) {
+  if (!(await getCurrentDepartureCapabilities()).manageAccommodation) {
     return { ok: false, error: "Your role cannot manage accommodation." };
   }
 
@@ -1856,8 +1836,8 @@ export async function markAccommodationConfirmedAction(
 ): Promise<AccommodationResult> {
   const user = await requireUser();
 
-  const { role, name, staffId } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageAccommodation) {
+  const { name, staffId } = await getCurrentStaffRole();
+  if (!(await getCurrentDepartureCapabilities()).manageAccommodation) {
     return { ok: false, error: "Your role cannot manage accommodation." };
   }
 
@@ -1896,8 +1876,7 @@ export async function assignPilgrimToRoomAction(
 ): Promise<AssignRoomResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageRooming) {
+  if (!(await getCurrentDepartureCapabilities()).manageRooming) {
     return { ok: false, error: "Your role cannot manage rooming." };
   }
 
@@ -1928,8 +1907,7 @@ export async function autoAssignRoomsAction(
 ): Promise<AutoAssignRoomsResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageRooming) {
+  if (!(await getCurrentDepartureCapabilities()).manageRooming) {
     return { ok: false, error: "Your role cannot manage rooming." };
   }
 
@@ -1956,8 +1934,7 @@ export async function generateRoomsAction(
 ): Promise<GenerateRoomsResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageAccommodation) {
+  if (!(await getCurrentDepartureCapabilities()).manageAccommodation) {
     return { ok: false, error: "Your role cannot manage accommodation." };
   }
 
@@ -1988,8 +1965,7 @@ export async function unlockRoomAssignmentAction(
 ): Promise<UnlockRoomAssignmentResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).unlockRoomAssignments) {
+  if (!(await getCurrentDepartureCapabilities()).unlockRoomAssignments) {
     return { ok: false, error: "Your role cannot unlock room assignments." };
   }
 
@@ -2014,8 +1990,7 @@ export type UpdateRoomResult =
 export async function updateRoomAction(input: unknown): Promise<UpdateRoomResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageAccommodation) {
+  if (!(await getCurrentDepartureCapabilities()).manageAccommodation) {
     return { ok: false, error: "Your role cannot manage accommodation." };
   }
 
@@ -2044,8 +2019,7 @@ export type DeleteRoomResult =
 export async function deleteRoomAction(input: unknown): Promise<DeleteRoomResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageAccommodation) {
+  if (!(await getCurrentDepartureCapabilities()).manageAccommodation) {
     return { ok: false, error: "Your role cannot manage accommodation." };
   }
 
@@ -2074,8 +2048,8 @@ export async function upsertGroupTransportAction(
 ): Promise<UpsertTransportResult> {
   const user = await requireUser();
 
-  const { role, name, staffId } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTransport) {
+  const { name, staffId } = await getCurrentStaffRole();
+  if (!(await getCurrentDepartureCapabilities()).manageTransport) {
     return { ok: false, error: "Your role cannot manage transport." };
   }
 
@@ -2141,8 +2115,7 @@ export async function setTransportConfirmationAction(
 ): Promise<TransportTouchResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTransport) {
+  if (!(await getCurrentDepartureCapabilities()).manageTransport) {
     return { ok: false, error: "Your role cannot manage transport." };
   }
 
@@ -2169,8 +2142,7 @@ export async function setTransportReferenceAction(
 ): Promise<TransportTouchResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTransport) {
+  if (!(await getCurrentDepartureCapabilities()).manageTransport) {
     return { ok: false, error: "Your role cannot manage transport." };
   }
 
@@ -2197,8 +2169,8 @@ export async function markTransportConfirmedAction(
 ): Promise<TransportTouchResult> {
   const user = await requireUser();
 
-  const { role, name, staffId } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTransport) {
+  const { name, staffId } = await getCurrentStaffRole();
+  if (!(await getCurrentDepartureCapabilities()).manageTransport) {
     return { ok: false, error: "Your role cannot manage transport." };
   }
 
@@ -2249,8 +2221,7 @@ export async function submitDocumentAction(
 ): Promise<DocumentResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return { ok: false, error: "Your role cannot manage documents and visas." };
   }
 
@@ -2285,8 +2256,7 @@ export async function verifyDocumentAction(
 ): Promise<DocumentResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return { ok: false, error: "Your role cannot manage documents and visas." };
   }
 
@@ -2310,8 +2280,7 @@ export async function rejectDocumentAction(
 ): Promise<DocumentResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return { ok: false, error: "Your role cannot manage documents and visas." };
   }
 
@@ -2339,8 +2308,7 @@ export async function waiveDocumentAction(
 ): Promise<DocumentResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return { ok: false, error: "Your role cannot manage documents and visas." };
   }
 
@@ -2385,8 +2353,7 @@ export async function updatePilgrimRecordAction(
 ): Promise<UpdatePilgrimRecordResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.manageDocumentsAndVisa || !can.viewSensitiveTravellerData) {
     return { ok: false, error: "Your role cannot edit traveller records." };
   }
@@ -2426,8 +2393,7 @@ export async function markApplicationsSubmittedAction(
 ): Promise<MarkApplicationsSubmittedResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return { ok: false, error: "Your role cannot manage documents and visas." };
   }
 
@@ -2450,8 +2416,7 @@ export async function uploadVisaAction(
 ): Promise<VisaDecisionResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return { ok: false, error: "Your role cannot manage documents and visas." };
   }
 
@@ -2486,8 +2451,7 @@ export async function uploadPilgrimTicketAction(
 ): Promise<UploadTicketResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return { ok: false, error: "Your role cannot manage flights and tickets." };
   }
 
@@ -2525,8 +2489,7 @@ export async function analysePilgrimTicketAction(
 ): Promise<AiReviewResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return {
       ok: false,
       extracted: {},
@@ -2547,8 +2510,7 @@ export async function analysePilgrimVisaAction(
 ): Promise<AiReviewResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return {
       ok: false,
       extracted: {},
@@ -2583,8 +2545,7 @@ export async function matchAndFileTicketAction(
 ): Promise<BulkTicketMatchActionResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return {
       ok: false,
       matched: [],
@@ -2610,8 +2571,7 @@ export async function markVisasUnderReviewAction(
 ): Promise<{ ok: true; movedCount: number } | { ok: false; error: string }> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return { ok: false, error: "Your role cannot manage documents and visas." };
   }
 
@@ -2641,8 +2601,7 @@ export async function rejectVisaAction(
 ): Promise<VisaDecisionResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageDocumentsAndVisa) {
+  if (!(await getCurrentDepartureCapabilities()).manageDocumentsAndVisa) {
     return { ok: false, error: "Your role cannot manage documents and visas." };
   }
 
@@ -2675,8 +2634,7 @@ export async function releaseExpiredHoldsAction(
 > {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).addBookings) {
+  if (!(await getCurrentDepartureCapabilities()).addBookings) {
     return { ok: false, error: "Your role cannot manage bookings." };
   }
 
@@ -2714,8 +2672,7 @@ export async function promoteWaitlistAction(
 ): Promise<PromoteWaitlistResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).addBookings) {
+  if (!(await getCurrentDepartureCapabilities()).addBookings) {
     return { ok: false, error: "Your role cannot manage bookings." };
   }
 
@@ -2742,8 +2699,7 @@ export async function flagFlightIssueAction(
 > {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageFlights) {
+  if (!(await getCurrentDepartureCapabilities()).manageFlights) {
     return { ok: false, error: "Your role cannot manage flights." };
   }
 
@@ -2785,8 +2741,7 @@ export async function updateReadinessItemAction(
 ): Promise<UpdateReadinessItemResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageReadiness) {
+  if (!(await getCurrentDepartureCapabilities()).manageReadiness) {
     return { ok: false, error: "Your role cannot manage the readiness checklist." };
   }
 
@@ -2822,8 +2777,7 @@ export async function createGroupTaskAction(
 ): Promise<CreateGroupTaskResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTasks) {
+  if (!(await getCurrentDepartureCapabilities()).manageTasks) {
     return { ok: false, error: "Your role cannot manage tasks." };
   }
 
@@ -2855,8 +2809,7 @@ export async function updateGroupTaskStatusAction(
 ): Promise<UpdateGroupTaskStatusResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTasks) {
+  if (!(await getCurrentDepartureCapabilities()).manageTasks) {
     return { ok: false, error: "Your role cannot manage tasks." };
   }
 
@@ -2896,8 +2849,7 @@ export async function updateGroupDetailsAction(
 ): Promise<UpdateGroupDetailsResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.editGroupDetails) {
     return { ok: false, error: "Your role cannot edit group details." };
   }
@@ -2990,8 +2942,7 @@ export async function setGroupLifecycleAction(
 ): Promise<GroupLifecycleResult> {
   await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
 
   const parsed = groupLifecycleSchema.safeParse(input);
   if (!parsed.success) {
@@ -3052,8 +3003,7 @@ export async function setPilgrimBaseFareAction(
   input: unknown,
 ): Promise<PilgrimChargeActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).overrideCapacityAndPrice) {
+  if (!(await getCurrentDepartureCapabilities()).overrideCapacityAndPrice) {
     return { ok: false, error: "Your role cannot reprice a traveller." };
   }
 
@@ -3082,8 +3032,7 @@ export async function setPilgrimRoomTypeAction(
   input: unknown,
 ): Promise<SetPilgrimRoomTypeActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageRooming) {
+  if (!(await getCurrentDepartureCapabilities()).manageRooming) {
     return { ok: false, error: "Your role cannot change room occupancy." };
   }
 
@@ -3113,8 +3062,7 @@ export async function addPilgrimChargeAction(
   input: unknown,
 ): Promise<PilgrimChargeActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTravellerCustomisations) {
+  if (!(await getCurrentDepartureCapabilities()).manageTravellerCustomisations) {
     return { ok: false, error: "Your role cannot add traveller charges." };
   }
 
@@ -3139,8 +3087,7 @@ export async function voidPilgrimChargeAction(
   input: unknown,
 ): Promise<PilgrimChargeActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTravellerCustomisations) {
+  if (!(await getCurrentDepartureCapabilities()).manageTravellerCustomisations) {
     return { ok: false, error: "Your role cannot remove traveller charges." };
   }
 
@@ -3165,8 +3112,7 @@ export async function approvePilgrimChargeAction(
   input: unknown,
 ): Promise<PilgrimChargeActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).approveDiscounts) {
+  if (!(await getCurrentDepartureCapabilities()).approveDiscounts) {
     return { ok: false, error: "Your role cannot approve this charge." };
   }
 
@@ -3187,8 +3133,7 @@ export async function requestPilgrimDeviationAction(
   input: unknown,
 ): Promise<PilgrimDeviationActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTravellerCustomisations) {
+  if (!(await getCurrentDepartureCapabilities()).manageTravellerCustomisations) {
     return { ok: false, error: "Your role cannot request traveller customisations." };
   }
 
@@ -3213,8 +3158,7 @@ export async function decidePilgrimDeviationAction(
   input: unknown,
 ): Promise<PilgrimDeviationActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   if (!can.manageTravellerCustomisations && !can.approveDiscounts) {
     return { ok: false, error: "Your role cannot decide on traveller customisations." };
   }
@@ -3240,8 +3184,7 @@ export async function markDeviationArrangedAction(
   input: unknown,
 ): Promise<PilgrimDeviationActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTravellerCustomisations) {
+  if (!(await getCurrentDepartureCapabilities()).manageTravellerCustomisations) {
     return { ok: false, error: "Your role cannot arrange traveller customisations." };
   }
 
@@ -3262,8 +3205,7 @@ export async function cancelPilgrimDeviationAction(
   input: unknown,
 ): Promise<PilgrimDeviationActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTravellerCustomisations) {
+  if (!(await getCurrentDepartureCapabilities()).manageTravellerCustomisations) {
     return { ok: false, error: "Your role cannot cancel traveller customisations." };
   }
 
@@ -3288,8 +3230,7 @@ export async function requestPilgrimCustomisationAction(
   input: unknown,
 ): Promise<PilgrimDeviationActionResult> {
   await requireUser();
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).manageTravellerCustomisations) {
+  if (!(await getCurrentDepartureCapabilities()).manageTravellerCustomisations) {
     return { ok: false, error: "Your role cannot request traveller customisations." };
   }
 

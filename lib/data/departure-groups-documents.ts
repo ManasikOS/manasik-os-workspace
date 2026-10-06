@@ -20,6 +20,7 @@
  */
 
 import { newId } from "@/lib/data/departure-groups-ids";
+import { refuseFileOutsidePilgrimFolder } from "@/lib/data/departure-groups-upload-guard";
 import { groupPrice } from "@/lib/data/departure-groups-money";
 import type {
   DepartureGroupPilgrimDocumentRow,
@@ -487,6 +488,9 @@ export function submitPilgrimDocumentInStore(
       error: `${document.name} is verified from the record the CRM already holds, not from an upload.`,
     };
   }
+
+  const misplacedFile = refuseFileOutsidePilgrimFolder(input.filePath, actor.agencyId, input.departureGroupId, pilgrim.id);
+  if (misplacedFile) return { ok: false, error: misplacedFile };
 
   const before = { status: document.status, file_path: document.file_path };
 
@@ -1178,6 +1182,8 @@ export function uploadPilgrimVisaInStore(
   if (!visaId) {
     return { ok: false, error: "Enter the visa number as issued." };
   }
+  const misplacedFile = refuseFileOutsidePilgrimFolder(input.filePath, actor.agencyId, input.departureGroupId, pilgrim.id);
+  if (misplacedFile) return { ok: false, error: misplacedFile };
 
   const group = data.groups.find((g) => g.id === input.departureGroupId);
   const expiry = input.expiryDate?.trim() || null;

@@ -2,8 +2,10 @@
 
 import { cookies } from "next/headers";
 
-import { capabilitiesFor } from "@/lib/access/departure-groups-access";
-import { getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { canRoleActOnGroup, type StaffRole } from "@/lib/access/departure-groups-access";
+import { getCurrentDepartureCapabilities, getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { isUuid, parseTravellerFilePath } from "@/lib/data/departure-groups-upload-guard";
+import { loadAssignedGroupIds } from "@/lib/data/team-repository";
 import { requireUser } from "@/lib/dal";
 import { createClient } from "@/utils/supabase/server";
 
@@ -44,6 +46,49 @@ const EXTENSION_BY_MIME: Record<string, string> = {
   "application/pdf": "pdf",
 };
 
+type SupabaseSession = ReturnType<typeof createClient>;
+
+/**
+ * Whether this person may act on this group at all - the same rule the pages and
+ * `mutate()` apply (a guide only on assigned groups, Marketing only on groups on
+ * sale). Needed here because these actions reach storage without going through
+ * `mutate()`. Returns an error message, or null when allowed.
+ */
+async function groupScopeError(
+  supabase: SupabaseSession,
+  role: StaffRole,
+  staffId: string | null,
+  groupId: string,
+): Promise<string | null> {
+  if (role !== "GUIDE" && role !== "MARKETING") return null;
+  const { data: group } = await supabase
+    .from("departure_groups")
+    .select("id, sales_status")
+    .eq("id", groupId)
+    .maybeSingle();
+  if (!group) return "That departure group could not be found.";
+  const assigned =
+    role === "GUIDE" && staffId ? await loadAssignedGroupIds(supabase, staffId) : [];
+  return canRoleActOnGroup(group, role, assigned)
+    ? null
+    : "You do not have access to that departure group.";
+}
+
+/** A traveller must be on the group the upload is for - ids alone prove nothing. */
+async function pilgrimIsOnGroup(
+  supabase: SupabaseSession,
+  groupId: string,
+  pilgrimId: string,
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("departure_group_pilgrims")
+    .select("id")
+    .eq("id", pilgrimId)
+    .eq("departure_group_id", groupId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
 export type SignedUploadResult =
   | { ok: true; path: string; token: string; fileName: string }
   | { ok: false; error: string };
@@ -65,8 +110,8 @@ export async function createDocumentUploadUrl(input: {
 }): Promise<SignedUploadResult> {
   await requireUser();
 
-  const { role, agencyId } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const { role, agencyId, staffId } = await getCurrentStaffRole();
+  const can = await getCurrentDepartureCapabilities();
   if (!can.manageDocumentsAndVisa || !can.viewSensitiveTravellerData) {
     return { ok: false, error: "Your role cannot upload traveller documents." };
   }
@@ -87,25 +132,34 @@ export async function createDocumentUploadUrl(input: {
     return { ok: false, error: "Files must be 10 MB or smaller." };
   }
 
-  const ids = [input.departureGroupId, input.pilgrimId, input.documentId];
-  if (!ids.every((id) => /^[A-Za-z0-9_-]{1,64}$/.test(id))) {
+  if (
+    !isUuid(input.departureGroupId) ||
+    !isUuid(input.pilgrimId) ||
+    !/^[A-Za-z0-9_-]{1,64}$/.test(input.documentId)
+  ) {
     return { ok: false, error: "That document reference is invalid." };
   }
 
+  const supabase = createClient(await cookies());
+  const scopeError = await groupScopeError(supabase, role, staffId, input.departureGroupId);
+  if (scopeError) return { ok: false, error: scopeError };
+  if (!(await pilgrimIsOnGroup(supabase, input.departureGroupId, input.pilgrimId))) {
+    return { ok: false, error: "That traveller is not on this departure group." };
+  }
+
+  // A fresh name per upload, never overwritten: replacing a document must not
+  // silently swap the file behind a record that was already verified.
   const extension = EXTENSION_BY_MIME[input.contentType];
-  const fileName = `${input.documentId}.${extension}`;
+  const fileName = `${input.documentId}-${crypto.randomUUID()}.${extension}`;
   const path = `${agencyId}/${input.departureGroupId}/${input.pilgrimId}/${fileName}`;
 
-  const supabase = createClient(await cookies());
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUploadUrl(path, { upsert: true });
+    .createSignedUploadUrl(path, { upsert: false });
 
   if (error || !data) {
-    return {
-      ok: false,
-      error: error?.message ?? "Could not start the upload. Try again.",
-    };
+    console.error("createDocumentUploadUrl failed", error);
+    return { ok: false, error: "Could not start the upload. Try again." };
   }
 
   return { ok: true, path: data.path, token: data.token, fileName };
@@ -126,8 +180,8 @@ export async function createPilgrimFileUploadUrl(input: {
 }): Promise<SignedUploadResult> {
   await requireUser();
 
-  const { role, agencyId } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const { role, agencyId, staffId } = await getCurrentStaffRole();
+  const can = await getCurrentDepartureCapabilities();
   const allowed =
     input.kind === "ticket" ? can.manageFlights : can.manageDocumentsAndVisa;
   if (!allowed || !can.viewSensitiveTravellerData) {
@@ -156,25 +210,28 @@ export async function createPilgrimFileUploadUrl(input: {
     return { ok: false, error: "Files must be 10 MB or smaller." };
   }
 
-  const ids = [input.departureGroupId, input.pilgrimId];
-  if (!ids.every((id) => /^[A-Za-z0-9_-]{1,64}$/.test(id))) {
+  if (!isUuid(input.departureGroupId) || !isUuid(input.pilgrimId)) {
     return { ok: false, error: "That pilgrim reference is invalid." };
   }
 
+  const supabase = createClient(await cookies());
+  const scopeError = await groupScopeError(supabase, role, staffId, input.departureGroupId);
+  if (scopeError) return { ok: false, error: scopeError };
+  if (!(await pilgrimIsOnGroup(supabase, input.departureGroupId, input.pilgrimId))) {
+    return { ok: false, error: "That traveller is not on this departure group." };
+  }
+
   const extension = EXTENSION_BY_MIME[input.contentType];
-  const fileName = `${input.kind}.${extension}`;
+  const fileName = `${input.kind}-${crypto.randomUUID()}.${extension}`;
   const path = `${agencyId}/${input.departureGroupId}/${input.pilgrimId}/${fileName}`;
 
-  const supabase = createClient(await cookies());
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUploadUrl(path, { upsert: true });
+    .createSignedUploadUrl(path, { upsert: false });
 
   if (error || !data) {
-    return {
-      ok: false,
-      error: error?.message ?? "Could not start the upload. Try again.",
-    };
+    console.error("createPilgrimFileUploadUrl failed", error);
+    return { ok: false, error: "Could not start the upload. Try again." };
   }
 
   return { ok: true, path: data.path, token: data.token, fileName };
@@ -196,8 +253,8 @@ export async function createTicketStagingUploadUrl(input: {
 }): Promise<SignedUploadResult> {
   await requireUser();
 
-  const { role, agencyId } = await getCurrentStaffRole();
-  const can = capabilitiesFor(role);
+  const { role, agencyId, staffId } = await getCurrentStaffRole();
+  const can = await getCurrentDepartureCapabilities();
   if (!can.manageFlights || !can.viewSensitiveTravellerData) {
     return { ok: false, error: "Your role cannot upload flight tickets." };
   }
@@ -217,24 +274,25 @@ export async function createTicketStagingUploadUrl(input: {
   if (input.sizeBytes > MAX_BYTES) {
     return { ok: false, error: "Files must be 10 MB or smaller." };
   }
-  if (!/^[A-Za-z0-9_-]{1,64}$/.test(input.departureGroupId)) {
+  if (!isUuid(input.departureGroupId)) {
     return { ok: false, error: "That departure group reference is invalid." };
   }
+
+  const supabase = createClient(await cookies());
+  const scopeError = await groupScopeError(supabase, role, staffId, input.departureGroupId);
+  if (scopeError) return { ok: false, error: scopeError };
 
   const extension = EXTENSION_BY_MIME[input.contentType];
   const fileName = `${crypto.randomUUID()}.${extension}`;
   const path = `${agencyId}/${input.departureGroupId}/_ticket-intake/${fileName}`;
 
-  const supabase = createClient(await cookies());
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUploadUrl(path, { upsert: true });
+    .createSignedUploadUrl(path, { upsert: false });
 
   if (error || !data) {
-    return {
-      ok: false,
-      error: error?.message ?? "Could not start the upload. Try again.",
-    };
+    console.error("createTicketStagingUploadUrl failed", error);
+    return { ok: false, error: "Could not start the upload. Try again." };
   }
 
   return { ok: true, path: data.path, token: data.token, fileName };
@@ -248,27 +306,51 @@ export type SignedDownloadResult =
 export async function createDocumentDownloadUrl(
   path: string,
 ): Promise<SignedDownloadResult> {
-  await requireUser();
+  const user = await requireUser();
 
-  const { role } = await getCurrentStaffRole();
-  if (!capabilitiesFor(role).viewSensitiveTravellerData) {
+  const { role, agencyId, staffId, name } = await getCurrentStaffRole();
+  if (!(await getCurrentDepartureCapabilities()).viewSensitiveTravellerData) {
     return { ok: false, error: "Your role cannot view traveller documents." };
   }
+  if (!agencyId) {
+    return { ok: false, error: "Your account is not linked to an agency." };
+  }
 
-  if (!path.trim() || path.includes("..")) {
+  // Only a path this module wrote, inside the caller's own agency. Cross-agency
+  // reads are also blocked by storage RLS; this is the second layer.
+  const objectPath = path.trim();
+  const parsed = parseTravellerFilePath(objectPath, agencyId);
+  if (!parsed.ok) {
     return { ok: false, error: "That document reference is invalid." };
   }
 
   const supabase = createClient(await cookies());
+  const scopeError = await groupScopeError(supabase, role, staffId, parsed.groupId);
+  if (scopeError) return { ok: false, error: scopeError };
+
+  // Logged before the link is issued: a file that cannot be recorded as opened
+  // is not opened.
+  const { error: logError } = await supabase.from("departure_group_document_access_log").insert({
+    agency_id: agencyId,
+    staff_id: user.id,
+    staff_name: name ?? "Staff",
+    departure_group_id: parsed.groupId,
+    pilgrim_id: parsed.pilgrimId,
+    file_path: objectPath,
+    action: "VIEW",
+  });
+  if (logError) {
+    console.error("document access log failed", logError);
+    return { ok: false, error: "That document could not be opened right now. Try again." };
+  }
+
   const { data, error } = await supabase.storage
     .from(BUCKET)
-    .createSignedUrl(path, DOWNLOAD_TTL_SECONDS);
+    .createSignedUrl(objectPath, DOWNLOAD_TTL_SECONDS);
 
   if (error || !data) {
-    return {
-      ok: false,
-      error: error?.message ?? "That document could not be opened.",
-    };
+    console.error("createDocumentDownloadUrl failed", error);
+    return { ok: false, error: "That document could not be opened." };
   }
 
   return { ok: true, url: data.signedUrl };
