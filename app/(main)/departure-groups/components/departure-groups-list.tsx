@@ -87,8 +87,8 @@ import DepartureGroupsKPI from "./departure-groups-kpi-cards/departure-groups-kp
  * whether or not they have permission to open them.
  */
 const ArchivedGroupsSheet = dynamic(() => import("./archived-groups-sheet"));
-const CreateDepartureGroupSheet = dynamic(
-  () => import("./create-departure-group-sheet"),
+const CreateDepartureGroupDialog = dynamic(
+  () => import("./create-departure-group-dialog"),
 );
 const ImportGroupsDialog = dynamic(() => import("./import-groups-dialog"));
 import { buildGroupColumns } from "./groups-table/groups-columns";
@@ -348,7 +348,7 @@ const DepartureGroupsList = ({
   return (
     <>
       {hasOpenedCreate && (
-        <CreateDepartureGroupSheet
+        <CreateDepartureGroupDialog
           open={createOpen}
           onOpenChange={setCreateOpen}
           templates={templates}

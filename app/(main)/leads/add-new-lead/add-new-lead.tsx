@@ -7,23 +7,11 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SidebarStepperDialogBody } from "@/components/ui/sidebar-stepper-dialog-body";
 import { toast } from "@/components/ui/toast";
 import { normaliseMobile } from "@/lib/data/leads";
-import { cn } from "@/lib/utils";
-import { AnimatePresence, motion } from "motion/react";
-import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronRight,
-  ClipboardCheck,
-  Eye,
-  Lock,
-  Phone,
-  Search,
-  Settings2,
-  Tent,
-} from "lucide-react";
-import React, { useCallback, useMemo, useState } from "react";
+import { AlertCircle } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useLeads } from "../leads-store";
 import type { AddLeadFormData, LeadJourneyType, LeadSource } from "../types";
@@ -103,7 +91,6 @@ interface StepDef {
   id: string;
   label: string;
   description: string;
-  icon: React.ReactNode;
   /** Which error keys live on this step (used to show the error dot). */
   errorKeys: string[];
 }
@@ -113,167 +100,39 @@ const STEPS: StepDef[] = [
     id: "duplicate",
     label: "Duplicate Check",
     description: "Verify the lead is new",
-    icon: <Search className="size-4" />,
     errorKeys: ["duplicate"],
   },
   {
     id: "contact",
     label: "Contact Details",
     description: "Name, mobile & preferences",
-    icon: <Phone className="size-4" />,
     errorKeys: ["fullName", "mobile", "email"],
   },
   {
     id: "sales",
     label: "Sales Setup",
     description: "Source, stage & assignment",
-    icon: <Settings2 className="size-4" />,
     errorKeys: [],
   },
   {
     id: "travel",
     label: "Travel Interest",
     description: "Journey type & packages",
-    icon: <Tent className="size-4" />,
     errorKeys: [],
   },
   {
     id: "action",
     label: "Next Action",
     description: "Follow-up task & notes",
-    icon: <ClipboardCheck className="size-4" />,
     errorKeys: ["nextFollowUpAt"],
   },
   {
     id: "review",
     label: "Review & Create",
     description: "Confirm before saving",
-    icon: <Eye className="size-4" />,
     errorKeys: [],
   },
 ];
-
-// ---------------------------------------------------------------------------
-// Panel slide animation variants
-// ---------------------------------------------------------------------------
-
-const panelVariants = {
-  enter: (dir: number) => ({
-    x: dir >= 0 ? "3%" : "-3%",
-    opacity: 0,
-  }),
-  center: {
-    x: "0%",
-    opacity: 1,
-  },
-  exit: (dir: number) => ({
-    x: dir >= 0 ? "-3%" : "3%",
-    opacity: 0,
-  }),
-};
-
-// ---------------------------------------------------------------------------
-// Sidebar step item
-// ---------------------------------------------------------------------------
-
-interface SidebarStepProps {
-  step: StepDef;
-  index: number;
-  current: number;
-  hasError: boolean;
-  isCompleted: boolean;
-  isLocked: boolean;
-  onClick: () => void;
-}
-
-function SidebarStep({
-  step,
-  index,
-  current,
-  hasError,
-  isCompleted,
-  isLocked,
-  onClick,
-}: SidebarStepProps) {
-  const isActive = index === current;
-
-  return (
-    <button
-      type="button"
-      onClick={isLocked ? undefined : onClick}
-      disabled={isLocked}
-      aria-disabled={isLocked}
-      className={cn(
-        "group relative w-full flex items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-all duration-150 outline-none",
-        "focus-visible:ring-2 disabled:opacity-100 focus-visible:ring-primary/40",
-        isLocked
-          ? "cursor-not-allowed opacity-40"
-          : isActive
-            ? "bg-primary/6 text-primary"
-            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-      )}
-    >
-      {/* Step number / status indicator */}
-      <div
-        className={cn(
-          "relative flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200",
-          isLocked
-            ? "bg-muted text-muted-foreground/50"
-            : isActive
-              ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 ring-4 ring-primary/15"
-              : isCompleted
-                ? "bg-primary/20 text-primary"
-                : hasError
-                  ? "bg-destructive/15 text-destructive"
-                  : "bg-muted text-muted-foreground",
-        )}
-      >
-        {isLocked ? (
-          <Lock className="size-3" />
-        ) : isCompleted && !hasError ? (
-          <CheckCircle2 className="size-3.5" />
-        ) : hasError ? (
-          <AlertCircle className="size-3.5" />
-        ) : (
-          <span>{index + 1}</span>
-        )}
-      </div>
-
-      {/* Label & description */}
-      <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "text-sm font-medium leading-none truncate transition-colors",
-            isLocked
-              ? "text-muted-foreground/40"
-              : isActive
-                ? "text-primary"
-                : hasError
-                  ? "text-destructive"
-                  : isCompleted
-                    ? "text-foreground"
-                    : "text-muted-foreground group-hover:text-foreground",
-          )}
-        >
-          {step.label}
-        </p>
-        <p
-          className={cn(
-            "mt-0.5 text-[11px] leading-tight truncate transition-colors",
-            isActive ? "text-primary/70" : "text-muted-foreground/60",
-          )}
-        >
-          {step.description}
-        </p>
-      </div>
-
-      {/* Active chevron — hidden when locked */}
-      {isActive && !isLocked && (
-        <ChevronRight className="size-3.5 shrink-0 text-primary opacity-70" />
-      )}
-    </button>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Main component
@@ -553,7 +412,10 @@ export default function AddNewLead({ open, setOpen }: AddNewLeadProps) {
 
   // Errors surface once the operator has tried to save, or as soon as a field
   // they have touched goes invalid — not on an untouched blank form.
-  const visibleErrors = submitAttempted || isDirty ? errors : {};
+  const visibleErrors = useMemo(
+    () => (submitAttempted || isDirty ? errors : {}),
+    [submitAttempted, isDirty, errors],
+  );
 
   // Which steps have errors visible right now
   const stepHasError = useCallback(
@@ -629,6 +491,15 @@ export default function AddNewLead({ open, setOpen }: AddNewLeadProps) {
     }
   }, [stepCanContinue, activeStep, formData, duplicate, errors]);
 
+  // The duplicate answer is given on step 1, but an email typed on step 2 can
+  // also match an existing lead — say so where the operator is looking.
+  const emailDuplicateNotice =
+    duplicate &&
+    duplicate.matchedOn === "email" &&
+    !(formData.duplicateReason && formData.createAnyway)
+      ? `This email already belongs to ${duplicate.lead.name} (${duplicate.lead.reference}). Confirm it is a separate person before saving.`
+      : null;
+
   // Step content panels
   const stepContent = [
     // 0 — Duplicate Check
@@ -663,6 +534,8 @@ export default function AddNewLead({ open, setOpen }: AddNewLeadProps) {
         updateField("preferredChannel", value)
       }
       errors={visibleErrors}
+      // emailDuplicateNotice={emailDuplicateNotice}
+      // onReviewDuplicate={() => goToStep(0)}
     />,
 
     // 2 — Sales Setup
@@ -750,6 +623,7 @@ export default function AddNewLead({ open, setOpen }: AddNewLeadProps) {
       key="review"
       formData={formData}
       packages={store.packages}
+      // onEditStep={goToStep}
     />,
   ];
 
@@ -772,198 +646,62 @@ export default function AddNewLead({ open, setOpen }: AddNewLeadProps) {
             Capture a new inquiry and schedule the next follow-up
           </DialogDescription>
 
-          {/* ═══════════════════════════════════════════════════════════════
-              MOBILE top header + step strip (hidden on md+)
-          ═══════════════════════════════════════════════════════════════ */}
-          <div className="md:hidden flex flex-col borde  bg-muted/30">
-            {/* Title row */}
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <div>
-                <h2 className="font-heading text-base font-semibold leading-tight">
-                  Add New Lead
-                </h2>
-                <p className="text-[11px] text-muted-foreground">
-                  Step {activeStep + 1} of {STEPS.length} —{" "}
-                  {STEPS[activeStep].label}
+          <SidebarStepperDialogBody
+            title="Add New Lead"
+            subtitle="Capture a new inquiry and schedule the first follow-up"
+            steps={STEPS}
+            activeStep={activeStep}
+            direction={direction}
+            onStepSelect={goToStep}
+            getStepState={(index) => ({
+              isLocked: index > highestReachedStep,
+              isCompleted: stepIsCompleted(index, STEPS[index]),
+              hasError: stepHasError(STEPS[index]),
+            })}
+            sidebarFooter={
+              submitAttempted && !isFormValid ? (
+                <p className="flex items-center gap-1.5 text-[11px] font-medium text-destructive">
+                  <AlertCircle className="size-3.5 shrink-0" />
+                  {Object.keys(errors).length === 1
+                    ? "1 issue to fix"
+                    : `${Object.keys(errors).length} issues to fix`}
                 </p>
-              </div>
-              {/* Compact fraction counter */}
-              <span className="text-xs font-medium text-muted-foreground tabular-nums bg-muted rounded-full px-2.5 py-0.5">
-                {activeStep + 1}/{STEPS.length}
-              </span>
-            </div>
-
-            {/* Progress dots */}
-            <div className="flex items-center gap-1.5 px-4 pb-3">
-              {STEPS.map((_, i) => (
-                <div
-                  key={i}
-                  className={`h-1 rounded-full transition-all duration-300 ${
-                    i === activeStep
-                      ? "bg-primary flex-3"
-                      : i < activeStep
-                        ? "bg-primary/40 flex-1"
-                        : "bg-muted-foreground/20 flex-1"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════════════
-              Main body: sidebar (md+) + content panel
-          ═══════════════════════════════════════════════════════════════ */}
-          <div className="flex flex-1 min-h-0 overflow-hidden">
-            {/* ── Left sidebar — md+ only ─────────────────────────────────── */}
-            <aside className="hidden md:flex w-44 lg:w-56 shrink-0 flex-col gap-0.5 border-r border-border/50 bg-muted/30 px-2 lg:px-3 py-4">
-              {/* Dialog header */}
-              <div className="mb-5 px-1">
-                <h2 className="font-heading text-base lg:text-xl font-semibold leading-tight tracking-tight">
-                  Add New Lead
-                </h2>
-                <p className="mt-0.5 text-xs text-muted-foreground leading-snug">
-                  Capture a new inquiry and schedule the first follow-up
-                </p>
-              </div>
-
-              {/* Step list */}
-              <nav aria-label="Form sections" className="flex flex-col gap-0.5">
-                {STEPS.map((step, index) => (
-                  <SidebarStep
-                    key={step.id}
-                    step={step}
-                    index={index}
-                    current={activeStep}
-                    hasError={stepHasError(step)}
-                    isCompleted={stepIsCompleted(index, step)}
-                    isLocked={index > highestReachedStep}
-                    onClick={() => goToStep(index)}
-                  />
-                ))}
-              </nav>
-
-              {/* Overall error count (visible post-submit) */}
-              {submitAttempted && !isFormValid && (
-                <div className="mt-auto pt-4 px-1">
-                  <p className="flex items-center gap-1.5 text-[11px] font-medium text-destructive">
-                    <AlertCircle className="size-3.5 shrink-0" />
-                    {Object.keys(errors).length === 1
-                      ? "1 issue to fix"
-                      : `${Object.keys(errors).length} issues to fix`}
-                  </p>
-                </div>
-              )}
-            </aside>
-
-            {/* ── Right content panel ───────────────────────────────────────── */}
-            <div className="flex flex-1 min-w-0 flex-col">
-              {/* Scrollable step content */}
-              <div className="relative flex-1 min-h-0 overflow-hidden">
-                <AnimatePresence initial={false} mode="wait" custom={direction}>
-                  <motion.div
-                    key={activeStep}
-                    custom={direction}
-                    variants={panelVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    transition={{ duration: 0.18, ease: "easeInOut" }}
-                    className="absolute inset-0 overflow-y-auto custom-scroll p-4 sm:p-5 flex flex-col gap-4 sm:gap-5 text-sm"
-                  >
-                    {/* Step header — visible on md+ (mobile uses the top strip) */}
-                    <div className="hidden md:flex items-center gap-2.5 pb-1 border- border-border/40">
-                      <div>
-                        <h3 className="font-semibold text-base lg:text-lg leading-tight">
-                          {STEPS[activeStep].label}
-                        </h3>
-                        <p className="text-[11px] text-muted-foreground">
-                          {STEPS[activeStep].description}
-                        </p>
-                      </div>
-                      <span className="ml-auto text-[11px] text-muted-foreground font-medium tabular-nums">
-                        {activeStep + 1} / {STEPS.length}
-                      </span>
-                    </div>
-
-                    {/* Active step content */}
-                    {stepContent[activeStep]}
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-
-              {/* ── Footer ──────────────────────────────────────────────────── */}
-              <div className="flex items-center justify-between gap-2 border-t border-border/40 bg-card/90 backdrop-blur-md px-4 sm:px-5 py-3">
-                {/* Cancel */}
-                <Button
-                  type="button"
-                  variant="outline_without_border"
-                  onClick={attemptClose}
+              ) : null
+            }
+            onCancel={attemptClose}
+            onBack={() => goToStep(activeStep - 1)}
+            onContinue={() => {
+              setHighestReachedStep((prev) => Math.max(prev, activeStep + 1));
+              goToStep(activeStep + 1);
+            }}
+            canContinue={stepCanContinue}
+            footerHint={
+              serverError || (submitAttempted && !isFormValid) ? (
+                <span
+                  role="alert"
+                  className="hidden sm:flex text-[11px] text-destructive font-medium items-center gap-1 max-w-64 truncate"
                 >
-                  Cancel
-                </Button>
-
-                {/* Right side */}
-                <div className="flex items-center gap-2 min-w-0">
-                  {/* Inline error hint — hidden on mobile to save space */}
-                  {((submitAttempted && !isFormValid) || serverError) && (
-                    <span
-                      role="alert"
-                      className="hidden sm:flex text-[11px] text-destructive font-medium items-center gap-1 max-w-40 truncate"
-                    >
-                      <AlertCircle className="size-3 shrink-0" />
-                      {serverError ?? Object.values(errors)[0]}
-                    </span>
-                  )}
-
-                  {/* Back */}
-                  {activeStep > 0 && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => goToStep(activeStep - 1)}
-                    >
-                      Back
-                    </Button>
-                  )}
-
-                  {/* Continue / Save actions */}
-                  {activeStep < STEPS.length - 1 ? (
-                    <div className="flex flex-col items-end gap-1">
-                      <Button
-                        variant="secondary"
-                        disabled={!stepCanContinue}
-                        onClick={() => {
-                          setHighestReachedStep((prev) =>
-                            Math.max(prev, activeStep + 1),
-                          );
-                          goToStep(activeStep + 1);
-                        }}
-                      >
-                        Continue
-                      </Button>
-                      {/* {stepBlockedReason && (
-                        <p className="text-[10px] text-muted-foreground text-right max-w-40 leading-tight">
-                          {stepBlockedReason}
-                        </p>
-                      )} */}
-                    </div>
-                  ) : (
-                    /* Final step — save actions */
-                    <>
-                      {/* "Save & Add Another" hidden on mobile — too cramped */}
-
-                      <Button
-                        type="button"
-                        disabled={submitting}
-                        onClick={() => submit(false)}
-                      >
-                        Create Lead
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+                  <AlertCircle className="size-3 shrink-0" />
+                  {serverError ?? Object.values(errors)[0]}
+                </span>
+              ) : stepBlockedReason ? (
+                <span className="hidden sm:flex text-[11px] text-muted-foreground items-center gap-1 max-w-64 truncate">
+                  {stepBlockedReason}
+                </span>
+              ) : null
+            }
+            lastStepAction={
+              <Button
+                type="button"
+                disabled={submitting}
+                onClick={() => submit(false)}
+              >
+                Create Lead
+              </Button>
+            }
+          >
+            {stepContent[activeStep]}
+          </SidebarStepperDialogBody>
         </DialogContent>
       </Dialog>
 

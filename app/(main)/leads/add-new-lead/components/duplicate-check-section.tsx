@@ -1,13 +1,12 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import InputFormHeader from "@/components/ui/input-form-header";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
+  InputGroupText,
 } from "@/components/ui/input-group";
 import {
   Select,
@@ -16,8 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2, Search } from "lucide-react";
-import React from "react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 import type { LeadListItem } from "../../types";
 import { STAGE_LABELS } from "../../utils";
@@ -28,7 +26,6 @@ import {
   TONE_TEXT,
 } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
-import SectionHeading from "@/components/section-heading";
 import { ButtonGroup } from "@/components/ui/button-group";
 
 interface DuplicateCheckSectionProps {
@@ -66,43 +63,58 @@ export default function DuplicateCheckSection({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* <SectionHeading
-        title="Duplicate check"
-        act={
-          checked && !duplicate ? (
-            <span
-              className={cn(
-                "text-xs font-medium flex items-center gap-1",
-                TONE_TEXT.success,
-              )}
-            >
-              <CheckCircle2 className="size-3.5" /> No duplicate found
-            </span>
-          ) : null
-        }
-      /> */}
-
       <div className="flex flex-col gap-2">
-        <label htmlFor="duplicate-mobile" className="sr-only">
-          Search by mobile number
-        </label>
         <InputGroup>
+          <InputGroupAddon align="block-start">
+            <InputGroupText>
+              <label htmlFor="duplicate-mobile">
+                WhatsApp / Mobile Number
+              </label>
+            </InputGroupText>
+          </InputGroupAddon>
           {/* `type="tel"`, not `type="number"`: a number input rejects spaces,
               eats leading zeros and changes value on scroll. */}
           <ButtonGroup>
-            <InputGroupInput value={"+94"} className="flex-1" readOnly />
+            <InputGroupInput
+              value="+94"
+              className="flex-1"
+              readOnly
+              tabIndex={-1}
+              aria-label="Country code"
+            />
             <InputGroupInput
               id="duplicate-mobile"
               type="tel"
               inputMode="numeric"
               autoComplete="tel-national"
-              placeholder="77 123 4567 — start here to check for an existing lead"
+              placeholder="77 123 4567"
+              aria-describedby="duplicate-mobile-status"
               value={mobile}
               onChange={(event) => onMobileChange(event.target.value)}
               className="text-sm flex-6"
             />
           </ButtonGroup>
         </InputGroup>
+
+        <p
+          id="duplicate-mobile-status"
+          aria-live="polite"
+          className={cn(
+            "text-xs flex items-center gap-1.5",
+            checked && !duplicate
+              ? cn("font-medium", TONE_TEXT.success)
+              : "text-muted-foreground",
+          )}
+        >
+          {checked && !duplicate ? (
+            <>
+              <CheckCircle2 className="size-3.5" /> No existing lead uses this
+              number. You can continue.
+            </>
+          ) : !checked ? (
+            "Enter the mobile number to check whether this person is already in the CRM."
+          ) : null}
+        </p>
 
         {duplicate && (
           <div
@@ -185,12 +197,9 @@ export default function DuplicateCheckSection({
                   }}
                 >
                   <SelectTrigger id="duplicate-reason" className="text-xs">
-                    <SelectValue />
+                    <SelectValue placeholder="Select a reason" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="" className="text-xs">
-                      — Select duplicate reason —
-                    </SelectItem>
                     {DUPLICATE_REASONS.map((reason) => (
                       <SelectItem
                         key={reason.value}

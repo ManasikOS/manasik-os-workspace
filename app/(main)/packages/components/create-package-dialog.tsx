@@ -9,25 +9,15 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
-import { cn } from "@/lib/utils";
-import { AnimatePresence, motion } from "motion/react";
 import {
-  AlertCircle,
-  CheckCircle2,
-  ChevronRight,
-  Compass,
-  CreditCard,
-  Eye,
-  FileCheck2,
-  Lock,
-  Package,
-  ShieldCheck,
-  TriangleAlert,
-  Users,
-} from "lucide-react";
+  SidebarStepperDialogBody,
+  type SidebarStepperStep,
+} from "@/components/ui/sidebar-stepper-dialog-body";
+import { cn } from "@/lib/utils";
+import { AlertCircle, TriangleAlert } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
-import React, {
+import {
   useCallback,
   useEffect,
   useMemo,
@@ -100,177 +90,49 @@ const StepReviewPublish = dynamic(stepLoaders[6], { loading: StepSkeleton });
 // Step definitions
 // ---------------------------------------------------------------------------
 
-interface StepDef {
-  id: string;
-  label: string;
-  description: string;
-  icon: React.ReactNode;
-}
-
-const STEPS: StepDef[] = [
+const STEPS: SidebarStepperStep[] = [
   {
     id: "commercial",
     label: "Commercial Identity",
     description:
       "Define what the agency is selling and how this package appears to sales staff, customers, and Manasik Copilot.",
-    icon: <Package className="size-4" />,
   },
   {
     id: "pricing",
     label: "Sales Pricing Policy",
     description: "Set the reusable payment schedule and customer-facing terms.",
-    icon: <CreditCard className="size-4" />,
   },
   {
     id: "journey",
     label: "Journey Template",
     description:
       "Define the standard pilgrimage journey shown to pilgrims. Exact operational dates and flight bookings are confirmed later in Departure Groups.",
-    icon: <Compass className="size-4" />,
   },
   {
     id: "service",
     label: "Service Standards",
     description:
       "Define what the package promises and what each Departure Group must later arrange and confirm.",
-    icon: <ShieldCheck className="size-4" />,
   },
   {
     id: "traveller",
     label: "Traveller Requirements",
     description:
       "Choose the requirements automatically applied when a customer books a Departure Group.",
-    icon: <FileCheck2 className="size-4" />,
   },
   {
     id: "groups",
     label: "Group Creation Defaults",
     description:
       "Define what is copied into every real Departure Group created from this package.",
-    icon: <Users className="size-4" />,
   },
   {
     id: "review",
     label: "Review & Publish",
     description:
       "Confirm that this package template is ready for sales staff, AI Sales Agent inquiries, and group creation.",
-    icon: <Eye className="size-4" />,
   },
 ];
-
-// ---------------------------------------------------------------------------
-// Panel slide animation variants — same feel as the Add New Lead dialog.
-// ---------------------------------------------------------------------------
-
-const panelVariants = {
-  enter: (dir: number) => ({
-    x: dir >= 0 ? "3%" : "-3%",
-    opacity: 0,
-  }),
-  center: {
-    x: "0%",
-    opacity: 1,
-  },
-  exit: (dir: number) => ({
-    x: dir >= 0 ? "-3%" : "3%",
-    opacity: 0,
-  }),
-};
-
-// ---------------------------------------------------------------------------
-// Sidebar step item
-// ---------------------------------------------------------------------------
-
-interface SidebarStepProps {
-  step: StepDef;
-  index: number;
-  current: number;
-  isCompleted: boolean;
-  isLocked: boolean;
-  onClick: () => void;
-}
-
-function SidebarStep({
-  step,
-  index,
-  current,
-  isCompleted,
-  isLocked,
-  onClick,
-}: SidebarStepProps) {
-  const isActive = index === current;
-
-  return (
-    <button
-      type="button"
-      onClick={isLocked ? undefined : onClick}
-      disabled={isLocked}
-      aria-disabled={isLocked}
-      className={cn(
-        "group relative w-full flex items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-all duration-150 outline-none",
-        "focus-visible:ring-2 disabled:opacity-100 focus-visible:ring-primary/40",
-        isLocked
-          ? "cursor-not-allowed opacity-40"
-          : isActive
-            ? "bg-primary/6 text-primary"
-            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
-      )}
-    >
-      {/* Step number / status indicator */}
-      <div
-        className={cn(
-          "relative flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-all duration-200",
-          isLocked
-            ? "bg-muted text-muted-foreground/50"
-            : isActive
-              ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30 ring-4 ring-primary/15"
-              : isCompleted
-                ? "bg-primary/20 text-primary"
-                : "bg-muted text-muted-foreground",
-        )}
-      >
-        {isLocked ? (
-          <Lock className="size-3" />
-        ) : isCompleted ? (
-          <CheckCircle2 className="size-3.5" />
-        ) : (
-          <span>{index + 1}</span>
-        )}
-      </div>
-
-      {/* Label & description */}
-      <div className="min-w-0 flex-1">
-        <p
-          className={cn(
-            "text-sm font-medium leading-none truncate transition-colors",
-            isLocked
-              ? "text-muted-foreground/40"
-              : isActive
-                ? "text-primary"
-                : isCompleted
-                  ? "text-foreground"
-                  : "text-muted-foreground group-hover:text-foreground",
-          )}
-        >
-          {step.label}
-        </p>
-        <p
-          className={cn(
-            "mt-0.5 text-[11px] leading-tight truncate transition-colors",
-            isActive ? "text-primary/70" : "text-muted-foreground/60",
-          )}
-        >
-          {step.description}
-        </p>
-      </div>
-
-      {/* Active chevron — hidden when locked */}
-      {isActive && !isLocked && (
-        <ChevronRight className="size-3.5 shrink-0 text-primary opacity-70" />
-      )}
-    </button>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Body — everything that depends on autosave/form state. Mounted fresh (via a
@@ -350,7 +212,6 @@ function CreatePackageDialogBody({
   }, [formData]);
 
   const isCurrentStepValid = stepValidity[activeStep + 1];
-  const isLastStep = activeStep === STEPS.length - 1;
 
   const checkStepClickable = useCallback(
     (targetIndex: number) => {
@@ -468,195 +329,81 @@ function CreatePackageDialogBody({
   const dialogTitle = mode === "edit" ? "Edit Package" : "Create Package";
 
   return (
-    <>
-      {/* ═══════════════════════════════════════════════════════════════
-          MOBILE top header + step strip (hidden on md+)
-      ═══════════════════════════════════════════════════════════════ */}
-      <div className="md:hidden flex flex-col bg-muted/30">
-        <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <div>
-            <h2 className="font-heading text-base font-semibold leading-tight">
-              {dialogTitle}
-            </h2>
-            <p className="text-[11px] text-muted-foreground">
-              Step {activeStep + 1} of {STEPS.length} —{" "}
-              {STEPS[activeStep].label}
-            </p>
+    <SidebarStepperDialogBody
+      title={dialogTitle}
+      subtitle={
+        mode === "edit"
+          ? "Update this package's commercial & operational template."
+          : "Build a commercial & operational template for sales and Departure Groups."
+      }
+      steps={STEPS}
+      activeStep={activeStep}
+      direction={direction}
+      onStepSelect={handleStepChange}
+      getStepState={(index) => ({
+        isLocked: !checkStepClickable(index),
+        isCompleted: index < activeStep && stepValidity[index + 1],
+      })}
+      sidebarFooter={
+        saveIndicator ? (
+          <p
+            className={cn(
+              "text-[11px] font-medium",
+              saveStatus === "error"
+                ? "text-destructive"
+                : "text-muted-foreground",
+            )}
+          >
+            {saveIndicator}
+          </p>
+        ) : null
+      }
+      panelBanner={
+        mode === "edit" && initialLiveGroupCount > 0 ? (
+          <div
+            className={cn(
+              "flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0",
+              TONE_CLASS.warning,
+            )}
+          >
+            <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
+            <span>
+              {initialLiveGroupCount} live departure group
+              {initialLiveGroupCount === 1 ? " is" : "s are"} already running
+              off this template. Saving here never rewrites them — each keeps
+              its own independent price and configuration — it only changes
+              what the NEXT group created from this package copies.
+            </span>
           </div>
-          <span className="text-xs font-medium text-muted-foreground tabular-nums bg-muted rounded-full px-2.5 py-0.5">
-            {activeStep + 1}/{STEPS.length}
+        ) : null
+      }
+      onCancel={attemptClose}
+      onBack={() => handleStepChange(activeStep - 1)}
+      onContinue={() => handleStepChange(activeStep + 1)}
+      canContinue={isCurrentStepValid}
+      footerHint={
+        !isCurrentStepValid ? (
+          <span
+            role="alert"
+            className="hidden sm:flex text-[11px] text-destructive font-medium items-center gap-1 max-w-56 truncate"
+          >
+            <AlertCircle className="size-3 shrink-0" />
+            Complete the required fields to continue
           </span>
-        </div>
-
-        <div className="flex items-center gap-1.5 px-4 pb-3">
-          {STEPS.map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "h-1 rounded-full transition-all duration-300",
-                i === activeStep
-                  ? "bg-primary flex-3"
-                  : i < activeStep
-                    ? "bg-primary/40 flex-1"
-                    : "bg-muted-foreground/20 flex-1",
-              )}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          Main body: sidebar (md+) + content panel
-      ═══════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* ── Left sidebar — md+ only ─────────────────────────────────── */}
-        <aside className="hidden md:flex w-44 lg:w-56 shrink-0 flex-col gap-0.5 border-r border-border/50 bg-muted/30 px-2 lg:px-3 py-4">
-          <div className="mb-5 px-1">
-            <h2 className="font-heading text-base lg:text-xl font-semibold leading-tight tracking-tight">
-              {dialogTitle}
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground leading-snug">
-              {mode === "edit"
-                ? "Update this package's commercial & operational template."
-                : "Build a commercial & operational template for sales and Departure Groups."}
-            </p>
-          </div>
-
-          <nav aria-label="Form sections" className="flex flex-col gap-0.5">
-            {STEPS.map((step, index) => (
-              <SidebarStep
-                key={step.id}
-                step={step}
-                index={index}
-                current={activeStep}
-                isCompleted={index < activeStep && stepValidity[index + 1]}
-                isLocked={!checkStepClickable(index)}
-                onClick={() => handleStepChange(index)}
-              />
-            ))}
-          </nav>
-
-          {saveIndicator && (
-            <div className="mt-auto pt-4 px-1">
-              <p
-                className={cn(
-                  "text-[11px] font-medium",
-                  saveStatus === "error"
-                    ? "text-destructive"
-                    : "text-muted-foreground",
-                )}
-              >
-                {saveIndicator}
-              </p>
-            </div>
-          )}
-        </aside>
-
-        {/* ── Right content panel ───────────────────────────────────────── */}
-        <div className="flex flex-1 min-w-0 flex-col">
-          {mode === "edit" && initialLiveGroupCount > 0 && (
-            <div
-              className={cn(
-                "flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0",
-                TONE_CLASS.warning,
-              )}
-            >
-              <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
-              <span>
-                {initialLiveGroupCount} live departure group
-                {initialLiveGroupCount === 1 ? " is" : "s are"} already
-                running off this template. Saving here never rewrites them —
-                each keeps its own independent price and configuration — it
-                only changes what the NEXT group created from this package
-                copies.
-              </span>
-            </div>
-          )}
-          <div className="relative flex-1 min-h-0 overflow-hidden">
-            <AnimatePresence initial={false} mode="wait" custom={direction}>
-              <motion.div
-                key={activeStep}
-                custom={direction}
-                variants={panelVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.18, ease: "easeInOut" }}
-                className="absolute inset-0  p-4 sm:p-5 flex flex-col gap-4 sm:gap-5 text-sm"
-              >
-                <div className="hidden md:flex items-center border- border-muted-foreground/10 gap-2.5 pb-1">
-                  <div>
-                    <h3 className="font-semibold text-base lg:text-lg leading-tight">
-                      {STEPS[activeStep].label}
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      {STEPS[activeStep].description}
-                    </p>
-                  </div>
-                  <span className="ml-auto text-[11px] text-muted-foreground font-medium tabular-nums">
-                    {activeStep + 1} / {STEPS.length}
-                  </span>
-                </div>
-
-                <div className="overflow-y-auto custom-scroll px-1">
-                  {stepContent[activeStep]}
-                </div>
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* ── Footer ──────────────────────────────────────────────────── */}
-          <div className="flex items-center justify-between gap-2 border-t border-border/40 bg-card/90 backdrop-blur-md px-4 sm:px-5 py-3">
-            <Button
-              type="button"
-              variant="outline_without_border"
-              onClick={attemptClose}
-            >
-              Cancel
-            </Button>
-
-            <div className="flex items-center gap-2 min-w-0">
-              {!isCurrentStepValid && (
-                <span
-                  role="alert"
-                  className="hidden sm:flex text-[11px] text-destructive font-medium items-center gap-1 max-w-56 truncate"
-                >
-                  <AlertCircle className="size-3 shrink-0" />
-                  Complete the required fields to continue
-                </span>
-              )}
-
-              {activeStep > 0 && (
-                <Button
-                  variant="ghost"
-                  onClick={() => handleStepChange(activeStep - 1)}
-                >
-                  Back
-                </Button>
-              )}
-
-              {!isLastStep ? (
-                <Button
-                  variant="secondary"
-                  disabled={!isCurrentStepValid}
-                  onClick={() => handleStepChange(activeStep + 1)}
-                >
-                  Continue
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  disabled={isPublishing || !isCurrentStepValid}
-                  onClick={() => void handlePublish()}
-                >
-                  {isPublishing ? "Publishing…" : "Save Package"}
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
+        ) : null
+      }
+      lastStepAction={
+        <Button
+          type="button"
+          disabled={isPublishing || !isCurrentStepValid}
+          onClick={() => void handlePublish()}
+        >
+          {isPublishing ? "Publishing…" : "Save Package"}
+        </Button>
+      }
+    >
+      {stepContent[activeStep]}
+    </SidebarStepperDialogBody>
   );
 }
 
