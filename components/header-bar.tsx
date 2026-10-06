@@ -26,7 +26,7 @@ const HeaderBar = ({
     >
       {/* Left — sidebar toggle + logo */}
       <div className="flex items-center gap-2 shrink-0">
-        {/* <SidebarTrigger className="size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors" /> */}
+        <SidebarTrigger className="size-8 rounded-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground md:hidden" />
         <Image
           src={Logo}
           alt="Manasik OS"

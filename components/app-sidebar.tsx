@@ -50,7 +50,7 @@ import {
 } from "lucide-react";
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { Logo } from "@/components/logo";
 import { AgencySwitcher } from "@/components/agency-switcher";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -99,7 +99,6 @@ export function AppSidebar({
   role,
   memberships = [],
   name,
-  staffId,
 }: {
   role: StaffRole;
   memberships?: AgencyMembership[];
@@ -107,6 +106,9 @@ export function AppSidebar({
   staffId?: string | null;
 }) {
   const [vaultOpen, setVaultOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hasOpenedSettings, setHasOpenedSettings] = useState(false);
+  const canViewSettings = capabilitiesForSettings(role).viewModule;
 
   const overview: NavItem = {
     title: "Dashboard",
@@ -253,7 +255,6 @@ export function AppSidebar({
       desc: "Manage",
     },
   ];
-  const [hasOpenedSettings, setHasOpenedSettings] = useState(false);
   const adminBar = [
     { title: "Home", link: [overview] },
     { title: "Grow", link: grow },
@@ -290,9 +291,13 @@ export function AppSidebar({
       </SidebarContent>
       <SidebarFooter>
         <DropdownMenu>
-          <DropdownMenuTrigger>
-            <SettingsProfileLink role={role} name={name} staffId={staffId} />
-          </DropdownMenuTrigger>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenuTrigger
+                render={<SettingsProfileLink profileName={name} />}
+              />
+            </SidebarMenuItem>
+          </SidebarMenu>
           <DropdownMenuContent>
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuItem>
@@ -340,13 +345,16 @@ export function AppSidebar({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
 
-            <DropdownMenuItem
-              onClick={() => {
-                setHasOpenedSettings(true);
-              }}
-            >
-              <Settings2 size={10} /> Settings
-            </DropdownMenuItem>
+            {canViewSettings && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setHasOpenedSettings(true);
+                  setSettingsOpen(true);
+                }}
+              >
+                <Settings2 size={10} /> Settings
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem>
               <Bug2 size={10} /> Send Feedback
             </DropdownMenuItem>
@@ -354,8 +362,8 @@ export function AppSidebar({
         </DropdownMenu>
         {hasOpenedSettings && (
           <SettingsDialog
-            open={hasOpenedSettings}
-            onOpenChange={setHasOpenedSettings}
+            open={settingsOpen}
+            onOpenChange={setSettingsOpen}
             role={role}
           />
         )}
@@ -374,37 +382,29 @@ export function AppSidebar({
  * opened, and warmed on hover so the click still feels instant.
  */
 const loadSettingsDialog = () =>
-  import("@/app/(main)/management/settings/components/settings-dialog").then(
-    (module) => module.SettingsDialog,
-  );
+  Promise.all([
+    import("@/app/(main)/management/settings/components/settings-dialog"),
+    import("@/app/(main)/management/settings/organisation/organisation-form"),
+  ]).then(([module]) => module.SettingsDialog);
 const SettingsDialog = dynamic(loadSettingsDialog, { ssr: false });
 
 /** Same posture as Settings: loaded only when the Document Vault is opened. */
 const VaultDialog = dynamic(() => import("@/components/vault/vault-dialog"), { ssr: false });
 
 /**
- * Sits where a "Settings" nav row used to be — clicking it opens the
- * settings dialog in place (local `open` state, same as `CreatePackageDialog`
- * / `AddNewLead`), not a page navigation. Denied roles (Guide) have no
- * Settings section at all, so it falls back to a plain link to their own
- * Team profile, mirroring `app/(main)/management/settings/page.tsx`'s
- * redirect.
+ * Account-menu trigger that also warms the settings code for roles that can
+ * open it. The menu item itself remains capability-gated in `AppSidebar`.
  */
 function SettingsProfileLink({
-  role,
-  name,
-  staffId,
+  profileName,
+  className,
+  onPointerEnter,
+  onFocus,
+  ...triggerProps
 }: {
-  role: StaffRole;
-  name?: string | null;
-  staffId?: string | null;
-}) {
-  const [open, setOpen] = useState(false);
-  // Mount the dialog (and so download its code) only after the first open;
-  // once mounted it stays, so closing keeps its exit animation and state.
-  const [hasOpenedSettings, setHasOpenedSettings] = useState(false);
-  const canViewSettings = capabilitiesForSettings(role).viewModule;
-  const displayName = name?.trim() || "Account";
+  profileName?: string | null;
+} & Omit<ComponentProps<typeof SidebarMenuButton>, "children" | "name">) {
+  const displayName = profileName?.trim() || "Account";
   const initials =
     displayName
       .split(/\s+/)
@@ -433,56 +433,27 @@ function SettingsProfileLink({
     </>
   );
 
-  if (!canViewSettings) {
-    return (
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            className="h-11 gap-2.5 rounded-xs transition-colors hover:bg-primary/10"
-            render={
-              <Link
-                href={
-                  staffId ? `/management/team/${staffId}` : "/management/team"
-                }
-                className="flex flex-row items-center gap-2.5 w-full"
-              >
-                {avatarRow}
-              </Link>
-            }
-          />
-        </SidebarMenuItem>
-      </SidebarMenu>
-    );
-  }
-
   return (
-    <>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            className={cn(
-              "h-13 gap-2.5 rounded-sm transition-colors",
-              open
-                ? "bg-primary/5 text-primary"
-                : "hover:bg-muted-foreground/10",
-            )}
-            onPointerEnter={() => void loadSettingsDialog()}
-            onFocus={() => void loadSettingsDialog()}
-            // onClick={() => {
-            //   setHasOpenedSettings(true);
-            //   setOpen(true);
-            // }}
-          >
-            <div className="flex flex-row items-center gap-2.5 w-full">
-              {avatarRow}
-            </div>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
-      {hasOpenedSettings && (
-        <SettingsDialog open={open} onOpenChange={setOpen} role={role} />
+    <SidebarMenuButton
+      {...triggerProps}
+      className={cn(
+        "h-13 gap-2.5 rounded-sm transition-colors",
+        "hover:bg-muted-foreground/10",
+        className,
       )}
-    </>
+      onPointerEnter={(event) => {
+        onPointerEnter?.(event);
+        void loadSettingsDialog();
+      }}
+      onFocus={(event) => {
+        onFocus?.(event);
+        void loadSettingsDialog();
+      }}
+    >
+      <div className="flex flex-row items-center gap-2.5 w-full">
+        {avatarRow}
+      </div>
+    </SidebarMenuButton>
   );
 }
 

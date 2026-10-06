@@ -1,8 +1,7 @@
 import { Receipt } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
+import { InputGroupInput, InputGroupTextarea } from "@/components/ui/input-group";
 import InputFormCard from "@/components/ui/input-form-card";
-import { Textarea } from "@/components/ui/textarea";
 import { REFERENCE_PREFIX_FIELDS } from "@/lib/data/settings-copy";
 import { previewReferenceNumber } from "@/lib/data/settings";
 
@@ -49,7 +48,7 @@ export function InvoiceSettingsCard({
             hint={`Next: ${previewReferenceNumber(prefixes[field.key])}`}
             error={fieldErrors[field.key]}
           >
-            <Input
+            <InputGroupInput
               value={prefixes[field.key]}
               onChange={(e) => onPrefixChange(field.key, e.target.value.toUpperCase())}
               disabled={!canEdit}
@@ -60,7 +59,7 @@ export function InvoiceSettingsCard({
 
       <div className="mt-3">
         <Field label="Invoice Footer">
-          <Textarea value={invoiceFooter} onChange={(e) => onInvoiceFooterChange(e.target.value)} disabled={!canEdit} />
+          <InputGroupTextarea value={invoiceFooter} onChange={(e) => onInvoiceFooterChange(e.target.value)} disabled={!canEdit} />
         </Field>
       </div>
 

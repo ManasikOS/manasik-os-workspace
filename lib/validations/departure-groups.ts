@@ -29,6 +29,39 @@ export const groupSalesStatusSchema = z.enum([
   "CANCELLED",
 ]);
 
+/**
+ * A reference to a stored row. Every primary key in the schema is a uuid, so
+ * anything else is a malformed or hand-made request and is refused here instead
+ * of surfacing later as a database error. `guid` (any 8-4-4-4-12 hex) rather than
+ * `uuid`, which also insists on an RFC version digit that seeded ids may lack.
+ */
+export const entityId = (message = "That reference is invalid.") =>
+  z.string().trim().pipe(z.guid({ error: message }));
+
+/** An optional reference where an empty string from a cleared picker means "none". */
+export const optionalEntityId = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? null : value),
+  entityId().nullable().optional(),
+);
+
+/** A phone number as staff type it: digits with an optional leading +, spaces, brackets and dashes. */
+export const phoneNumberSchema = z
+  .string()
+  .trim()
+  .min(7, { error: "Enter a reachable phone number." })
+  .max(25, { error: "That phone number is too long." })
+  .regex(/^\+?[0-9 ()-]*[0-9][0-9 ()-]*$/, { error: "Use digits, spaces, brackets, dashes and an optional leading +." });
+
+/** Passport numbers vary by country; this only keeps out anything that is not letters, digits, space or dash. */
+export const passportNumberSchema = z
+  .string()
+  .trim()
+  .max(20, { error: "A passport number is at most 20 characters." })
+  .regex(/^[A-Za-z0-9 -]*$/, { error: "Use letters, digits, spaces and dashes only." });
+
+/** Largest money amount any single field accepts, matching the payment and fare schemas. */
+const MAX_MONEY = 1_000_000_000;
+
 export const roomTypeSchema = z.enum([
   "QUAD",
   "TRIPLE",
@@ -228,11 +261,11 @@ const accommodationCitySchema = z.enum([
 /** Adds a new accommodation block to a group ("Add Hotel"). */
 export const createAccommodationSchema = z
   .object({
-    departureGroupId: z.string().trim().min(1),
+    departureGroupId: entityId(),
     city: accommodationCitySchema,
     hotelName: z.string().trim().min(1, { error: "Hotel name is required." }),
     supplierName: z.string().trim().nullable().optional(),
-    supplierId: z.string().trim().nullable().optional(),
+    supplierId: optionalEntityId,
     bookingReference: z.string().trim().nullable().optional(),
     status: z.enum([
       "NOT_REQUESTED",
@@ -257,11 +290,11 @@ export const createAccommodationSchema = z
 
 export const updateAccommodationSchema = z
   .object({
-    id: z.string().trim().min(1),
-    departureGroupId: z.string().trim().min(1),
+    id: entityId(),
+    departureGroupId: entityId(),
     hotelName: z.string().trim().min(1, { error: "Hotel name is required." }),
     supplierName: z.string().trim().nullable().optional(),
-    supplierId: z.string().trim().nullable().optional(),
+    supplierId: optionalEntityId,
     bookingReference: z.string().trim().nullable().optional(),
     status: z.enum([
       "NOT_REQUESTED",
@@ -286,15 +319,15 @@ export const updateAccommodationSchema = z
 
 /** Attaches a voucher link to an accommodation ("Upload Voucher"). */
 export const accommodationVoucherSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   voucherUrl: z.string().trim().url({ error: "Enter a valid voucher URL." }),
 });
 
 /** Sets an accommodation's booking reference ("Add Booking Reference"). */
 export const accommodationReferenceSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   bookingReference: z
     .string()
     .trim()
@@ -303,29 +336,29 @@ export const accommodationReferenceSchema = z.object({
 });
 
 export const markAccommodationConfirmedSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
 });
 
 /** Assigns one pilgrim to one room ("Assign Manually"). */
 export const assignRoomSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  pilgrimId: z.string().trim().min(1, { error: "Pick a pilgrim." }),
-  roomId: z.string().trim().min(1, { error: "Pick a room." }),
+  departureGroupId: entityId(),
+  pilgrimId: entityId("Pick a pilgrim."),
+  roomId: entityId("Pick a room."),
 });
 
 /** Bulk-fills every unassigned pilgrim into available rooms ("Auto Assign Rooms"). */
 export const autoAssignRoomsSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
+  departureGroupId: entityId(),
   // Scopes the fill to one accommodation/city — see `AutoAssignRoomsInput` in
   // lib/data/departure-groups-rooming.ts for why this is no longer group-wide.
-  accommodationId: z.string().trim().min(1),
+  accommodationId: entityId(),
 });
 
 /** Creates the physical room inventory for an accommodation block ("Generate Rooms"). */
 export const generateRoomsSchema = z.object({
-  accommodationId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  accommodationId: entityId(),
+  departureGroupId: entityId(),
   roomType: z.enum(["QUAD", "TRIPLE", "DOUBLE", "SINGLE", "OTHER"]),
   occupancyCapacity: z.number().int().min(1).max(20),
   count: z.number().int().min(1).max(500),
@@ -334,14 +367,14 @@ export const generateRoomsSchema = z.object({
 
 /** Reverts a LOCKED room assignment back to ASSIGNED ("Unlock"). */
 export const unlockRoomAssignmentSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  pilgrimId: z.string().trim().min(1),
+  departureGroupId: entityId(),
+  pilgrimId: entityId(),
 });
 
 /** Edits one room's own details ("Edit Room"). */
 export const updateRoomSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   roomNumber: z.string().trim().max(20).nullable().optional(),
   roomType: z.enum(["QUAD", "TRIPLE", "DOUBLE", "SINGLE", "OTHER"]),
   occupancyCapacity: z.number().int().min(1).max(20),
@@ -351,13 +384,13 @@ export const updateRoomSchema = z.object({
 
 /** Deletes an empty room ("Delete Room"). */
 export const deleteRoomSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
 });
 
 export const transportSchema = z.object({
   id: z.string().trim().optional(),
-  departureGroupId: z.string().trim().min(1),
+  departureGroupId: entityId(),
   templateTransportRequirementId: z.string().trim().nullable().optional(),
   routeLabel: z.string().trim().min(1, { error: "Route label is required." }),
   origin: z.string().trim().min(1, { error: "Origin is required." }),
@@ -370,7 +403,7 @@ export const transportSchema = z.object({
     "CANCELLED",
   ]),
   supplierName: z.string().trim().nullable().optional(),
-  supplierId: z.string().trim().nullable().optional(),
+  supplierId: optionalEntityId,
   bookingReference: z.string().trim().nullable().optional(),
   vehicleType: z.enum(["COACH", "VAN", "PRIVATE_CAR", "TRAIN", "OTHER"]),
   vehicleCapacity: z.number().int().min(0).nullable().optional(),
@@ -387,8 +420,8 @@ export const transportSchema = z.object({
 
 /** Attaches a confirmation link to a transport route ("Upload Confirmation"). */
 export const transportConfirmationSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   confirmationUrl: z
     .string()
     .trim()
@@ -397,8 +430,8 @@ export const transportConfirmationSchema = z.object({
 
 /** Sets a transport route's booking reference ("Add Reference"). */
 export const transportReferenceSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   bookingReference: z
     .string()
     .trim()
@@ -407,8 +440,8 @@ export const transportReferenceSchema = z.object({
 });
 
 export const markTransportConfirmedSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
 });
 
 /* ── Documents & visa ─────────────────────────────────────────────────────── */
@@ -437,8 +470,8 @@ const storageObjectPath = z
   });
 
 export const submitDocumentSchema = z.object({
-  documentId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  documentId: entityId(),
+  departureGroupId: entityId(),
   filePath: storageObjectPath.nullable().optional(),
   fileName: z.string().trim().max(255).nullable().optional(),
   fileSizeBytes: z.number().int().min(0).max(10 * 1024 * 1024).nullable().optional(),
@@ -446,14 +479,14 @@ export const submitDocumentSchema = z.object({
 });
 
 export const verifyDocumentSchema = z.object({
-  documentId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  documentId: entityId(),
+  departureGroupId: entityId(),
   notes: z.string().trim().max(500).nullable().optional(),
 });
 
 export const rejectDocumentSchema = z.object({
-  documentId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  documentId: entityId(),
+  departureGroupId: entityId(),
   // A refusal the traveller cannot act on is worse than none: the previous
   // design sent documents back with no reason at all.
   reason: z
@@ -464,8 +497,8 @@ export const rejectDocumentSchema = z.object({
 });
 
 export const waiveDocumentSchema = z.object({
-  documentId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  documentId: entityId(),
+  departureGroupId: entityId(),
   reason: z
     .string()
     .trim()
@@ -474,8 +507,8 @@ export const waiveDocumentSchema = z.object({
 });
 
 export const updatePilgrimRecordSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   passportNumber: z.string().trim().max(40).nullable().optional(),
   passportExpiry: isoDate.nullable().optional(),
   passportIssueCountry: z.string().trim().max(80).nullable().optional(),
@@ -486,14 +519,14 @@ export const updatePilgrimRecordSchema = z.object({
 });
 
 export const markApplicationsSubmittedSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
+  departureGroupId: entityId(),
   pilgrimIds: z
     .array(z.string().trim().min(1))
     .min(1, { error: "Select at least one pilgrim." }),
 });
 
 export const markVisasUnderReviewSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
+  departureGroupId: entityId(),
   pilgrimIds: z
     .array(z.string().trim().min(1))
     .min(1, { error: "Select at least one application." }),
@@ -501,8 +534,8 @@ export const markVisasUnderReviewSchema = z.object({
 });
 
 export const uploadVisaSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   visaId: z.string().trim().min(1, { error: "Enter the visa ID." }).max(60),
   filePath: storageObjectPath.nullable().optional(),
   expiryDate: isoDate.nullable().optional(),
@@ -510,15 +543,15 @@ export const uploadVisaSchema = z.object({
 });
 
 export const uploadTicketSchema = z.object({
-  pilgrimId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  pilgrimId: entityId(),
+  departureGroupId: entityId(),
   filePath: storageObjectPath,
   fileName: z.string().trim().min(1).max(200),
 });
 
 export const rejectVisaSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   reason: z
     .string()
     .trim()
@@ -528,31 +561,32 @@ export const rejectVisaSchema = z.object({
 });
 
 export const flagFlightIssueSchema = z.object({
-  pilgrimId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  pilgrimId: entityId(),
+  departureGroupId: entityId(),
   issue: z.enum(["NAME_MISMATCH", "CHANGE_REQUESTED", "RESOLVED"]),
   note: z.string().trim().max(500).nullable().optional(),
 });
 
 export const promoteWaitlistSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  bookingId: z.string().trim().min(1).optional(),
+  departureGroupId: entityId(),
+  bookingId: entityId().optional(),
 });
 
 export const releaseExpiredHoldsSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
+  departureGroupId: entityId(),
 });
 
 export const groupBookingSchema = z
   .object({
     id: z.string().trim().optional(),
-    departureGroupId: z.string().trim().min(1),
-    leadId: z.string().trim().nullable().optional(),
+    departureGroupId: entityId(),
+    leadId: optionalEntityId,
     bookingReference: z
       .string()
       .trim()
       .toUpperCase()
-      .min(3, { error: "Booking reference is required." }),
+      .min(3, { error: "Booking reference is required." })
+      .max(40, { error: "Keep the booking reference under 40 characters." }),
     bookingStatus: z.enum([
       "HELD",
       "DEPOSIT_PENDING",
@@ -563,19 +597,17 @@ export const groupBookingSchema = z
     primaryContactName: z
       .string()
       .trim()
-      .min(2, { error: "Primary contact name is required." }),
-    primaryContactPhone: z
-      .string()
-      .trim()
-      .min(7, { error: "Enter a reachable phone number." }),
+      .min(2, { error: "Primary contact name is required." })
+      .max(120, { error: "Keep the name under 120 characters." }),
+    primaryContactPhone: phoneNumberSchema,
     travellerCount: z
       .number()
       .int()
       .positive({ error: "A booking needs at least one traveller." })
       .max(50, { error: "Split bookings larger than 50 travellers." }),
     roomOccupancyPreference: roomTypeSchema,
-    packagePricePerPerson: z.number().min(0),
-    amountPaid: z.number().min(0),
+    packagePricePerPerson: z.number().min(0).max(MAX_MONEY, { error: "That amount looks too large." }),
+    amountPaid: z.number().min(0).max(MAX_MONEY, { error: "That amount looks too large." }),
     seatHoldExpiresAt: isoDateTime.nullable().optional(),
     travellers: z
       .array(
@@ -583,14 +615,16 @@ export const groupBookingSchema = z
           fullName: z
             .string()
             .trim()
-            .min(2, { error: "Each traveller needs a name." }),
-          phone: z.string().trim().optional(),
-          passportNumber: z.string().trim().optional(),
+            .min(2, { error: "Each traveller needs a name." })
+            .max(120, { error: "Keep each name under 120 characters." }),
+          phone: z.string().trim().max(25, { error: "That phone number is too long." }).optional(),
+          passportNumber: passportNumberSchema.optional(),
           // A child/infant priced below the booking's adult rate — omitted
           // falls back to `packagePricePerPerson` (see `BookingTravellerInput`).
-          pricePerPerson: z.number().min(0).optional(),
+          pricePerPerson: z.number().min(0).max(MAX_MONEY, { error: "That amount looks too large." }).optional(),
         }),
       )
+      .max(50, { error: "Split bookings larger than 50 travellers." })
       .optional(),
   })
   .refine((v) => v.amountPaid <= v.packagePricePerPerson * v.travellerCount, {
@@ -606,8 +640,8 @@ export const groupBookingSchema = z
   );
 
 export const recordPaymentSchema = z.object({
-  bookingId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  bookingId: entityId(),
+  departureGroupId: entityId(),
   amount: z
     .number({ error: "Enter a payment amount." })
     .positive({ error: "Payment must be greater than zero." })
@@ -625,8 +659,8 @@ export const recordPaymentSchema = z.object({
  * honouring it.
  */
 export const changeRoomPreferenceSchema = z.object({
-  bookingId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  bookingId: entityId(),
+  departureGroupId: entityId(),
   roomOccupancyPreference: roomTypeSchema,
   pricePerPerson: z
     .number({ error: "Enter a package price." })
@@ -645,8 +679,8 @@ export const changeRoomPreferenceSchema = z.object({
  */
 export const moveBookingSchema = z
   .object({
-    bookingId: z.string().trim().min(1),
-    fromGroupId: z.string().trim().min(1),
+    bookingId: entityId(),
+    fromGroupId: entityId(),
     toGroupId: z
       .string()
       .trim()
@@ -670,8 +704,8 @@ export const moveBookingSchema = z
  * through — an empty reminder is not a reminder.
  */
 export const bookingReminderSchema = z.object({
-  bookingId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  bookingId: entityId(),
+  departureGroupId: entityId(),
   kind: z.enum(["PAYMENT", "DOCUMENT"]),
   channel: z.enum(["WHATSAPP", "SMS", "EMAIL"]),
   message: z
@@ -682,11 +716,13 @@ export const bookingReminderSchema = z.object({
   recipientName: z
     .string()
     .trim()
-    .min(2, { error: "Who is this reminder addressed to?" }),
+    .min(2, { error: "Who is this reminder addressed to?" })
+    .max(120, { error: "Keep the name under 120 characters." }),
   recipientPhone: z
     .string()
     .trim()
-    .min(5, { error: "A reminder needs a reachable phone or email." }),
+    .min(5, { error: "A reminder needs a reachable phone or email." })
+    .max(200, { error: "That contact is too long." }),
 });
 
 /**
@@ -695,24 +731,22 @@ export const bookingReminderSchema = z.object({
  * the same two fields rather than a different, looser edit path for them.
  */
 export const editBookingSchema = z.object({
-  bookingId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  bookingId: entityId(),
+  departureGroupId: entityId(),
   primaryContactName: z
     .string()
     .trim()
-    .min(2, { error: "Primary contact name is required." }),
-  primaryContactPhone: z
-    .string()
-    .trim()
-    .min(7, { error: "Enter a reachable phone number." }),
+    .min(2, { error: "Primary contact name is required." })
+    .max(120, { error: "Keep the name under 120 characters." }),
+  primaryContactPhone: phoneNumberSchema,
 });
 
 export const setBookingPayerSchema = z
   .object({
-    bookingId: z.string().trim().min(1),
-    departureGroupId: z.string().trim().min(1),
-    payerPilgrimId: z.string().trim().min(1).nullable().optional(),
-    payerLeadId: z.string().trim().min(1).nullable().optional(),
+    bookingId: entityId(),
+    departureGroupId: entityId(),
+    payerPilgrimId: entityId().nullable().optional(),
+    payerLeadId: entityId().nullable().optional(),
     payerName: z.string().trim().max(200).nullable().optional(),
     payerEmail: z
       .string()
@@ -735,10 +769,10 @@ export const setBookingPayerSchema = z
 
 export const addTravellerRelationshipSchema = z
   .object({
-    bookingId: z.string().trim().min(1),
-    departureGroupId: z.string().trim().min(1),
-    fromPilgrimId: z.string().trim().min(1),
-    toPilgrimId: z.string().trim().min(1),
+    bookingId: entityId(),
+    departureGroupId: entityId(),
+    fromPilgrimId: entityId(),
+    toPilgrimId: entityId(),
     relationship: z.enum([
       "MAHRAM",
       "SPOUSE",
@@ -757,9 +791,9 @@ export const addTravellerRelationshipSchema = z
   });
 
 export const removeTravellerRelationshipSchema = z.object({
-  relationshipId: z.string().trim().min(1),
-  bookingId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  relationshipId: entityId(),
+  bookingId: entityId(),
+  departureGroupId: entityId(),
 });
 
 /**
@@ -768,8 +802,8 @@ export const removeTravellerRelationshipSchema = z.object({
  * actually collected by `departure-groups-bookings`.
  */
 export const cancelBookingSchema = z.object({
-  bookingId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  bookingId: entityId(),
+  departureGroupId: entityId(),
   reason: z
     .string()
     .trim()
@@ -792,7 +826,7 @@ export const cancelBookingSchema = z.object({
 export const upsertFlightSchema = z
   .object({
     id: z.string().trim().optional(),
-    departureGroupId: z.string().trim().min(1),
+    departureGroupId: entityId(),
     direction: z.enum(["OUTBOUND", "RETURN"]),
     status: z.enum(["DRAFT", "HELD", "CONFIRMED", "TICKETED", "CANCELLED"]),
     airline: z.string().trim().min(1, { error: "Airline is required." }),
@@ -841,7 +875,7 @@ export const upsertFlightSchema = z
     seatsHeld: z.number().int().min(0, { error: "Seats held cannot be negative." }),
     ticketingDeadline: isoDateTime.nullable().optional(),
     supplierName: z.string().trim().nullable().optional(),
-    supplierId: z.string().trim().nullable().optional(),
+    supplierId: optionalEntityId,
     notes: z.string().trim().max(2000).nullable().optional(),
     /**
      * New transit legs to append to this flight in the same request.
@@ -900,8 +934,8 @@ export const upsertFlightSchema = z
  */
 export const addFlightLegSchema = z
   .object({
-    flightId: z.string().trim().min(1),
-    departureGroupId: z.string().trim().min(1),
+    flightId: entityId(),
+    departureGroupId: entityId(),
     airline: z.string().trim().min(1, { error: "Airline is required." }),
     flightNumber: z
       .string()
@@ -928,8 +962,8 @@ export const addFlightLegSchema = z
 /** Corrects an already-saved transit leg's own fields — the edit `addFlightLegSchema` never covered. */
 export const updateFlightLegSchema = z
   .object({
-    legId: z.string().trim().min(1),
-    departureGroupId: z.string().trim().min(1),
+    legId: entityId(),
+    departureGroupId: entityId(),
     airline: z.string().trim().min(1, { error: "Airline is required." }),
     flightNumber: z
       .string()
@@ -955,14 +989,14 @@ export const updateFlightLegSchema = z
 
 /** Removes one transit leg from a flight's itinerary. */
 export const removeFlightLegSchema = z.object({
-  legId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  legId: entityId(),
+  departureGroupId: entityId(),
 });
 
 /** Attaches a PNR / booking code to a flight ("Upload Ticket / PNR"). */
 export const flightTicketingSchema = z.object({
-  flightId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  flightId: entityId(),
+  departureGroupId: entityId(),
   pnr: z
     .string()
     .trim()
@@ -973,8 +1007,8 @@ export const flightTicketingSchema = z.object({
 
 /** Bulk-flips a flight's held seats to ticketed ("Mark Tickets Issued"). */
 export const markFlightTicketsIssuedSchema = z.object({
-  flightId: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  flightId: entityId(),
+  departureGroupId: entityId(),
 });
 
 /* ── Readiness checklist ──────────────────────────────────────────────────── */
@@ -988,8 +1022,8 @@ export const markFlightTicketsIssuedSchema = z.object({
  */
 export const updateReadinessItemSchema = z
   .object({
-    id: z.string().trim().min(1),
-    departureGroupId: z.string().trim().min(1),
+    id: entityId(),
+    departureGroupId: entityId(),
     status: readinessItemStatusSchema.optional(),
     assignedToName: z
       .string()
@@ -1026,22 +1060,22 @@ export const updateReadinessItemSchema = z
  * passed, and that is decided server-side from the due date.
  */
 export const createGroupTaskSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
+  departureGroupId: entityId(),
   title: z
     .string()
     .trim()
     .min(3, { error: "Give the task a title of at least 3 characters." })
     .max(160, { error: "Keep the title under 160 characters." }),
   description: z.string().trim().max(2000).nullable().optional(),
-  ownerName: z.string().trim().min(1, { error: "Assign an owner." }),
+  ownerName: z.string().trim().min(1, { error: "Assign an owner." }).max(120, { error: "Keep the owner name under 120 characters." }),
   dueAt: isoDateTime,
   category: taskCategorySchema,
-  linkedReadinessItemId: z.string().trim().nullable().optional(),
+  linkedReadinessItemId: optionalEntityId,
 });
 
 export const updateGroupTaskStatusSchema = z.object({
-  id: z.string().trim().min(1),
-  departureGroupId: z.string().trim().min(1),
+  id: entityId(),
+  departureGroupId: entityId(),
   status: taskStatusSchema,
 });
 
@@ -1092,7 +1126,7 @@ export const groupPricingInputSchema = z
  */
 export const updateGroupDetailsSchema = z
   .object({
-    groupId: z.string().trim().min(1),
+    groupId: entityId(),
     groupName: z
       .string()
       .trim()
@@ -1187,7 +1221,7 @@ export const updateGroupDetailsSchema = z
  */
 export const groupLifecycleSchema = z
   .object({
-    groupId: z.string().trim().min(1),
+    groupId: entityId(),
     action: z.enum([
       "CLOSE_SALES",
       "REOPEN_SALES",
@@ -1244,8 +1278,8 @@ export const deviationTypeSchema = z.enum([
 
 /** A traveller's base fare, set once at booking and editable per traveller thereafter. */
 export const setBaseFareSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  groupPilgrimId: z.string().trim().min(1),
+  departureGroupId: entityId(),
+  groupPilgrimId: entityId(),
   amount: z
     .number({ error: "Enter a base fare." })
     .min(0, { error: "Base fare cannot be negative." })
@@ -1255,8 +1289,8 @@ export const setBaseFareSchema = z.object({
 });
 
 export const setPilgrimRoomTypeSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  groupPilgrimId: z.string().trim().min(1),
+  departureGroupId: entityId(),
+  groupPilgrimId: entityId(),
   roomOccupancyType: roomTypeSchema,
 });
 
@@ -1267,10 +1301,10 @@ export const setPilgrimRoomTypeSchema = z.object({
  */
 export const addChargeSchema = z
   .object({
-    departureGroupId: z.string().trim().min(1),
-    groupPilgrimId: z.string().trim().min(1),
+    departureGroupId: entityId(),
+    groupPilgrimId: entityId(),
     chargeType: chargeTypeSchema,
-    addonId: z.string().trim().min(1).optional(),
+    addonId: entityId().optional(),
     label: z.string().trim().min(2, { error: "Give this charge a label." }).max(200),
     amount: z
       .number({ error: "Enter an amount." })
@@ -1290,14 +1324,14 @@ export const addChargeSchema = z
   });
 
 export const voidChargeSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  chargeId: z.string().trim().min(1),
+  departureGroupId: entityId(),
+  chargeId: entityId(),
   reason: z.string().trim().min(3, { error: "A reason is required to void a charge." }).max(500),
 });
 
 export const approveChargeSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  chargeId: z.string().trim().min(1),
+  departureGroupId: entityId(),
+  chargeId: entityId(),
 });
 
 const vehicleTypeSchema = z.enum([
@@ -1323,7 +1357,7 @@ const roomTypeDetailSchema = z.object({
 
 const extraNightsDetailSchema = z.object({
   kind: z.literal("EXTRA_NIGHTS"),
-  accommodationId: z.string().trim().min(1).nullable(),
+  accommodationId: entityId().nullable(),
   city: accommodationCitySchema,
   nights: z.number().int().positive().max(60),
   side: z.enum(["BEFORE", "AFTER"]),
@@ -1333,7 +1367,7 @@ const extraNightsDetailSchema = z.object({
 
 const hotelUpgradeDetailSchema = z.object({
   kind: z.literal("HOTEL_UPGRADE"),
-  fromAccommodationId: z.string().trim().min(1).nullable(),
+  fromAccommodationId: entityId().nullable(),
   city: accommodationCitySchema,
   hotelName: z.string().trim().min(1, { error: "Enter the hotel name." }),
   supplierName: z.string().trim().optional(),
@@ -1345,7 +1379,7 @@ const hotelUpgradeDetailSchema = z.object({
 
 const mealPlanDetailSchema = z.object({
   kind: z.literal("MEAL_PLAN"),
-  accommodationId: z.string().trim().min(1).nullable(),
+  accommodationId: entityId().nullable(),
   mealPlan: z.string().trim().min(1, { error: "Specify the meal plan." }),
 });
 
@@ -1377,7 +1411,7 @@ const landOnlyDetailSchema = z.object({
 
 const cabinUpgradeDetailSchema = z.object({
   kind: z.literal("CABIN_UPGRADE"),
-  flightId: z.string().trim().min(1),
+  flightId: entityId(),
   fromCabin: z.string().trim().min(1),
   toCabin: z.string().trim().min(1),
   pnr: z.string().trim().optional(),
@@ -1385,14 +1419,14 @@ const cabinUpgradeDetailSchema = z.object({
 
 const seatPreferenceDetailSchema = z.object({
   kind: z.literal("SEAT_PREFERENCE"),
-  flightId: z.string().trim().min(1),
+  flightId: entityId(),
   preference: z.enum(["WINDOW", "AISLE", "EXTRA_LEGROOM", "BULKHEAD", "TOGETHER", "OTHER"]),
   note: z.string().trim().optional(),
 });
 
 const extendedStayDetailSchema = z.object({
   kind: z.literal("EXTENDED_STAY"),
-  returnFlightId: z.string().trim().min(1).nullable(),
+  returnFlightId: entityId().nullable(),
   newReturnDate: isoDate,
   onwardArrangement: z.string().trim().min(1, { error: "Describe how the traveller returns." }),
 });
@@ -1415,7 +1449,7 @@ const itineraryAdditionDetailSchema = z.object({
 
 const serviceAddonDetailSchema = z.object({
   kind: z.literal("SERVICE_ADDON"),
-  addonId: z.string().trim().min(1).nullable(),
+  addonId: entityId().nullable(),
   addonCode: z.string().trim().optional(),
   quantity: z.number().positive().max(100).default(1),
   note: z.string().trim().optional(),
@@ -1423,7 +1457,7 @@ const serviceAddonDetailSchema = z.object({
 
 const privateTransferDetailSchema = z.object({
   kind: z.literal("PRIVATE_TRANSFER"),
-  transportId: z.string().trim().min(1).nullable(),
+  transportId: entityId().nullable(),
   route: z.string().trim().min(1, { error: "Describe the route." }),
   vehicleType: vehicleTypeSchema,
   pickupAt: isoDateTime.optional(),
@@ -1431,7 +1465,7 @@ const privateTransferDetailSchema = z.object({
 
 const pickupPointDetailSchema = z.object({
   kind: z.literal("PICKUP_POINT"),
-  transportId: z.string().trim().min(1).nullable(),
+  transportId: entityId().nullable(),
   pickupLocation: z.string().trim().min(1, { error: "Specify the pickup location." }),
   pickupAt: isoDateTime.optional(),
 });
@@ -1475,12 +1509,12 @@ export const deviationDetailSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const requestDeviationSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  groupPilgrimId: z.string().trim().min(1),
+  departureGroupId: entityId(),
+  groupPilgrimId: entityId(),
   deviationType: deviationTypeSchema,
   summary: z.string().trim().min(3, { error: "Describe the deviation in one line." }).max(300),
   detail: deviationDetailSchema,
-  chargeId: z.string().trim().min(1).optional(),
+  chargeId: entityId().optional(),
   blocksDeparture: z.boolean().optional(),
   responsibleRole: responsibleRoleSchema.optional(),
   notes: z.string().trim().max(1000).optional(),
@@ -1488,8 +1522,8 @@ export const requestDeviationSchema = z.object({
 
 export const decideDeviationSchema = z
   .object({
-    departureGroupId: z.string().trim().min(1),
-    deviationId: z.string().trim().min(1),
+    departureGroupId: entityId(),
+    deviationId: entityId(),
     approve: z.boolean(),
     note: z.string().trim().max(500).optional(),
   })
@@ -1499,21 +1533,21 @@ export const decideDeviationSchema = z
   });
 
 export const markDeviationArrangedSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  deviationId: z.string().trim().min(1),
-  supplierCommitmentId: z.string().trim().min(1).optional(),
+  departureGroupId: entityId(),
+  deviationId: entityId(),
+  supplierCommitmentId: entityId().optional(),
   notes: z.string().trim().max(1000).optional(),
 });
 
 export const cancelDeviationSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  deviationId: z.string().trim().min(1),
+  departureGroupId: entityId(),
+  deviationId: entityId(),
   reason: z.string().trim().min(3, { error: "A reason is required to cancel a deviation." }).max(500),
 });
 
 export const requestDeviationWithChargeSchema = z.object({
-  departureGroupId: z.string().trim().min(1),
-  groupPilgrimId: z.string().trim().min(1),
+  departureGroupId: entityId(),
+  groupPilgrimId: entityId(),
   deviationType: deviationTypeSchema,
   summary: z.string().trim().min(3, { error: "Describe the deviation in one line." }).max(300),
   detail: deviationDetailSchema,
@@ -1523,7 +1557,7 @@ export const requestDeviationWithChargeSchema = z.object({
   charge: z
     .object({
       chargeType: chargeTypeSchema,
-      addonId: z.string().trim().min(1).optional(),
+      addonId: entityId().optional(),
       label: z.string().trim().min(2, { error: "Give this charge a label." }).max(200),
       amount: z
         .number({ error: "Enter an amount." })
@@ -1544,3 +1578,55 @@ export function toDepartureGroupFieldErrors(
 ): DepartureGroupFieldErrors {
   return z.flattenError(error).fieldErrors as DepartureGroupFieldErrors;
 }
+
+/* ── Departure operations agent ───────────────────────────────────────────── */
+
+/** Longest a person may mute the agent on one group in a single action. */
+export const AGENT_MUTE_MAX_DAYS = 90;
+
+/** Biggest edited payload accepted for a proposal, as serialised JSON. */
+const MAX_EDITED_PAYLOAD_CHARS = 20_000;
+
+export const approveAgentProposalSchema = z.object({
+  proposalId: z.uuid({ error: "That proposal reference is invalid." }),
+  editedPayload: z
+    .unknown()
+    .refine(
+      (value) => {
+        if (value === undefined) return true;
+        try {
+          return JSON.stringify(value).length <= MAX_EDITED_PAYLOAD_CHARS;
+        } catch {
+          return false;
+        }
+      },
+      { error: "The edited proposal is too large." },
+    )
+    .optional(),
+});
+
+export const rejectAgentProposalSchema = z.object({
+  proposalId: z.uuid({ error: "That proposal reference is invalid." }),
+  decisionNote: z.string().trim().max(500, { error: "Keep the note under 500 characters." }).optional(),
+});
+
+/** `days: null` un-mutes. */
+export const muteAgentOnGroupSchema = z.object({
+  groupId: z.uuid({ error: "That departure group reference is invalid." }),
+  days: z
+    .number({ error: "Choose how many days to mute for." })
+    .int({ error: "Days must be a whole number." })
+    .min(1, { error: "Mute for at least one day." })
+    .max(AGENT_MUTE_MAX_DAYS, { error: `Mute for at most ${AGENT_MUTE_MAX_DAYS} days.` })
+    .nullable(),
+  reason: z.string().trim().max(300, { error: "Keep the reason under 300 characters." }),
+});
+
+/* ── Erasing a traveller's sensitive details ──────────────────────────────── */
+
+/** `confirm` must be literally true: the screen asks first, and a hand-made request has to say so too. */
+export const eraseTravellerDataSchema = z.object({
+  departureGroupId: entityId(),
+  pilgrimId: entityId(),
+  confirm: z.literal(true, { error: "Confirm the erasure to continue." }),
+});

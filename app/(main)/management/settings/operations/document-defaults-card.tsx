@@ -1,6 +1,6 @@
 import { FileCheck2 } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
+import { InputGroupInput } from "@/components/ui/input-group";
 import InputFormCard from "@/components/ui/input-form-card";
 import { PASSPORT_PHOTO_REQUIREMENT_OPTIONS } from "@/lib/data/settings-copy";
 
@@ -31,7 +31,7 @@ export function DocumentDefaultsCard({
     <InputFormCard title="Document and visa defaults" icon={<FileCheck2 className="size-4" />}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
         <Field label="Passport validity threshold (months)">
-          <Input
+          <InputGroupInput
             type="number"
             min={1}
             value={value.passportValidityMonths}
@@ -48,7 +48,7 @@ export function DocumentDefaultsCard({
           />
         </Field>
         <Field label="Default reminder frequency (days)">
-          <Input
+          <InputGroupInput
             type="number"
             min={1}
             value={value.documentReminderDays}
@@ -57,7 +57,7 @@ export function DocumentDefaultsCard({
           />
         </Field>
         <Field label="Document rework deadline (hours)">
-          <Input
+          <InputGroupInput
             type="number"
             min={1}
             value={value.documentReworkDeadlineHours}
@@ -66,7 +66,7 @@ export function DocumentDefaultsCard({
           />
         </Field>
         <Field label="Visa escalation window (days before departure)">
-          <Input
+          <InputGroupInput
             type="number"
             min={1}
             value={value.visaEscalationDays}

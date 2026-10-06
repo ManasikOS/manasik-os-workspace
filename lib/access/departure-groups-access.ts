@@ -55,6 +55,13 @@ export interface DepartureGroupCapabilities {
   manageTasks: boolean;
   manageDocumentsAndVisa: boolean;
   addBookings: boolean;
+  /**
+   * Cancel an existing booking — releases its seats and rooming and closes its
+   * balance. Deliberately separate from `addBookings`: the role that sells a
+   * seat is not automatically trusted to withdraw one. A booking that already
+   * has money on it additionally needs `recordPayments`.
+   */
+  cancelBookings: boolean;
   /** Payments tab, invoices, refunds. */
   viewFinance: boolean;
   recordPayments: boolean;
@@ -74,6 +81,11 @@ export interface DepartureGroupCapabilities {
   manageTravellerCustomisations: boolean;
   /** Sign off a discount, price correction, or any charge flagged `requiresApproval`. */
   approveDiscounts: boolean;
+  /**
+   * Permanently erase a traveller's passport, contact and file details (see
+   * `departure-groups-erasure.ts`). Irreversible, so Admin only.
+   */
+  eraseTravellerData: boolean;
   /** See a traveller's price breakdown at all. Guides see the deviation, never the amount. */
   viewPilgrimPricing: boolean;
 }
@@ -93,6 +105,7 @@ const NONE: DepartureGroupCapabilities = {
   manageTasks: false,
   manageDocumentsAndVisa: false,
   addBookings: false,
+  cancelBookings: false,
   viewFinance: false,
   recordPayments: false,
   viewSupplierCosts: false,
@@ -103,6 +116,7 @@ const NONE: DepartureGroupCapabilities = {
   manageTravellerCustomisations: false,
   approveDiscounts: false,
   viewPilgrimPricing: false,
+  eraseTravellerData: false,
 };
 
 const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
@@ -122,6 +136,7 @@ const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
     manageTasks: true,
     manageDocumentsAndVisa: true,
     addBookings: true,
+    cancelBookings: true,
     viewFinance: true,
     recordPayments: true,
     viewSupplierCosts: true,
@@ -131,6 +146,7 @@ const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
     manageTravellerCustomisations: true,
     approveDiscounts: true,
     viewPilgrimPricing: true,
+    eraseTravellerData: true,
   },
   // Full visibility, read-only day to day. Escalation happens through tasks,
   // which is why `manageTasks` stays on.
@@ -148,6 +164,7 @@ const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
     ...NONE,
     viewModule: true,
     viewFinance: true,
+    cancelBookings: true,
     recordPayments: true,
     viewSupplierCosts: true,
     manageReadiness: true,
@@ -180,6 +197,7 @@ const CAPABILITIES: Record<StaffRole, DepartureGroupCapabilities> = {
     manageTasks: true,
     manageDocumentsAndVisa: true,
     addBookings: true,
+    cancelBookings: true,
     viewSupplierCosts: true,
     viewSensitiveTravellerData: true,
     sendGroupCommunications: true,
@@ -216,8 +234,11 @@ export function capabilitiesFor(role: StaffRole): DepartureGroupCapabilities {
 }
 
 /** Tabs a role may open. Hidden tabs are never rendered, not merely disabled. */
-export function visibleTabsFor(role: StaffRole): DepartureGroupTabId[] {
-  const can = capabilitiesFor(role);
+export function visibleTabsFor(
+  role: StaffRole,
+  resolved?: DepartureGroupCapabilities,
+): DepartureGroupTabId[] {
+  const can = resolved ?? capabilitiesFor(role);
   const tabs: DepartureGroupTabId[] = ["overview", "pilgrims", "flights"];
 
   tabs.push("hotels", "transport");
@@ -263,6 +284,28 @@ export function canRoleOpenGroup(
       group.salesStatus === "SELLING" ||
       group.salesStatus === "LIMITED_AVAILABILITY" ||
       group.salesStatus === "WAITLIST"
+    );
+  }
+  return true;
+}
+
+/**
+ * The write-side twin of `canRoleOpenGroup`: may this role act on this group at
+ * all? Takes only the two fields it needs so the data layer can call it on a
+ * stored row, not just a list item. A Server Action is a public endpoint, so the
+ * pages' `notFound()` is not enough — the same rule has to hold at the write.
+ */
+export function canRoleActOnGroup(
+  group: { id: string; sales_status: string },
+  role: StaffRole,
+  assignedGroupIds: string[],
+): boolean {
+  if (role === "GUIDE") return assignedGroupIds.includes(group.id);
+  if (role === "MARKETING") {
+    return (
+      group.sales_status === "SELLING" ||
+      group.sales_status === "LIMITED_AVAILABILITY" ||
+      group.sales_status === "WAITLIST"
     );
   }
   return true;

@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { EMAIL_DELIVERY_PROVIDER_PROFILES, type EmailDeliveryProviderId } from "@/lib/inbox/email-trust/provider-profiles";
 import { TemplateList } from "../communications/template-list";
@@ -43,8 +42,8 @@ export function EmailSettings({ initial }: { initial: EmailData }) {
     ["imapHost", "IMAP server (optional)", "imap.example.com"], ["imapPort", "IMAP port", "993"],
   ] as const;
 
-  return <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto custom-scroll">
-    {data.canViewSmtp && <SectionShell title="Custom SMTP" description="Configure your agency’s outgoing email server and sender identity.">
+  return <div className="flex min-h-0 flex-1 flex-col [&>section]:min-h-0 [&>section]:shrink-0">
+    {data.canViewSmtp && <SectionShell title="Email & SMTP" description="Configure outgoing and incoming email delivery, then verify the connection before using it with customers.">
       <form onSubmit={event => {
         event.preventDefault(); setMessage("");
         startTransition(async () => {
@@ -55,45 +54,53 @@ export function EmailSettings({ initial }: { initial: EmailData }) {
           } catch { setMessage("Could not save settings. Please try again."); }
         });
       }} className="flex flex-col gap-4">
+        <div>
+          <h3 className="text-base font-medium">Custom SMTP server</h3>
+          <p className="text-xs text-muted-foreground">Use the credentials supplied by your agency&apos;s email provider.</p>
+        </div>
         {data.smtpError && <p role="alert" className="text-sm text-destructive">{data.smtpError}</p>}
         <fieldset disabled={!data.canEditSmtp || pending || testing || Boolean(data.smtpError)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {fields.map(([key, label, placeholder]) => <div key={key} className="flex flex-col gap-1.5">
-            <label htmlFor={`smtp-${key}`} className="text-sm font-medium">{label}</label>
-            <Input id={`smtp-${key}`} value={form[key]} placeholder={placeholder}
+          {fields.map(([key, label, placeholder]) => <InputGroup key={key}>
+            <InputGroupAddon align="block-start"><InputGroupText>{label}</InputGroupText></InputGroupAddon>
+            <InputGroupInput id={`smtp-${key}`} aria-label={label} value={form[key]} placeholder={placeholder}
               type={key === "password" ? "password" : key === "port" ? "number" : key === "fromEmail" || key === "replyTo" ? "email" : "text"}
               autoComplete={key === "password" ? "new-password" : "off"}
               required={key !== "replyTo" && key !== "fromName" && (key !== "password" || !saved)}
               onChange={event => setForm(previous => ({ ...previous, [key]: event.target.value }))} />
-          </div>)}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="smtp-security" className="text-sm font-medium">Encryption</label>
-            <select id="smtp-security" className="h-9 rounded-md border bg-background px-3 text-sm" value={form.security}
-              onChange={event => setForm(previous => ({ ...previous, security: event.target.value }))}>
-              <option value="STARTTLS">STARTTLS (usually port 587)</option>
-              <option value="TLS">SSL/TLS (usually port 465)</option>
-            </select>
-          </div>
+          </InputGroup>)}
+          <InputGroup>
+            <InputGroupAddon align="block-start"><InputGroupText>Encryption</InputGroupText></InputGroupAddon>
+            <Select disabled={!data.canEditSmtp || pending || testing || Boolean(data.smtpError)} value={form.security} onValueChange={value => value && setForm(previous => ({ ...previous, security: value }))}>
+              <SelectTrigger id="smtp-security" aria-label="Encryption" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="STARTTLS">STARTTLS (usually port 587)</SelectItem>
+                <SelectItem value="TLS">SSL/TLS (usually port 465)</SelectItem>
+              </SelectContent>
+            </Select>
+          </InputGroup>
         </fieldset>
         <div className="border-t pt-4">
           <h3 className="text-sm font-medium">Receiving mail (IMAP)</h3>
           <p className="text-xs text-muted-foreground">Optional. Set this to bring incoming email into the Inbox, using the same username and password above. Leave the IMAP server blank to keep sending only.</p>
         </div>
         <fieldset disabled={!data.canEditSmtp || pending || testing || Boolean(data.smtpError)} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {imapFields.map(([key, label, placeholder]) => <div key={key} className="flex flex-col gap-1.5">
-            <label htmlFor={`smtp-${key}`} className="text-sm font-medium">{label}</label>
-            <Input id={`smtp-${key}`} value={form[key]} placeholder={placeholder}
+          {imapFields.map(([key, label, placeholder]) => <InputGroup key={key}>
+            <InputGroupAddon align="block-start"><InputGroupText>{label}</InputGroupText></InputGroupAddon>
+            <InputGroupInput id={`smtp-${key}`} aria-label={label} value={form[key]} placeholder={placeholder}
               type={key === "imapPort" ? "number" : "text"} autoComplete="off"
               onChange={event => setForm(previous => ({ ...previous, [key]: event.target.value }))} />
-          </div>)}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="smtp-imap-security" className="text-sm font-medium">IMAP encryption</label>
-            <select id="smtp-imap-security" className="h-9 rounded-md border bg-background px-3 text-sm" value={form.imapSecurity}
-              onChange={event => setForm(previous => ({ ...previous, imapSecurity: event.target.value }))}>
-              <option value="">Not set</option>
-              <option value="TLS">SSL/TLS (usually port 993)</option>
-              <option value="STARTTLS">STARTTLS (usually port 143)</option>
-            </select>
-          </div>
+          </InputGroup>)}
+          <InputGroup>
+            <InputGroupAddon align="block-start"><InputGroupText>IMAP encryption</InputGroupText></InputGroupAddon>
+            <Select disabled={!data.canEditSmtp || pending || testing || Boolean(data.smtpError)} value={form.imapSecurity || "NONE"} onValueChange={value => value && setForm(previous => ({ ...previous, imapSecurity: value === "NONE" ? "" : value }))}>
+              <SelectTrigger id="smtp-imap-security" aria-label="IMAP encryption" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NONE">Not set</SelectItem>
+                <SelectItem value="TLS">SSL/TLS (usually port 993)</SelectItem>
+                <SelectItem value="STARTTLS">STARTTLS (usually port 143)</SelectItem>
+              </SelectContent>
+            </Select>
+          </InputGroup>
         </fieldset>
         <p className="text-xs text-muted-foreground">Passwords are encrypted. Saving configures the server; it does not send a test email or change authentication emails.</p>
         {message && <p role="status" className="text-sm">{message}</p>}
@@ -110,10 +117,12 @@ export function EmailSettings({ initial }: { initial: EmailData }) {
       }}>
         <h3 className="text-sm font-medium">Test connection</h3>
         <p className="text-xs text-muted-foreground">Sends one test email using your saved settings. Save any changes above before testing.</p>
-        <label htmlFor="smtp-test-recipient" className="text-sm font-medium">Recipient email</label>
-        <Input id="smtp-test-recipient" type="email" required value={testRecipient}
-          placeholder="you@example.com" disabled={testing || pending}
-          onChange={event => setTestRecipient(event.target.value)} />
+        <InputGroup>
+          <InputGroupAddon align="block-start"><InputGroupText>Recipient email</InputGroupText></InputGroupAddon>
+          <InputGroupInput id="smtp-test-recipient" aria-label="Recipient email" type="email" required value={testRecipient}
+            placeholder="you@example.com" disabled={testing || pending}
+            onChange={event => setTestRecipient(event.target.value)} />
+        </InputGroup>
         <Button type="submit" className="self-start" disabled={testing || pending || !saved || Boolean(data.smtpError) || !testRecipient.trim()}>
           {testing ? "Sending test email…" : "Send test email"}
         </Button>

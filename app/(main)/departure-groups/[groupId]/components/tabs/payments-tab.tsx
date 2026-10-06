@@ -1,6 +1,7 @@
 "use client";
 
 import SectionHeading from "@/components/section-heading";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -19,7 +20,6 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -120,7 +120,7 @@ const PaymentsTab = ({
   activity,
   role,
 }: PaymentsTabProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [paymentBookingId, setPaymentBookingId] = useState<string | null>(null);
   const [reminderBookingId, setReminderBookingId] = useState<string | null>(
     null,

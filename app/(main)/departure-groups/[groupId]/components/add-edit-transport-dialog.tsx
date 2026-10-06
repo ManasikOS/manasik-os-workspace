@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import {
   Sheet,
   SheetContent,
@@ -25,7 +26,6 @@ import {
 } from "@/components/ui/input-group";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { transportSchema } from "@/lib/validations/departure-groups";
@@ -99,7 +99,7 @@ const AddEditTransportSheet = ({
   open,
   onOpenChange,
 }: AddEditTransportSheetProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [isPending, startTransition] = useTransition();
   const isEdit = transport !== null;
 

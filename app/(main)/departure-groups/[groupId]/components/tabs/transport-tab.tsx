@@ -1,12 +1,12 @@
 "use client";
 
 import SectionHeading from "@/components/section-heading";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import {
@@ -84,7 +84,7 @@ const TransportTab = ({
   manifest,
   role,
 }: TransportTabProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const [isConfirming, startConfirming] = useTransition();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 

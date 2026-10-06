@@ -12,6 +12,7 @@
 import { AlarmClockOff, BellOff, ChevronRight, Sparkles } from "lucide-react";
 import React, { useState, useTransition } from "react";
 
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -55,6 +56,7 @@ function isFutureTimestamp(iso: string): boolean {
 }
 
 const AgentTab = ({ groupId, panel, role }: AgentTabProps) => {
+  const can = useDepartureCapabilities(role);
   const [isPending, startTransition] = useTransition();
   const [reviewing, setReviewing] = useState<GroupAgentProposal | null>(null);
 
@@ -111,6 +113,7 @@ const AgentTab = ({ groupId, panel, role }: AgentTabProps) => {
               {isSuppressed && <ToneBadge tone="warning" label="Muted" />}
             </div>
 
+            {can.manageReadiness && (
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
@@ -133,6 +136,7 @@ const AgentTab = ({ groupId, panel, role }: AgentTabProps) => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
           </div>
 
           {panel.state?.suppressedReason && isSuppressed && (

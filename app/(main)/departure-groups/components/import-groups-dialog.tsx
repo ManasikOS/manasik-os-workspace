@@ -53,6 +53,7 @@ import {
   type ImportCandidate,
 } from "../csv";
 import { matrixToXlsx, readSpreadsheetFile, XLSX_MIME } from "../xlsx";
+import { importInChunks } from "@/lib/import/chunked-import";
 import type { PackageTemplateOption } from "../types";
 import { TONE_CLASS, TONE_TEXT } from "@/lib/ui/tone";
 
@@ -83,6 +84,7 @@ const ImportGroupsDialog = ({
 }: ImportGroupsDialogProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, startImport] = useTransition();
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState<string | null>(null);
@@ -199,20 +201,37 @@ const ImportGroupsDialog = ({
     if (validRows.length === 0) return;
 
     startImport(async () => {
-      const result = await importDepartureGroupsAction(
+      // Sent in small batches so no single request runs long, and so a refusal
+      // (usage limit, lost session) stops cleanly with the earlier rows reported.
+      const outcome = await importInChunks(
         validRows.map((row) => row.candidate.payload),
+        async (chunk) => {
+          const result = await importDepartureGroupsAction(chunk);
+          return result.ok
+            ? { ok: true as const, results: result.results }
+            : { ok: false as const, error: result.error };
+        },
+        (row, offset) => ({ ...row, rowNumber: row.rowNumber + offset }),
+        { onProgress: (done, total) => setProgress({ done, total }) },
       );
+      setProgress(null);
 
-      if (!result.ok) {
-        toast.add({ title: "Import failed", description: result.error });
+      if (outcome.results.length > 0) setResults(outcome.results);
+      const created = outcome.results.filter((row) => row.ok).length;
+
+      if (outcome.stoppedWith) {
+        toast.add({
+          title: "Import stopped",
+          description: `${created} of ${outcome.total} group${
+            outcome.total === 1 ? "" : "s"
+          } created. ${outcome.stoppedWith}`,
+        });
         return;
       }
-
-      setResults(result.results);
       toast.add({
         title: "Import complete",
-        description: `${result.created} of ${result.total} group${
-          result.total === 1 ? "" : "s"
+        description: `${created} of ${outcome.total} group${
+          outcome.total === 1 ? "" : "s"
         } created.`,
       });
     });
@@ -438,8 +457,11 @@ const ImportGroupsDialog = ({
                 onClick={runImport}
               >
                 {isImporting && <Loader2 className="animate-spin" />}
-                Import {validRows.length > 0 ? validRows.length : ""} Group
-                {validRows.length === 1 ? "" : "s"}
+                {isImporting && progress
+                  ? `Importing ${progress.done} of ${progress.total}…`
+                  : `Import ${validRows.length > 0 ? validRows.length : ""} Group${
+                      validRows.length === 1 ? "" : "s"
+                    }`}
               </Button>
             </>
           )}

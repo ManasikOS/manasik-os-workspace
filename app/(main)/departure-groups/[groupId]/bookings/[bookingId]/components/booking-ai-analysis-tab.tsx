@@ -23,8 +23,6 @@ export interface BookingAiAnalysisTabProps {
   primaryContactName: string;
   primaryContactPhone: string;
   departureDate: string | null;
-  travellerCount: number;
-  totalBookingValue: number;
   travellers: BookingBlockerTravellerInput[];
 }
 
@@ -43,8 +41,6 @@ export default function BookingAiAnalysisTab({
   primaryContactName,
   primaryContactPhone,
   departureDate,
-  travellerCount,
-  totalBookingValue,
   travellers,
 }: BookingAiAnalysisTabProps) {
   const [pending, startTransition] = useTransition();
@@ -64,7 +60,7 @@ export default function BookingAiAnalysisTab({
   const analyze = () => {
     setError(null);
     startTransition(async () => {
-      const result = await analyzeBookingAction({ bookingId, bookingTravellerCount: travellerCount, bookingTotal: totalBookingValue, blockers });
+      const result = await analyzeBookingAction({ bookingId });
       if (!result.ok) {
         setError(result.error ?? "Could not generate an explanation.");
         setInconsistencies(result.inconsistencies ?? null);

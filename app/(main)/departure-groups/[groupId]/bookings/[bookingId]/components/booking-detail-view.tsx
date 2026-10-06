@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 
 import PageHeader from "@/components/page-header";
@@ -49,7 +50,6 @@ import SectionHeading from "@/components/section-heading";
 import { TONE_TEXT } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import {
@@ -223,7 +223,7 @@ export default function BookingDetailView({
   travellerRelationships,
 }: BookingDetailViewProps) {
   const router = useRouter();
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const currency = snapshot.currency || "LKR";
   const [tab, setTab] = useState<BookingTabId>("overview");
   const [campaignId, setCampaignId] = useState(campaignAttribution.campaignId ?? "NONE");
@@ -433,7 +433,7 @@ export default function BookingDetailView({
                     <ArrowRightLeft /> Move to Another Group
                   </DropdownMenuItem>
                 )}
-                {can.addBookings && (
+                {can.cancelBookings && (
                   <DropdownMenuItem
                     variant="destructive"
                     onClick={() => setCancelOpen(true)}
@@ -975,8 +975,6 @@ export default function BookingDetailView({
           primaryContactName={booking.primaryContactName}
           primaryContactPhone={booking.primaryContactPhone}
           departureDate={group.departureDate}
-          travellerCount={booking.travellerCount}
-          totalBookingValue={booking.totalBookingValue}
           travellers={travellers.map((t) => ({
             fullName: t.fullName,
             passportNumber: t.passportNumber,
@@ -1028,7 +1026,7 @@ export default function BookingDetailView({
         />
       )}
 
-      {can.addBookings && (
+      {can.cancelBookings && (
         <CancelBookingDialog
           booking={booking}
           travellers={travellers}

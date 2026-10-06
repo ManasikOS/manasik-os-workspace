@@ -966,6 +966,8 @@ export interface DepartureGroupPilgrimRow {
   emergency_contact_name: string | null;
   emergency_contact_phone: string | null;
   emergency_contact_relationship: string | null;
+  /** Set when this traveller's sensitive details were erased (retention or request); see `departure-groups-erasure.ts`. */
+  sensitive_data_erased_at?: string | null;
   /**
    * The traveller's actual occupancy — may differ from
    * `departure_group_bookings.room_occupancy_preference` once a per-person

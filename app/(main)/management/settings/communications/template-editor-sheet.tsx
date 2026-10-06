@@ -5,7 +5,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { InputGroupInput, InputGroupTextarea } from "@/components/ui/input-group";
 import {
   Sheet,
   SheetContent,
@@ -14,7 +14,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
 import {
@@ -153,7 +152,7 @@ export function TemplateEditorSheet({
 
         <div className="flex flex-col gap-3 px-4">
           <Field label="Template Name">
-            <Input
+            <InputGroupInput
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Booking Confirmation"
@@ -192,7 +191,7 @@ export function TemplateEditorSheet({
 
           {channel === "EMAIL" && (
             <Field label="Subject">
-              <Input
+              <InputGroupInput
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
               />
@@ -200,7 +199,7 @@ export function TemplateEditorSheet({
           )}
 
           <Field label="Message Body" error={fieldErrors.body}>
-            <Textarea
+            <InputGroupTextarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={8}

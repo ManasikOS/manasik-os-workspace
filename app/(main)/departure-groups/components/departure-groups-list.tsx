@@ -1,6 +1,7 @@
 "use client";
 
 import PageHeader from "@/components/page-header";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,7 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -146,7 +146,7 @@ const DepartureGroupsList = ({
   initialCreateTemplateId = null,
 }: DepartureGroupsListProps) => {
   const router = useRouter();
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
 
   const [savedView, setSavedView] =
     useState<DepartureGroupSavedView>("All Groups");

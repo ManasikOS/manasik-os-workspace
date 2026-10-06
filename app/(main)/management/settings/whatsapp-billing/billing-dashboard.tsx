@@ -6,7 +6,8 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { WhatsAppBillingBudgetRow, WhatsAppVolumeTierRow } from "@/lib/types/whatsapp";
@@ -155,12 +156,18 @@ export function BillingDashboard({
         <p className="text-sm font-medium mb-3">Monthly budget and alerts</p>
         {canEditBudget ? (
           <div className="flex flex-col gap-3 max-w-sm">
-            <div className="flex gap-2">
-              <Input placeholder="e.g. 500" value={monthlyBudget} onChange={(e) => setMonthlyBudget(e.target.value)} />
-              <Input className="w-24" placeholder="USD" value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} />
+            <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-3">
+              <InputGroup>
+                <InputGroupAddon align="block-start"><InputGroupText>Monthly budget</InputGroupText></InputGroupAddon>
+                <InputGroupInput inputMode="decimal" placeholder="e.g. 500" value={monthlyBudget} onChange={(e) => setMonthlyBudget(e.target.value)} />
+              </InputGroup>
+              <InputGroup>
+                <InputGroupAddon align="block-start"><InputGroupText>Currency</InputGroupText></InputGroupAddon>
+                <InputGroupInput maxLength={3} placeholder="USD" value={currency} onChange={(e) => setCurrency(e.target.value.toUpperCase())} />
+              </InputGroup>
             </div>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <input type="checkbox" checked={blockAt100} onChange={(e) => setBlockAt100(e.target.checked)} />
+            <label className="flex cursor-pointer items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+              <Checkbox className="mt-0.5" checked={blockAt100} onCheckedChange={(checked) => setBlockAt100(checked === true)} />
               Block marketing template sends once 100% of budget is reached (never blocks replies to customers or
               utility/authentication templates)
             </label>

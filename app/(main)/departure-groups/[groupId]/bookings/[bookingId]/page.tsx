@@ -1,4 +1,5 @@
 import { loadBookingDetailData } from "./load-booking-detail";
+import { DepartureCapabilitiesProvider } from "@/app/(main)/departure-groups/capabilities-context";
 import BookingDetailView from "./components/booking-detail-view";
 
 /**
@@ -22,5 +23,11 @@ export default async function BookingDetailPage({
   const { groupId, bookingId } = await params;
   const data = await loadBookingDetailData(groupId, bookingId);
 
-  return <BookingDetailView {...data} />;
+  const { capabilities, ...viewProps } = data;
+
+  return (
+    <DepartureCapabilitiesProvider value={capabilities}>
+      <BookingDetailView {...viewProps} />
+    </DepartureCapabilitiesProvider>
+  );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -13,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
@@ -77,7 +77,7 @@ const ChangeRoomPreferenceDialog = ({
   onClose,
   embedded = false,
 }: ChangeRoomPreferenceDialogProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 

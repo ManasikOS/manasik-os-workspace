@@ -1,6 +1,7 @@
 "use client";
 
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
+import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,7 +30,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import {
-  capabilitiesFor,
   ROLE_LABELS,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
@@ -130,7 +130,7 @@ const PilgrimCustomisationDrawer = ({
   groupTravellers,
   addons,
 }: PilgrimCustomisationDrawerProps) => {
-  const can = capabilitiesFor(role);
+  const can = useDepartureCapabilities(role);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);

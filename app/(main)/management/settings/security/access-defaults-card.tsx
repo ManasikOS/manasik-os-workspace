@@ -1,6 +1,6 @@
 import { UserCog } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
+import { InputGroupInput } from "@/components/ui/input-group";
 import InputFormCard from "@/components/ui/input-form-card";
 import { ROLE_LABELS, STAFF_ROLES, type StaffRole } from "@/lib/access/departure-groups-access";
 import { ACCESS_RESTRICTION_FLAG_LABELS } from "@/lib/data/settings-copy";
@@ -44,7 +44,7 @@ export function AccessDefaultsCard({
           />
         </Field>
         <Field label="Default seasonal account expiry (days)">
-          <Input
+          <InputGroupInput
             type="number"
             min={1}
             value={value.seasonalExpiryDays}

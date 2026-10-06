@@ -19,9 +19,19 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 
 import { colomboDayKey } from "@/lib/date";
-
+import { loadAssignedGroupIds } from "@/lib/data/team-repository";
+import { verifyStoredTravellerFile, TRAVELLER_FILE_BUCKET } from "@/lib/data/departure-groups-uploads";
 import {
+  collectTravellerFilePaths,
+  eraseTravellerSensitiveFieldsInStore,
+  type ErasureReason,
+} from "@/lib/data/departure-groups-erasure";
+
+import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
+import {
+  canRoleActOnGroup,
   capabilitiesFor,
+  type DepartureGroupCapabilities,
   type StaffRole,
 } from "@/lib/access/departure-groups-access";
 import {
@@ -544,6 +554,27 @@ const loadCurrentStaffRole = async (): Promise<{
 export const getCurrentStaffRole = cache(() => withTiming("getCurrentStaffRole", loadCurrentStaffRole));
 
 /**
+ * The signed-in person's Departure Groups capabilities: their base role's
+ * built-in set, with any custom-role overrides saved in `role_permissions`
+ * merged over it — the same resolution every other module already uses (see
+ * `lib/access/dynamic-capabilities.ts`). Every server-side check in this
+ * module should read this, not `capabilitiesFor(role)` directly, or a custom
+ * role's saved permissions silently do nothing. One lookup per request.
+ */
+export const getCurrentDepartureCapabilities = cache(
+  async (): Promise<DepartureGroupCapabilities> => {
+    const { role, roleId } = await getCurrentStaffRole();
+    const supabase = createClient(await cookies());
+    return loadDynamicCapabilities(
+      supabase,
+      roleId,
+      "departure_groups",
+      capabilitiesFor(role),
+    );
+  },
+);
+
+/**
  * The acting staff member, for the audit columns.
  *
  * `actor_id`, `completed_by` and `assigned_by` are foreign keys into
@@ -556,6 +587,45 @@ const currentActor = cache(async (): Promise<GroupActor> => {
 });
 
 /* ── Unit of work ─────────────────────────────────────────────────────────── */
+
+/**
+ * Whether every mutation is written through the version-aware database function
+ * (`apply_departure_store_changes_atomic_v2`) instead of one table at a time.
+ * Set `DEPARTURE_ATOMIC_PERSIST=all` only after migration
+ * `20270116090000_departure_store_atomic_rpc_v2.sql` is applied; with it unset
+ * nothing changes.
+ */
+function atomicEverywhere(): boolean {
+  return process.env.DEPARTURE_ATOMIC_PERSIST === "all";
+}
+
+/** Verifies an attached traveller file's real bytes before it is recorded against anyone. */
+async function checkAttachedFile(filePath: string | null | undefined) {
+  const path = filePath?.trim();
+  if (!path) return { ok: true as const };
+  return verifyStoredTravellerFile(await db(), path);
+}
+
+async function refuseUnscopedGroups(
+  supabase: Db,
+  store: DepartureGroupStore,
+  groupIds: string[],
+): Promise<string | null> {
+  if (groupIds.length === 0) return null;
+  const { role, staffId } = await getCurrentStaffRole();
+  if (role !== "GUIDE" && role !== "MARKETING") return null;
+
+  const assignedGroupIds =
+    role === "GUIDE" && staffId ? await loadAssignedGroupIds(supabase, staffId) : [];
+  for (const groupId of groupIds) {
+    const group = store.groups.find((row) => row.id === groupId);
+    // A missing group is the mutator's own "no longer exists" error.
+    if (group && !canRoleActOnGroup(group, role, assignedGroupIds)) {
+      return "You do not have access to that departure group.";
+    }
+  }
+  return null;
+}
 
 /**
  * Runs one mutation against the database.
@@ -597,12 +667,27 @@ export async function mutate<T extends { ok: boolean }>(
   const supabase = await db(options?.client);
   const actor = options?.actor ?? (await currentActor());
 
+  // Scoped to the actor's agency IN THE QUERY, on top of row-level security: a session client is already filtered by RLS, but
+  // the agent, proposal executors and WhatsApp tools run on the service-role client, which RLS does not filter, and a group id
+  // that belongs to another agency must simply not load for any of them. (The seat-hold sweeper has no single agency and
+  // passes none; it selects its own group ids.)
   const store = await loadStore(supabase, {
     groupIds,
     only: MUTABLE_COLLECTIONS,
     includeArchived: true,
+    agencyId: actor.agencyId ?? undefined,
   });
   const before = snapshotStore(store);
+
+  // A signed-in person's write, as opposed to the agent or a cron sweep (which
+  // pass their own client/actor and are scoped by their callers): the role must
+  // be allowed to act on every group this mutation touches. The pages already
+  // refuse these groups with notFound(), but a Server Action is a public POST
+  // endpoint and takes the group id from the client.
+  if (!options?.client && !options?.actor) {
+    const refusal = await refuseUnscopedGroups(supabase, store, groupIds);
+    if (refusal) return { ok: false, error: refusal } as unknown as T;
+  }
 
   const outcome = run(store, actor);
   if (!outcome.ok) return outcome;
@@ -614,7 +699,13 @@ export async function mutate<T extends { ok: boolean }>(
 
   try {
     if (options?.atomic) {
-      await persistStoreAtomic(supabase, before, store, actor.agencyId);
+      await persistStoreAtomic(supabase, before, store, actor.agencyId, atomicEverywhere() ? "v2" : "v1");
+    } else if (atomicEverywhere() && actor.agencyId) {
+      // Every mutation in one transaction, with the booking row-version guard.
+      // Off until the v2 function has been applied and checked against a real
+      // database (see TASK-037, SEC-11). A caller with no single agency (the
+      // seat-hold sweeper) cannot use it and keeps the row-by-row path.
+      await persistStoreAtomic(supabase, before, store, actor.agencyId, "v2");
     } else {
       await persistStore(supabase, before, store, actor.agencyId);
     }
@@ -1616,7 +1707,7 @@ export async function loadMoreGroupActivity(
   role: StaffRole,
   limit = 100,
 ): Promise<GroupActivityLog[]> {
-  const can = capabilitiesFor(role);
+  const can = await getCurrentDepartureCapabilities();
   const supabase = await db();
   const { data, error } = await supabase
     .from("departure_group_activity_logs")
@@ -1677,7 +1768,11 @@ export const getDepartureGroupDetail = cache(
     const row = data.groups.find((g) => g.id === groupId);
     if (!row) return null;
 
-    const can = capabilitiesFor(role);
+    // A session-less caller (`client`) has no custom role to resolve — it gets
+    // the base role's set, as before.
+    const can = client
+      ? capabilitiesFor(role)
+      : await getCurrentDepartureCapabilities();
     const snapshotRow = snapshotFor(groupId, data);
     // Margin is a Finance-only figure — not fetched at all for a role that
     // could never see it, the same posture as `viewSupplierCosts` elsewhere
@@ -3410,9 +3505,11 @@ export function flagGroupPilgrimFlightIssue(
 }
 
 /** Attaches an uploaded ticket file to one pilgrim ("Upload Ticket"). */
-export function uploadGroupPilgrimTicket(
+export async function uploadGroupPilgrimTicket(
   input: RecordTicketUploadInput,
 ): Promise<RecordTicketUploadOutcome> {
+  const fileCheck = await checkAttachedFile(input.filePath);
+  if (!fileCheck.ok) return { ok: false, error: fileCheck.error };
   return mutate([input.departureGroupId], (data, actor) =>
     recordTicketUploadInStore(data, input, actor),
   );
@@ -4163,9 +4260,11 @@ export function markGroupTransportConfirmed(input: {
 /* ── Documents & visa ─────────────────────────────────────────────────────── */
 
 /** Marks a pilgrim's documents verified. */
-export function submitGroupPilgrimDocument(
+export async function submitGroupPilgrimDocument(
   input: SubmitDocumentInput,
 ): Promise<DocumentOutcome> {
+  const fileCheck = await checkAttachedFile(input.filePath);
+  if (!fileCheck.ok) return { ok: false, error: fileCheck.error };
   return mutate([input.departureGroupId], (data, actor) =>
     submitPilgrimDocumentInStore(data, input, actor),
   );
@@ -4238,9 +4337,11 @@ export function markGroupVisasUnderReview(input: {
 }
 
 /** Records an issued visa for one pilgrim. */
-export function uploadGroupPilgrimVisa(
+export async function uploadGroupPilgrimVisa(
   input: UploadVisaInput,
 ): Promise<VisaDecisionOutcome> {
+  const fileCheck = await checkAttachedFile(input.filePath);
+  if (!fileCheck.ok) return { ok: false, error: fileCheck.error };
   return mutate([input.departureGroupId], (data, actor) =>
     uploadPilgrimVisaInStore(data, input, actor),
   );
@@ -4421,3 +4522,102 @@ async function resolveTemplate(
 }
 
 export { DEFAULT_COPY_OPTIONS };
+
+/* ── Erasing a traveller's sensitive details ──────────────────────────────── */
+
+export type EraseTravellerOutcome =
+  | { ok: true; filesRemoved: number; personRecordErased: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Erases one traveller's passport, contact and file details (see `departure-groups-erasure.ts`
+ * for exactly what, and what stays).
+ *
+ * Order matters. The stored files are deleted FIRST: if that fails nothing has changed and the
+ * request can simply be repeated. Doing it the other way round could clear the record that points
+ * at a file and then fail to delete the file, leaving a passport scan nobody can find or remove.
+ * The database change then goes through `mutate()` (agency-scoped, one transaction when atomic
+ * persistence is on). Last, the shared person record behind the traveller (Pilgrims module) has its
+ * passport and ID details cleared, but only when none of that person's other journeys still has
+ * un-erased details - someone travelling again next year keeps theirs.
+ *
+ * Not erased here: the person's WhatsApp number and email (they are how the agency's inbox
+ * recognises a customer), medical notes and support-case attachments (other modules).
+ */
+export async function eraseTravellerSensitiveData(
+  input: { departureGroupId: string; pilgrimId: string; reason: ErasureReason },
+  options?: {
+    client?: Db;
+    actor?: GroupActor;
+    /** Check the rules and count the files, but change nothing. Used by the retention sweep's dry run. */
+    dryRun?: boolean;
+  },
+): Promise<EraseTravellerOutcome> {
+  const supabase = await db(options?.client);
+  const agencyId = options?.actor?.agencyId ?? (await getCurrentStaffRole()).agencyId ?? undefined;
+
+  const store = await loadStore(supabase, {
+    groupIds: [input.departureGroupId],
+    only: ["groups", "pilgrims", "pilgrimDocuments", "bookings"],
+    includeArchived: true,
+    agencyId,
+  });
+
+  // Dry run on a copy: the rules (and "is this traveller even here") are decided before anything is touched.
+  const preview = structuredClone(store);
+  const actor = options?.actor ?? (await currentActor());
+  const check = eraseTravellerSensitiveFieldsInStore(preview, input, actor);
+  if (!check.ok) return check;
+
+  const filePaths = collectTravellerFilePaths(store, input.pilgrimId);
+  if (options?.dryRun) return { ok: true, filesRemoved: filePaths.length, personRecordErased: false };
+  if (filePaths.length > 0) {
+    const { error } = await supabase.storage.from(TRAVELLER_FILE_BUCKET).remove(filePaths);
+    if (error) {
+      console.error("eraseTravellerSensitiveData: could not remove stored files", error.message);
+      return { ok: false, error: "The stored files could not be removed, so nothing was erased. Try again." };
+    }
+  }
+
+  const outcome = await mutate(
+    [input.departureGroupId],
+    (data, mutationActor) => eraseTravellerSensitiveFieldsInStore(data, input, mutationActor),
+    { client: options?.client, actor: options?.actor },
+  );
+  if (!outcome.ok) return outcome;
+
+  let personRecordErased = false;
+  const personId = outcome.result.personId;
+  if (personId) {
+    const { count, error: othersError } = await supabase
+      .from("departure_group_pilgrims")
+      .select("id", { count: "exact", head: true })
+      .eq("pilgrim_id", personId)
+      .is("sensitive_data_erased_at", null);
+    if (othersError) {
+      console.error("eraseTravellerSensitiveData: could not check the person's other journeys", othersError.message);
+    } else if ((count ?? 0) === 0) {
+      const { error: personError } = await supabase
+        .from("pilgrims")
+        .update({
+          passport_number: null,
+          passport_expiry: null,
+          passport_issue_country: null,
+          national_id: null,
+          date_of_birth: null,
+          emergency_contact_name: null,
+          emergency_contact_relationship: null,
+          emergency_contact_phone: null,
+          emergency_contact_alt_phone: null,
+        })
+        .eq("id", personId);
+      if (personError) {
+        console.error("eraseTravellerSensitiveData: could not clear the person record", personError.message);
+      } else {
+        personRecordErased = true;
+      }
+    }
+  }
+
+  return { ok: true, filesRemoved: filePaths.length, personRecordErased };
+}

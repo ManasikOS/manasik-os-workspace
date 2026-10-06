@@ -17,6 +17,7 @@ import {
 import { buildPilgrimDocuments } from "@/lib/data/departure-groups-copy";
 import { syncPilgrimDerivedState } from "@/lib/data/departure-groups-documents";
 import { newId } from "@/lib/data/departure-groups-ids";
+import { maskPhoneNumber } from "@/lib/data/departure-groups-privacy";
 import {
   derivePaymentStatus,
   money,
@@ -1282,6 +1283,12 @@ export function sendBookingReminderInStore(
   const channelWord = CHANNEL_WORDS[input.channel];
   const kindWord = input.kind === "PAYMENT" ? "Payment" : "Document";
 
+  // The recipient is the booking's own contact, read from the stored row. The
+  // browser sends one too, but a reminder must not be addressable to an
+  // arbitrary number typed into a request.
+  const recipientName = booking.primary_contact_name;
+  const recipientPhone = booking.primary_contact_phone;
+
   data.activity.push({
     id: newId(),
     departure_group_id: booking.departure_group_id,
@@ -1295,7 +1302,7 @@ export function sendBookingReminderInStore(
     entity_id: booking.id,
     before_value: null,
     after_value: { channel: input.channel, message },
-    message: `${kindWord} reminder for ${booking.booking_reference} prepared for ${input.recipientName} (${input.recipientPhone}) by ${channelWord}.`,
+    message: `${kindWord} reminder for ${booking.booking_reference} prepared for ${recipientName} (${maskPhoneNumber(recipientPhone)}) by ${channelWord}.`,
     is_system: false,
     is_high_impact: false,
     created_at: now,
@@ -1307,8 +1314,8 @@ export function sendBookingReminderInStore(
       bookingReference: booking.booking_reference,
       kind: input.kind,
       channel: input.channel,
-      recipientName: input.recipientName,
-      recipientPhone: input.recipientPhone,
+      recipientName,
+      recipientPhone,
       recordedAt: now,
     },
   };
@@ -1585,12 +1592,13 @@ export function updateBookingContactInStore(
     action_type: "BOOKING_CONTACT_UPDATED",
     entity_type: "BOOKING",
     entity_id: booking.id,
-    before_value: before,
+    // Numbers are masked here: the trail is permanent, the booking row is where the real one lives.
+    before_value: { ...before, primary_contact_phone: maskPhoneNumber(before.primary_contact_phone) },
     after_value: {
       primary_contact_name: name,
-      primary_contact_phone: phone,
+      primary_contact_phone: maskPhoneNumber(phone),
     },
-    message: `Contact details updated for booking ${booking.booking_reference}: ${before.primary_contact_name} (${before.primary_contact_phone}) → ${name} (${phone}).`,
+    message: `Contact details updated for booking ${booking.booking_reference}: ${before.primary_contact_name} (${maskPhoneNumber(before.primary_contact_phone)}) → ${name} (${maskPhoneNumber(phone)}).`,
     is_system: false,
     is_high_impact: false,
     created_at: now,
