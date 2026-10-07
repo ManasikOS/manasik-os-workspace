@@ -25,12 +25,7 @@ import {
   type PackageListItem,
   type PackageSavedView,
 } from "@/lib/types/packages";
-import {
-  Archive,
-  Download,
-  MoreVertical,
-  Plus,
-} from "lucide-react";
+import { Archive, Download, MoreVertical, Plus } from "lucide-react";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import React, { useMemo, useState } from "react";
 
@@ -300,7 +295,7 @@ const PackagesList = ({
                   <DropdownMenuItem onClick={() => setArchivedOpen(true)}>
                     <Archive /> View Archived Packages
                     {archivedPackages.length > 0 && (
-                      <span className="ml-auto text-[10px] font-number px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground">
+                      <span className="ml-auto text-[10px] tabular-nums px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground">
                         {archivedPackages.length}
                       </span>
                     )}
@@ -351,7 +346,10 @@ const PackagesList = ({
                   options: [
                     { value: "Umrah", label: "Umrah" },
                     { value: "Hajj", label: "Hajj" },
-                    { value: "Early Registration", label: "Early Registration" },
+                    {
+                      value: "Early Registration",
+                      label: "Early Registration",
+                    },
                   ],
                 },
                 {

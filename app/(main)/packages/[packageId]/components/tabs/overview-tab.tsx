@@ -54,7 +54,7 @@ export default function OverviewTab({
           className="text-left rounded-md border border-border/40 bg-card/50 p-4 hover:border-primary/50 transition-colors"
         >
           <p className="text-xs text-muted-foreground">Price from</p>
-          <p className="text-lg font-medium font-number text-foreground mt-1">
+          <p className="text-lg font-medium tabular-nums text-foreground mt-1">
             {usage.fromPrice
               ? `${usage.fromPrice.currency} ${usage.fromPrice.amount.toLocaleString()}`
               : "—"}
@@ -71,7 +71,7 @@ export default function OverviewTab({
           className="text-left rounded-md border border-border/40 bg-card/50 p-4 hover:border-primary/50 transition-colors"
         >
           <p className="text-xs text-muted-foreground">Departure groups</p>
-          <p className="text-lg font-bold font-number text-foreground mt-1">
+          <p className="text-lg font-bold tabular-nums text-foreground mt-1">
             {usage.liveGroupCount} live · {usage.groupCount} total
           </p>
         </button>
@@ -80,7 +80,7 @@ export default function OverviewTab({
           className="text-left rounded-md border border-border/40 bg-card/50 p-4 hover:border-primary/50 transition-colors"
         >
           <p className="text-xs text-muted-foreground">Duration</p>
-          <p className="text-lg font-bold font-number text-foreground mt-1">
+          <p className="text-lg font-bold tabular-nums text-foreground mt-1">
             {pkg.duration}
           </p>
         </button>

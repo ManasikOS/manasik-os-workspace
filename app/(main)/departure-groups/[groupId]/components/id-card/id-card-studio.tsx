@@ -80,11 +80,12 @@ const CITY_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-const JOURNEY_LABELS: Record<IdCardStudioData["group"]["journeyType"], string> = {
-  HAJJ: "Hajj",
-  UMRAH: "Umrah",
-  EARLY_REGISTRATION: "Early Registration",
-};
+const JOURNEY_LABELS: Record<IdCardStudioData["group"]["journeyType"], string> =
+  {
+    HAJJ: "Hajj",
+    UMRAH: "Umrah",
+    EARLY_REGISTRATION: "Early Registration",
+  };
 
 /** Design choices outlive one card: the next pilgrim on the same group should
  *  print on the same design without re-picking it. Kept in the browser rather
@@ -97,7 +98,10 @@ interface StoredDesign {
   palettes: Record<string, Partial<CardPalette>>;
 }
 
-const DEFAULT_DESIGN: StoredDesign = { templateId: CARD_TEMPLATES[0].id, palettes: {} };
+const DEFAULT_DESIGN: StoredDesign = {
+  templateId: CARD_TEMPLATES[0].id,
+  palettes: {},
+};
 
 /* The saved design is read through `useSyncExternalStore` rather than copied
  * into state on mount: localStorage is an external store, and treating it as
@@ -163,7 +167,9 @@ function buildQrText(data: IdCardStudioData, printedName: string): string {
     `GROUP: ${group.groupCode} - ${group.groupName}`,
     pilgrim.emergencyContactName
       ? `EMERGENCY CONTACT: ${pilgrim.emergencyContactName}${
-          pilgrim.emergencyContactPhone ? ` (${pilgrim.emergencyContactPhone})` : ""
+          pilgrim.emergencyContactPhone
+            ? ` (${pilgrim.emergencyContactPhone})`
+            : ""
         }`
       : null,
     ...pilgrim.rooms.map(
@@ -172,7 +178,9 @@ function buildQrText(data: IdCardStudioData, printedName: string): string {
           room.roomLabel ? ` - Room ${room.roomLabel}` : ""
         }`,
     ),
-    agency.whatsapp ? `AGENCY: ${agency.name} (${agency.whatsapp})` : `AGENCY: ${agency.name}`,
+    agency.whatsapp
+      ? `AGENCY: ${agency.name} (${agency.whatsapp})`
+      : `AGENCY: ${agency.name}`,
   ]
     .filter((line): line is string => !!line)
     .join("\n");
@@ -208,7 +216,7 @@ function ColorRow({
             // doesn't blank the card mid-keystroke.
             if (/^#[0-9a-fA-F]{6}$/.test(next)) onChange(next.toLowerCase());
           }}
-          className="h-7 w-[76px] rounded-md border border-border/60 bg-transparent px-2 font-number text-[11px] uppercase"
+          className="h-7 w-[76px] rounded-md border border-border/60 bg-transparent px-2 tabular-nums text-[11px] uppercase"
         />
       </div>
     </div>
@@ -227,7 +235,11 @@ function ColorRow({
  * here is written back to the pilgrim record — this is a print job.
  */
 export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
-  const design = useSyncExternalStore(subscribeDesign, readDesign, serverDesign);
+  const design = useSyncExternalStore(
+    subscribeDesign,
+    readDesign,
+    serverDesign,
+  );
   const mounted = useSyncExternalStore(
     subscribeClient,
     () => true,
@@ -246,7 +258,8 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
     [template, palettes],
   );
 
-  const setTemplateId = (nextId: string) => writeDesign({ ...design, templateId: nextId });
+  const setTemplateId = (nextId: string) =>
+    writeDesign({ ...design, templateId: nextId });
 
   useEffect(() => {
     let cancelled = false;
@@ -313,7 +326,9 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
       qrDataUrl,
       emergencyContactLabel: data.pilgrim.emergencyContactName
         ? `${data.pilgrim.emergencyContactName}${
-            data.pilgrim.emergencyContactPhone ? ` · ${data.pilgrim.emergencyContactPhone}` : ""
+            data.pilgrim.emergencyContactPhone
+              ? ` · ${data.pilgrim.emergencyContactPhone}`
+              : ""
           }`
         : null,
       rooms: data.pilgrim.rooms.map((room) => ({
@@ -337,7 +352,10 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
         {label}
       </span>
       <div
-        style={{ width: `calc(54mm * ${zoom})`, height: `calc(85.6mm * ${zoom})` }}
+        style={{
+          width: `calc(54mm * ${zoom})`,
+          height: `calc(85.6mm * ${zoom})`,
+        }}
         className="shrink-0"
       >
         <div
@@ -380,14 +398,19 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
         subTitle={`${data.pilgrim.fullName} · ${data.group.groupCode} · ${data.group.packageName}`}
         breadcrumb={[
           { title: "Departure Groups", link: "/departure-groups" },
-          { title: data.group.groupName, link: `/departure-groups/${data.groupId}` },
+          {
+            title: data.group.groupName,
+            link: `/departure-groups/${data.groupId}`,
+          },
           { title: "ID Card Studio", link: "#" },
         ]}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="ghost"
-              render={<Link href={`/departure-groups/${data.groupId}?tab=pilgrims`} />}
+              render={
+                <Link href={`/departure-groups/${data.groupId}?tab=pilgrims`} />
+              }
             >
               <ArrowLeft /> Back to group
             </Button>
@@ -425,7 +448,7 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
                       className="size-4 rounded-full"
                       style={{
                         background: `linear-gradient(135deg, ${
-                          (palettes[t.id]?.bandPrimary ?? t.defaults.bandPrimary)
+                          palettes[t.id]?.bandPrimary ?? t.defaults.bandPrimary
                         }, ${palettes[t.id]?.bandSecondary ?? t.defaults.bandSecondary})`,
                       }}
                     />
@@ -434,17 +457,23 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
                 );
               })}
             </div>
-            <div role="group" aria-label="Preview zoom" className="flex items-center gap-1">
+            <div
+              role="group"
+              aria-label="Preview zoom"
+              className="flex items-center gap-1"
+            >
               <Button
                 variant="ghost"
                 size="icon"
                 aria-label="Zoom out"
                 disabled={zoom <= 1.1}
-                onClick={() => setZoom((z) => Math.max(1.1, Number((z - 0.2).toFixed(2))))}
+                onClick={() =>
+                  setZoom((z) => Math.max(1.1, Number((z - 0.2).toFixed(2))))
+                }
               >
                 <Minus />
               </Button>
-              <span className="w-10 text-center font-number text-xs text-muted-foreground">
+              <span className="w-10 text-center tabular-nums text-xs text-muted-foreground">
                 {Math.round(zoom * 100)}%
               </span>
               <Button
@@ -452,7 +481,9 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
                 size="icon"
                 aria-label="Zoom in"
                 disabled={zoom >= 3}
-                onClick={() => setZoom((z) => Math.min(3, Number((z + 0.2).toFixed(2))))}
+                onClick={() =>
+                  setZoom((z) => Math.min(3, Number((z + 0.2).toFixed(2))))
+                }
               >
                 <Plus />
               </Button>
@@ -465,9 +496,9 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Cards print at true CR-80 size (54 × 85.6 mm), one face per page. The
-            app&apos;s own screen is hidden from the printout — pick a card tray, or
-            &quot;Save as PDF&quot; for a digital copy.
+            Cards print at true CR-80 size (54 × 85.6 mm), one face per page.
+            The app&apos;s own screen is hidden from the printout — pick a card
+            tray, or &quot;Save as PDF&quot; for a digital copy.
           </p>
         </Card>
 
@@ -549,7 +580,10 @@ export default function IdCardStudio({ data }: { data: IdCardStudioData }) {
 
             <div className="flex items-center gap-2">
               <Palette className="size-3.5 text-muted-foreground" />
-              <Badge variant="outline" className="text-[10px] text-muted-foreground">
+              <Badge
+                variant="outline"
+                className="text-[10px] text-muted-foreground"
+              >
                 {template.label} design
               </Badge>
             </div>

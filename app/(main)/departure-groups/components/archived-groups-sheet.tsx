@@ -10,7 +10,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
-import { ArchiveRestore, CalendarDays, Eye, Loader2, PackageOpen } from "lucide-react";
+import {
+  ArchiveRestore,
+  CalendarDays,
+  Eye,
+  Loader2,
+  PackageOpen,
+} from "lucide-react";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import React, { useState, useTransition } from "react";
 
@@ -49,7 +55,10 @@ const ArchivedGroupsSheet = ({
       setRestoringId(null);
 
       if (!result.ok) {
-        toast.add({ title: "Could not restore group", description: result.error });
+        toast.add({
+          title: "Could not restore group",
+          description: result.error,
+        });
         return;
       }
 
@@ -105,7 +114,7 @@ const ArchivedGroupsSheet = ({
                       <div className="flex flex-wrap items-center gap-2 mt-1.5">
                         <Badge
                           variant="outline"
-                          className="text-[10px] font-number text-muted-foreground"
+                          className="text-[10px] tabular-nums text-muted-foreground"
                         >
                           {group.groupCode}
                         </Badge>
@@ -125,7 +134,9 @@ const ArchivedGroupsSheet = ({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => router.push(`/departure-groups/${group.id}`)}
+                      onClick={() =>
+                        router.push(`/departure-groups/${group.id}`)
+                      }
                     >
                       <Eye /> Open
                     </Button>

@@ -46,7 +46,10 @@ const ArchivedPackagesSheet = ({
       setRestoringId(null);
 
       if (!result.ok) {
-        toast.add({ title: "Could not restore package", description: result.error });
+        toast.add({
+          title: "Could not restore package",
+          description: result.error,
+        });
         return;
       }
 
@@ -97,7 +100,7 @@ const ArchivedPackagesSheet = ({
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
                       <Badge
                         variant="outline"
-                        className="text-[10px] font-number text-muted-foreground"
+                        className="text-[10px] tabular-nums text-muted-foreground"
                       >
                         {pkg.code}
                       </Badge>

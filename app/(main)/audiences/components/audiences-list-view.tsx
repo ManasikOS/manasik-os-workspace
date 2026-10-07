@@ -213,7 +213,7 @@ export default function AudiencesListView({
                       label={TYPE_LABELS[a.audience_type]}
                     />
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                     {a.liveCount}
                   </TableCell>
                   <TableCell className="px-3 py-3 text-xs text-muted-foreground">

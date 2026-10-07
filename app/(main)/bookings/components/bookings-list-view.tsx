@@ -7,7 +7,11 @@ import PageHeader from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTableSurface } from "@/components/data-table/data-table-surface";
-import { Tabs, TabsList, TabsTrigger } from "@/components/animate-ui/components/animate/tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/animate/tabs";
 import {
   Dialog,
   DialogContent,
@@ -27,8 +31,14 @@ import {
 import { KpiCard } from "@/components/data-table/kpi-card";
 import { CalendarCheck, Plus, TriangleAlert } from "lucide-react";
 
-import { BookingStatusBadge, EmptyState } from "@/app/(main)/departure-groups/components/status-badges";
-import { formatDate, formatExactCurrency } from "@/app/(main)/departure-groups/utils";
+import {
+  BookingStatusBadge,
+  EmptyState,
+} from "@/app/(main)/departure-groups/components/status-badges";
+import {
+  formatDate,
+  formatExactCurrency,
+} from "@/app/(main)/departure-groups/utils";
 import type { DepartureGroupCapabilities } from "@/lib/access/departure-groups-access";
 import type {
   CrossGroupBookingRow,
@@ -79,10 +89,19 @@ export default function BookingsListView({
     const needle = search.trim().toLowerCase();
     return bookings.filter((b) => {
       if (status === "AT_RISK" && !isAtRisk(b)) return false;
-      if (status !== "ALL" && status !== "AT_RISK" && b.bookingStatus !== status)
+      if (
+        status !== "ALL" &&
+        status !== "AT_RISK" &&
+        b.bookingStatus !== status
+      )
         return false;
       if (!needle) return true;
-      return [b.bookingReference, b.primaryContactName, b.groupName, b.groupCode]
+      return [
+        b.bookingReference,
+        b.primaryContactName,
+        b.groupName,
+        b.groupCode,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(needle);
@@ -90,7 +109,9 @@ export default function BookingsListView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookings, search, status, now]);
 
-  const confirmedCount = bookings.filter((b) => b.bookingStatus === "CONFIRMED").length;
+  const confirmedCount = bookings.filter(
+    (b) => b.bookingStatus === "CONFIRMED",
+  ).length;
   const atRiskCount = bookings.filter(isAtRisk).length;
   const outstandingTotal = can.viewFinance
     ? bookings.reduce((sum, b) => sum + (b.outstandingBalance ?? 0), 0)
@@ -108,7 +129,10 @@ export default function BookingsListView({
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Bookings"
-        breadcrumb={[{ title: "Sell", link: "#" }, { title: "Bookings", link: "/bookings" }]}
+        breadcrumb={[
+          { title: "Sell", link: "#" },
+          { title: "Bookings", link: "/bookings" },
+        ]}
         subTitle="Every booking across every departure group in one ledger. Bookings still live inside their group — open one to manage it."
         action={
           can.addBookings && (
@@ -127,7 +151,9 @@ export default function BookingsListView({
           value={String(atRiskCount)}
           desc={
             atRiskCount > 0 ? (
-              <span className={cn("flex items-center gap-1", TONE_TEXT.warning)}>
+              <span
+                className={cn("flex items-center gap-1", TONE_TEXT.warning)}
+              >
                 <TriangleAlert className="size-3" /> Overdue next-payment date
               </span>
             ) : undefined
@@ -141,20 +167,25 @@ export default function BookingsListView({
         )}
       </div>
 
-      <Tabs value={status} onValueChange={(value) => setStatus(value as StatusFilter)}>
+      <Tabs
+        value={status}
+        onValueChange={(value) => setStatus(value as StatusFilter)}
+      >
         <TabsList>
           {(Object.keys(STATUS_LABELS) as StatusFilter[]).map((key) => (
-            <TabsTrigger
-              key={key}
-              value={key}
-            >
+            <TabsTrigger key={key} value={key}>
               {STATUS_LABELS[key]}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
 
-      <DataTableSurface search={search} onSearchChange={setSearch} searchPlaceholder="Search reference, contact, or group…" rowCount={filtered.length}>
+      <DataTableSurface
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search reference, contact, or group…"
+        rowCount={filtered.length}
+      >
         {filtered.length === 0 ? (
           <EmptyState
             icon={<CalendarCheck className="size-8" />}
@@ -206,16 +237,21 @@ export default function BookingsListView({
                     )}
                   </TableCell>
                   <TableCell className="px-3 py-3">
-                    <p className="text-sm text-foreground">{b.primaryContactName}</p>
-                    <p className="text-[11px] text-muted-foreground font-number">
+                    <p className="text-sm text-foreground">
+                      {b.primaryContactName}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
                       {b.primaryContactPhone}
                     </p>
                   </TableCell>
                   <TableCell className="px-3 py-3 text-xs text-foreground">
                     {b.groupName}
-                    <span className="text-muted-foreground"> · {b.groupCode}</span>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      · {b.groupCode}
+                    </span>
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                     {b.travellerCount}
                   </TableCell>
                   <TableCell className="px-3 py-3 text-xs text-foreground">
@@ -224,9 +260,14 @@ export default function BookingsListView({
                   {can.viewFinance && (
                     <>
                       <TableCell className="px-3 py-3 text-sm text-foreground">
-                        {formatExactCurrency(b.totalBookingValue ?? 0, b.currency)}
+                        {formatExactCurrency(
+                          b.totalBookingValue ?? 0,
+                          b.currency,
+                        )}
                       </TableCell>
-                      <TableCell className={cn("px-3 py-3 text-sm", TONE_TEXT.success)}>
+                      <TableCell
+                        className={cn("px-3 py-3 text-sm", TONE_TEXT.success)}
+                      >
                         {formatExactCurrency(b.amountPaid ?? 0, b.currency)}
                       </TableCell>
                       <TableCell className="px-3 py-3 text-sm">
@@ -237,7 +278,10 @@ export default function BookingsListView({
                               : "text-muted-foreground"
                           }
                         >
-                          {formatExactCurrency(b.outstandingBalance ?? 0, b.currency)}
+                          {formatExactCurrency(
+                            b.outstandingBalance ?? 0,
+                            b.currency,
+                          )}
                         </span>
                       </TableCell>
                     </>
@@ -285,8 +329,10 @@ export default function BookingsListView({
                   }
                 >
                   <div className="min-w-0">
-                    <p className="text-sm text-foreground truncate">{g.groupName}</p>
-                    <p className="text-[11px] text-muted-foreground font-number">
+                    <p className="text-sm text-foreground truncate">
+                      {g.groupName}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
                       {g.groupCode} · Departs {formatDate(g.departureDate)}
                     </p>
                   </div>

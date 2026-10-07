@@ -13,9 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cancelBookingSchema } from "@/lib/validations/departure-groups";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
 import { Loader2, TriangleAlert } from "lucide-react";
@@ -232,7 +230,7 @@ const CancelBookingDialog = ({
                   <span className="text-muted-foreground">
                     Collected on this booking
                   </span>
-                  <span className="font-number font-semibold text-foreground">
+                  <span className="tabular-nums font-semibold text-foreground">
                     {formatExactCurrency(collected, currency)}
                   </span>
                 </div>
@@ -254,7 +252,7 @@ const CancelBookingDialog = ({
                             setRefund(event.target.value);
                             setError(null);
                           }}
-                          className="font-number"
+                          className="tabular-nums"
                         />
                       </InputGroup>
                       <div className="flex items-center gap-2">
@@ -316,7 +314,9 @@ const CancelBookingDialog = ({
                 className="text-xs font-medium text-foreground"
               >
                 Type{" "}
-                <span className="font-number">{booking?.bookingReference}</span>{" "}
+                <span className="tabular-nums">
+                  {booking?.bookingReference}
+                </span>{" "}
                 to confirm
               </label>
               <InputGroup>
@@ -324,7 +324,7 @@ const CancelBookingDialog = ({
                   <InputGroupText>
                     {" "}
                     Type{" "}
-                    <span className="font-number">
+                    <span className="tabular-nums">
                       {booking?.bookingReference}
                     </span>{" "}
                     to confirm

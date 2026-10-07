@@ -2,21 +2,41 @@ import { cookies } from "next/headers";
 
 import SectionHeading from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/tone-badge";
 import type { UnansweredQuestion } from "@/lib/agent/whatsapp/knowledge/unanswered";
-import { getUnansweredKnowledgeTopics, UNANSWERED_LOOKBACK_DAYS } from "@/lib/data/knowledge-unanswered";
+import {
+  getUnansweredKnowledgeTopics,
+  UNANSWERED_LOOKBACK_DAYS,
+} from "@/lib/data/knowledge-unanswered";
 import { createClient } from "@/utils/supabase/server";
 
 function formatLastAsked(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+  });
 }
 
-export async function UnansweredQuestionsSection({ agencyId }: { agencyId: string }) {
+export async function UnansweredQuestionsSection({
+  agencyId,
+}: {
+  agencyId: string;
+}) {
   let questions: UnansweredQuestion[] | null = null;
 
   try {
-    questions = await getUnansweredKnowledgeTopics(createClient(await cookies()), agencyId);
+    questions = await getUnansweredKnowledgeTopics(
+      createClient(await cookies()),
+      agencyId,
+    );
   } catch (error) {
     console.error("Unanswered knowledge questions failed to load:", error);
   }
@@ -29,7 +49,10 @@ export async function UnansweredQuestionsSection({ agencyId }: { agencyId: strin
       />
       <Card className="overflow-hidden p-0">
         {questions === null ? (
-          <EmptyState title="We couldn't load this list" description="Reload the page to try again." />
+          <EmptyState
+            title="We couldn't load this list"
+            description="Reload the page to try again."
+          />
         ) : questions.length === 0 ? (
           <EmptyState
             title="Nothing missing so far"
@@ -47,9 +70,15 @@ export async function UnansweredQuestionsSection({ agencyId }: { agencyId: strin
             <TableBody>
               {questions.map((question) => (
                 <TableRow key={question.topic}>
-                  <TableCell className="font-medium">{question.topic}</TableCell>
-                  <TableCell className="text-right font-number">{question.timesAsked}</TableCell>
-                  <TableCell className="text-right">{formatLastAsked(question.lastAskedAt)}</TableCell>
+                  <TableCell className="font-medium">
+                    {question.topic}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {question.timesAsked}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {formatLastAsked(question.lastAskedAt)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

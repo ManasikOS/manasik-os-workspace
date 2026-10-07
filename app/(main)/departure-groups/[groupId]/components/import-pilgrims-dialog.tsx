@@ -96,7 +96,10 @@ const ImportPilgrimsDialog = ({
 }: ImportPilgrimsDialogProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, startImport] = useTransition();
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState<string | null>(null);
@@ -241,14 +244,20 @@ const ImportPilgrimsDialog = ({
             ? { ok: true as const, results: result.results }
             : { ok: false as const, error: result.error };
         },
-        (row, offset) => ({ ...row, bookingNumber: row.bookingNumber + offset }),
+        (row, offset) => ({
+          ...row,
+          bookingNumber: row.bookingNumber + offset,
+        }),
         { onProgress: (done, total) => setProgress({ done, total }) },
       );
       setProgress(null);
 
       if (outcome.results.length > 0) setResults(outcome.results);
       const createdBookings = outcome.results.filter((row) => row.ok);
-      const createdTravellers = createdBookings.reduce((sum, row) => sum + row.travellerCount, 0);
+      const createdTravellers = createdBookings.reduce(
+        (sum, row) => sum + row.travellerCount,
+        0,
+      );
       const summary = `${createdTravellers} pilgrim${
         createdTravellers === 1 ? "" : "s"
       } added across ${createdBookings.length} of ${outcome.total} booking${
@@ -256,7 +265,10 @@ const ImportPilgrimsDialog = ({
       }.`;
 
       if (outcome.stoppedWith) {
-        toast.add({ title: "Import stopped", description: `${summary} ${outcome.stoppedWith}` });
+        toast.add({
+          title: "Import stopped",
+          description: `${summary} ${outcome.stoppedWith}`,
+        });
         return;
       }
       toast.add({ title: "Import complete", description: summary });
@@ -277,7 +289,7 @@ const ImportPilgrimsDialog = ({
           <DialogDescription>
             Upload an Excel (.xlsx) or CSV file of pilgrims for{" "}
             {group.groupName}. Rows sharing a{" "}
-            <span className="font-number">booking_reference</span> become one
+            <span className="tabular-nums">booking_reference</span> become one
             booking; a blank reference becomes a booking of its own. Each
             booking is created exactly as the Add Booking form would create it.
           </DialogDescription>
@@ -286,7 +298,9 @@ const ImportPilgrimsDialog = ({
         {/* Phase 3: results */}
         {results ? (
           <div className="flex flex-col gap-3">
-            <div className={`flex items-center gap-2 rounded-sm px-3 py-2.5 text-sm ${TONE_CLASS.success}`}>
+            <div
+              className={`flex items-center gap-2 rounded-sm px-3 py-2.5 text-sm ${TONE_CLASS.success}`}
+            >
               <CheckCircle2 className="size-4" />
               {createdTravellers} pilgrim{createdTravellers === 1 ? "" : "s"}{" "}
               added across {createdCount} booking
@@ -312,7 +326,7 @@ const ImportPilgrimsDialog = ({
                       .filter((row) => !row.ok)
                       .map((row) => (
                         <TableRow key={row.bookingNumber}>
-                          <TableCell className="px-3 py-2 text-xs font-number text-foreground">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-foreground">
                             {row.bookingReference}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-xs text-muted-foreground">
@@ -379,13 +393,13 @@ const ImportPilgrimsDialog = ({
                 </p>
                 <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
                   Required column:{" "}
-                  <span className="font-number">full_name</span>. Room type,
+                  <span className="tabular-nums">full_name</span>. Room type,
                   status and price fall back to this group&apos;s current
                   pricing, and a contact number comes from{" "}
-                  <span className="font-number">primary_contact_phone</span> or{" "}
-                  <span className="font-number">phone</span>.
+                  <span className="tabular-nums">primary_contact_phone</span> or{" "}
+                  <span className="tabular-nums">phone</span>.
                 </p>
-                <p className="text-xs text-muted-foreground mt-2 font-number">
+                <p className="text-xs text-muted-foreground mt-2 tabular-nums">
                   {group.availableSeats} seat
                   {group.availableSeats === 1 ? "" : "s"} available
                 </p>
@@ -403,7 +417,9 @@ const ImportPilgrimsDialog = ({
             {previewRows.length > 0 && (
               <>
                 <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <span className={`inline-flex items-center gap-1.5 ${TONE_TEXT.success}`}>
+                  <span
+                    className={`inline-flex items-center gap-1.5 ${TONE_TEXT.success}`}
+                  >
                     <CheckCircle2 className="size-3.5" />
                     {validRows.length} booking
                     {validRows.length === 1 ? "" : "s"} ready ({validTravellers}{" "}
@@ -415,7 +431,7 @@ const ImportPilgrimsDialog = ({
                       {invalidCount} with errors
                     </span>
                   )}
-                  <span className="text-muted-foreground font-number">
+                  <span className="text-muted-foreground tabular-nums">
                     {group.availableSeats} seat
                     {group.availableSeats === 1 ? "" : "s"} available
                   </span>
@@ -447,11 +463,11 @@ const ImportPilgrimsDialog = ({
                           key={row.candidate.bookingNumber}
                           className={cn(!row.valid && "bg-destructive/5")}
                         >
-                          <TableCell className="px-3 py-2 text-xs font-number text-muted-foreground align-top">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-muted-foreground align-top">
                             {row.candidate.bookingNumber}
                           </TableCell>
                           <TableCell className="px-3 py-2 align-top">
-                            <p className="text-xs font-number text-foreground">
+                            <p className="text-xs tabular-nums text-foreground">
                               {row.candidate.payload.bookingReference}
                               {row.candidate.referenceGenerated && (
                                 <span className="ml-1.5 text-[10px] text-muted-foreground font-sans">
@@ -465,7 +481,7 @@ const ImportPilgrimsDialog = ({
                             </p>
                           </TableCell>
                           <TableCell className="px-3 py-2 align-top">
-                            <p className="text-xs font-number text-foreground">
+                            <p className="text-xs tabular-nums text-foreground">
                               {row.candidate.travellers.length}
                             </p>
                             <p className="text-[11px] text-muted-foreground max-w-40 truncate">
@@ -483,7 +499,9 @@ const ImportPilgrimsDialog = ({
                           </TableCell>
                           <TableCell className="px-3 py-2 align-top">
                             {row.valid ? (
-                              <Badge className={`${TONE_CLASS.success} border-none rounded-sm text-[10px]`}>
+                              <Badge
+                                className={`${TONE_CLASS.success} border-none rounded-sm text-[10px]`}
+                              >
                                 Ready
                               </Badge>
                             ) : (

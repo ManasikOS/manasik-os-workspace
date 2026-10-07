@@ -356,16 +356,16 @@ export default function CampaignsListView({
                       <span className="text-muted-foreground">—</span>
                     )}
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                     {c.metrics.leadCount}
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                     {c.metrics.qualifiedLeadCount}
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                     {c.metrics.quoteCount}
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                     {c.metrics.bookingCount}
                   </TableCell>
                   <TableCell className="px-3 py-3 text-sm text-foreground">
@@ -377,7 +377,7 @@ export default function CampaignsListView({
                   <TableCell className="px-3 py-3 text-sm text-muted-foreground">
                     {formatExactCurrency(c.metrics.totalSpend)}
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                     {c.metrics.costPerBooking != null
                       ? formatExactCurrency(c.metrics.costPerBooking)
                       : "—"}

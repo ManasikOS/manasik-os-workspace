@@ -3,7 +3,14 @@
 import { ArrowDown } from "lucide-react";
 
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState, PermissionDenied } from "@/components/ui/tone-badge";
 
 import {
@@ -42,19 +49,24 @@ export default function SalesTab() {
                   <div className="flex items-center gap-2 py-1 text-xs text-muted-foreground">
                     <ArrowDown className="size-3.5" />
                     {stage.conversionFromPreviousPercent !== null && (
-                      <span>{formatPercent(stage.conversionFromPreviousPercent, 1)} conversion</span>
+                      <span>
+                        {formatPercent(stage.conversionFromPreviousPercent, 1)}{" "}
+                        conversion
+                      </span>
                     )}
                   </div>
                 )}
                 <div className="w-full flex items-center justify-between rounded-md border px-4 py-3">
                   <span className="text-sm font-medium">{stage.label}</span>
-                  <span className="text-xl font-number font-semibold tabular-nums">{stage.count}</span>
+                  <span className="text-xl tabular-nums font-semibold tabular-nums">
+                    {stage.count}
+                  </span>
                 </div>
               </div>
             ))}
             <p className="text-xs text-muted-foreground mt-3">
-              Current pipeline stage only — average time-in-stage requires a stage-history table that
-              does not exist yet.
+              Current pipeline stage only — average time-in-stage requires a
+              stage-history table that does not exist yet.
             </p>
           </div>
         )}
@@ -62,7 +74,9 @@ export default function SalesTab() {
 
       <Card className="p-0 overflow-hidden">
         <CardHeader className="px-5 pt-5">
-          <CardTitle className="text-base font-medium">Lead source performance</CardTitle>
+          <CardTitle className="text-base font-medium">
+            Lead source performance
+          </CardTitle>
         </CardHeader>
         {sources.length === 0 ? (
           <EmptyState title="No leads in this period" />
@@ -81,10 +95,18 @@ export default function SalesTab() {
               {sources.map((row) => (
                 <TableRow key={row.source}>
                   <TableCell className="font-medium">{row.label}</TableCell>
-                  <TableCell className="font-number tabular-nums">{row.leadCount}</TableCell>
-                  <TableCell className="font-number tabular-nums">{row.bookingCount}</TableCell>
-                  <TableCell className="font-number tabular-nums">{formatPercent(row.conversionPercent)}</TableCell>
-                  <TableCell className="font-number tabular-nums">{formatCurrency(row.revenue)}</TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {row.leadCount}
+                  </TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {row.bookingCount}
+                  </TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {formatPercent(row.conversionPercent)}
+                  </TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {formatCurrency(row.revenue)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -94,7 +116,9 @@ export default function SalesTab() {
 
       <Card className="p-0 overflow-hidden">
         <CardHeader className="px-5 pt-5">
-          <CardTitle className="text-base font-medium">Sales team performance</CardTitle>
+          <CardTitle className="text-base font-medium">
+            Sales team performance
+          </CardTitle>
         </CardHeader>
         {owners.length === 0 ? (
           <EmptyState title="No leads in this period" />
@@ -113,10 +137,18 @@ export default function SalesTab() {
               {owners.map((row) => (
                 <TableRow key={row.ownerName}>
                   <TableCell className="font-medium">{row.ownerName}</TableCell>
-                  <TableCell className="font-number tabular-nums">{row.leadCount}</TableCell>
-                  <TableCell className="font-number tabular-nums">{formatPercent(row.contactRatePercent)}</TableCell>
-                  <TableCell className="font-number tabular-nums">{row.bookingCount}</TableCell>
-                  <TableCell className="font-number tabular-nums">{formatCurrency(row.bookingValue)}</TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {row.leadCount}
+                  </TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {formatPercent(row.contactRatePercent)}
+                  </TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {row.bookingCount}
+                  </TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {formatCurrency(row.bookingValue)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -126,7 +158,9 @@ export default function SalesTab() {
 
       <Card className="p-0 overflow-hidden">
         <CardHeader className="px-5 pt-5">
-          <CardTitle className="text-base font-medium">Lost-lead analysis</CardTitle>
+          <CardTitle className="text-base font-medium">
+            Lost-lead analysis
+          </CardTitle>
         </CardHeader>
         {lostReasons.length === 0 ? (
           <EmptyState title="No lost leads in this period" />
@@ -142,7 +176,9 @@ export default function SalesTab() {
               {lostReasons.map((row) => (
                 <TableRow key={row.reason}>
                   <TableCell className="font-medium">{row.label}</TableCell>
-                  <TableCell className="font-number tabular-nums">{row.count}</TableCell>
+                  <TableCell className="tabular-nums tabular-nums">
+                    {row.count}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

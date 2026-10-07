@@ -21,10 +21,17 @@ import { KpiCard } from "@/components/data-table/kpi-card";
 import { ExternalLink, UserRound } from "lucide-react";
 
 import { formatDate } from "@/app/(main)/departure-groups/utils";
-import type { PortalAccountStatus, PortalPilgrimSummary } from "@/lib/types/portal-access";
+import type {
+  PortalAccountStatus,
+  PortalPilgrimSummary,
+} from "@/lib/types/portal-access";
 import type { Tone } from "@/lib/ui/tone";
 
-import { invitePilgrimToPortalAction, markPilgrimPortalActivatedAction, revokePilgrimPortalAccessAction } from "../actions";
+import {
+  invitePilgrimToPortalAction,
+  markPilgrimPortalActivatedAction,
+  revokePilgrimPortalAccessAction,
+} from "../actions";
 
 const STATUS_LABELS: Record<PortalAccountStatus, string> = {
   NOT_INVITED: "Not invited",
@@ -46,31 +53,46 @@ interface PilgrimPortalViewProps {
   canManage: boolean;
 }
 
-export default function PilgrimPortalView({ pilgrims, portalActive, canManage }: PilgrimPortalViewProps) {
+export default function PilgrimPortalView({
+  pilgrims,
+  portalActive,
+  canManage,
+}: PilgrimPortalViewProps) {
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
     if (!needle) return pilgrims;
     return pilgrims.filter(
-      (p) => p.fullName.toLowerCase().includes(needle) || p.reference.toLowerCase().includes(needle),
+      (p) =>
+        p.fullName.toLowerCase().includes(needle) ||
+        p.reference.toLowerCase().includes(needle),
     );
   }, [pilgrims, search]);
 
-  const invitedOrActive = pilgrims.filter((p) => p.account?.status === "INVITED" || p.account?.status === "ACTIVE").length;
+  const invitedOrActive = pilgrims.filter(
+    (p) => p.account?.status === "INVITED" || p.account?.status === "ACTIVE",
+  ).length;
   const active = pilgrims.filter((p) => p.account?.status === "ACTIVE").length;
   const totalEvents = pilgrims.reduce((sum, p) => sum + p.eventCount, 0);
 
-  const statusOf = (p: PortalPilgrimSummary): PortalAccountStatus => p.account?.status ?? "NOT_INVITED";
+  const statusOf = (p: PortalPilgrimSummary): PortalAccountStatus =>
+    p.account?.status ?? "NOT_INVITED";
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Pilgrim Portal"
-        breadcrumb={[{ title: "Relationships", link: "#" }, { title: "Pilgrim Portal", link: "/relationships/pilgrim-portal" }]}
+        breadcrumb={[
+          { title: "Relationships", link: "#" },
+          { title: "Pilgrim Portal", link: "/relationships/pilgrim-portal" },
+        ]}
         subTitle="Portal access lifecycle and engagement, per pilgrim. What the portal shows is configured in Settings → Branding."
         action={
-          <Link href="/management/settings/branding" className="text-xs text-primary inline-flex items-center gap-1">
+          <Link
+            href="/management/settings/branding"
+            className="text-xs text-primary inline-flex items-center gap-1"
+          >
             Portal content settings <ExternalLink className="size-3" />
           </Link>
         }
@@ -79,8 +101,9 @@ export default function PilgrimPortalView({ pilgrims, portalActive, canManage }:
       {!portalActive && (
         <Card className="p-3">
           <p className="text-xs text-muted-foreground">
-            The pilgrim portal is currently deactivated agency-wide (Settings → Branding → Danger Zone). Invites
-            below still record intent, but nothing is reachable until it&apos;s turned back on.
+            The pilgrim portal is currently deactivated agency-wide (Settings →
+            Branding → Danger Zone). Invites below still record intent, but
+            nothing is reachable until it&apos;s turned back on.
           </p>
         </Card>
       )}
@@ -92,17 +115,34 @@ export default function PilgrimPortalView({ pilgrims, portalActive, canManage }:
         <KpiCard title="Engagement events" value={String(totalEvents)} />
       </div>
 
-      <SearchInput value={search} onChange={setSearch} placeholder="Search pilgrims…" />
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="Search pilgrims…"
+      />
 
       <Card className="p-0 overflow-x-auto no-scrollbar">
         {filtered.length === 0 ? (
-          <EmptyState icon={<UserRound className="size-8" />} title="No pilgrims found" />
+          <EmptyState
+            icon={<UserRound className="size-8" />}
+            title="No pilgrims found"
+          />
         ) : (
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-none!">
-                {["Pilgrim", "Journey status", "Portal status", "Last login", "Events", ""].map((label) => (
-                  <TableHead key={label} className="h-9 px-3 text-xs font-medium text-muted-foreground">
+                {[
+                  "Pilgrim",
+                  "Journey status",
+                  "Portal status",
+                  "Last login",
+                  "Events",
+                  "",
+                ].map((label) => (
+                  <TableHead
+                    key={label}
+                    className="h-9 px-3 text-xs font-medium text-muted-foreground"
+                  >
                     {label}
                   </TableHead>
                 ))}
@@ -115,26 +155,44 @@ export default function PilgrimPortalView({ pilgrims, portalActive, canManage }:
                   <TableRow key={p.pilgrimId} className="hover:bg-muted/40">
                     <TableCell className="px-3 py-3">
                       <p className="text-sm text-foreground">{p.fullName}</p>
-                      <p className="text-[11px] text-muted-foreground">{p.reference}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {p.reference}
+                      </p>
                     </TableCell>
-                    <TableCell className="px-3 py-3 text-xs text-foreground">{p.journeyStatus.replace(/_/g, " ")}</TableCell>
+                    <TableCell className="px-3 py-3 text-xs text-foreground">
+                      {p.journeyStatus.replace(/_/g, " ")}
+                    </TableCell>
                     <TableCell className="px-3 py-3">
-                      <ToneBadge tone={STATUS_TONE[status]} label={STATUS_LABELS[status]} />
+                      <ToneBadge
+                        tone={STATUS_TONE[status]}
+                        label={STATUS_LABELS[status]}
+                      />
                     </TableCell>
                     <TableCell className="px-3 py-3 text-xs text-muted-foreground">
-                      {p.account?.last_login_at ? formatDate(p.account.last_login_at) : "—"}
+                      {p.account?.last_login_at
+                        ? formatDate(p.account.last_login_at)
+                        : "—"}
                     </TableCell>
-                    <TableCell className="px-3 py-3 text-xs font-number text-foreground">{p.eventCount}</TableCell>
+                    <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
+                      {p.eventCount}
+                    </TableCell>
                     <TableCell className="px-3 py-3">
                       {canManage && (
                         <div className="flex items-center gap-1">
-                          {(status === "NOT_INVITED" || status === "REVOKED") && (
+                          {(status === "NOT_INVITED" ||
+                            status === "REVOKED") && (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={async () => {
-                                const result = await invitePilgrimToPortalAction(p.pilgrimId);
-                                if (!result.ok) return toast.add({ title: result.error ?? "Could not invite" });
+                                const result =
+                                  await invitePilgrimToPortalAction(
+                                    p.pilgrimId,
+                                  );
+                                if (!result.ok)
+                                  return toast.add({
+                                    title: result.error ?? "Could not invite",
+                                  });
                                 toast.add({ title: "Invited" });
                               }}
                             >
@@ -146,8 +204,14 @@ export default function PilgrimPortalView({ pilgrims, portalActive, canManage }:
                               size="sm"
                               variant="outline"
                               onClick={async () => {
-                                const result = await markPilgrimPortalActivatedAction(p.pilgrimId);
-                                if (!result.ok) return toast.add({ title: result.error ?? "Could not update" });
+                                const result =
+                                  await markPilgrimPortalActivatedAction(
+                                    p.pilgrimId,
+                                  );
+                                if (!result.ok)
+                                  return toast.add({
+                                    title: result.error ?? "Could not update",
+                                  });
                               }}
                             >
                               Mark activated
@@ -158,8 +222,14 @@ export default function PilgrimPortalView({ pilgrims, portalActive, canManage }:
                               size="sm"
                               variant="ghost"
                               onClick={async () => {
-                                const result = await revokePilgrimPortalAccessAction(p.pilgrimId);
-                                if (!result.ok) return toast.add({ title: result.error ?? "Could not revoke" });
+                                const result =
+                                  await revokePilgrimPortalAccessAction(
+                                    p.pilgrimId,
+                                  );
+                                if (!result.ok)
+                                  return toast.add({
+                                    title: result.error ?? "Could not revoke",
+                                  });
                               }}
                             >
                               Revoke

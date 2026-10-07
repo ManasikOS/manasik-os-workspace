@@ -13,9 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import { changeRoomPreferenceSchema } from "@/lib/validations/departure-groups";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
@@ -283,7 +281,7 @@ const ChangeRoomPreferenceDialog = ({
                     {ROOM_TYPE_LABELS[tier]}
                   </p>
                   {can.viewFinance && (
-                    <p className="text-[11px] text-muted-foreground font-number">
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
                       {tierPrice !== null && tierPrice !== undefined
                         ? `${formatExactCurrency(tierPrice, currency)} / person`
                         : "No price set"}
@@ -345,7 +343,7 @@ const ChangeRoomPreferenceDialog = ({
                       setPrice(e.target.value);
                       setError(null);
                     }}
-                    className="font-number"
+                    className="tabular-nums"
                   />
                 </InputGroup>
               </div>
@@ -356,7 +354,7 @@ const ChangeRoomPreferenceDialog = ({
                 <span className="text-muted-foreground">
                   Total booking value
                 </span>
-                <span className="font-number text-foreground">
+                <span className="tabular-nums text-foreground">
                   {formatExactCurrency(
                     booking?.totalBookingValue ?? 0,
                     currency,
@@ -368,7 +366,7 @@ const ChangeRoomPreferenceDialog = ({
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">Amount paid</span>
-                <span className={`font-number ${TONE_TEXT.success}`}>
+                <span className={`tabular-nums ${TONE_TEXT.success}`}>
                   {formatExactCurrency(booking?.amountPaid ?? 0, currency)}
                 </span>
               </div>
@@ -378,7 +376,7 @@ const ChangeRoomPreferenceDialog = ({
                 </span>
                 <span
                   className={cn(
-                    "font-number",
+                    "tabular-nums",
                     newOutstanding > 0
                       ? "text-destructive"
                       : "text-muted-foreground",

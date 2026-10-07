@@ -12,15 +12,29 @@ import React, { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
-import { OCCUPANCY_LABELS, formatDateRange, formatShortDate, travellersLabel } from "@/lib/copilot/sales/format";
+import {
+  OCCUPANCY_LABELS,
+  formatDateRange,
+  formatShortDate,
+  travellersLabel,
+} from "@/lib/copilot/sales/format";
 import { formatMoney } from "@/lib/copilot/sales/money";
 import type { OfferMatch, TravelIntent } from "@/lib/copilot/sales/types";
 import { TONE_TEXT } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 
-import { buildOffersAction, selectOfferAction, type BuildOffersResult } from "../../copilot-actions";
+import {
+  buildOffersAction,
+  selectOfferAction,
+  type BuildOffersResult,
+} from "../../copilot-actions";
 import { useLeads } from "../../leads-store";
 import type { LeadListItem } from "../../types";
 import { BulletList, SectionLabel, StrategyBlock } from "./offer-parts";
@@ -67,7 +81,11 @@ export default function BuildOfferSheet({
   useEffect(() => {
     if (phase !== "loading") return;
     let cancelled = false;
-    buildOffersAction({ leadId: lead.id, mode: "BUILD", intentOverride: workingIntent }).then((result) => {
+    buildOffersAction({
+      leadId: lead.id,
+      mode: "BUILD",
+      intentOverride: workingIntent,
+    }).then((result) => {
       if (cancelled) return;
       if (result.ok) {
         setData(result);
@@ -97,20 +115,29 @@ export default function BuildOfferSheet({
       toast.add({ title: "Could not select offer", description: result.error });
       return;
     }
-    toast.add({ title: "Offer selected", description: `${result.groupName} — no seats reserved.` });
+    toast.add({
+      title: "Offer selected",
+      description: `${result.groupName} — no seats reserved.`,
+    });
     onSelected();
     onClose();
   };
 
   const recordWaitlistInterest = async () => {
     if (!data?.result.noMatch) return;
-    const options = data.result.noMatch.waitlistOptions.map((option) => `${option.groupName} (${formatShortDate(option.departureDate)})`);
+    const options = data.result.noMatch.waitlistOptions.map(
+      (option) =>
+        `${option.groupName} (${formatShortDate(option.departureDate)})`,
+    );
     const result = await addNote(
       lead.id,
       `Waitlist interest — ${data.result.noMatch.reason}${options.length > 0 ? ` Waitlist open on: ${options.join(", ")}.` : ""}`,
     );
     if (!result.ok) {
-      toast.add({ title: "Could not record interest", description: result.error });
+      toast.add({
+        title: "Could not record interest",
+        description: result.error,
+      });
       return;
     }
     toast.add({ title: "Waitlist interest recorded" });
@@ -130,28 +157,38 @@ export default function BuildOfferSheet({
         <div className="flex flex-col gap-4 px-4 pb-6 overflow-y-auto custom-scroll">
           {phase === "prompt" && (
             <div className="flex flex-col gap-3">
-              <p className="text-sm text-foreground">Analyse the enquiry first or continue using current lead details.</p>
+              <p className="text-sm text-foreground">
+                Analyse the enquiry first or continue using current lead
+                details.
+              </p>
               <div className="flex flex-wrap gap-2">
                 {can.applyCopilotChanges && (
                   <Button variant="outline" onClick={onAnalyse}>
                     Analyse Enquiry
                   </Button>
                 )}
-                <Button onClick={() => setPhase("loading")}>Continue with Lead Details</Button>
+                <Button onClick={() => setPhase("loading")}>
+                  Continue with Lead Details
+                </Button>
               </div>
             </div>
           )}
 
           {phase === "loading" && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> Manasik Copilot is comparing live departure groups…
+              <Loader2 className="size-4 animate-spin" /> Manasik Copilot is
+              comparing live departure groups…
             </p>
           )}
 
           {phase === "error" && (
             <div className="flex flex-col gap-2">
               <p className={cn("text-sm", TONE_TEXT.danger)}>{error}</p>
-              <Button variant="outline" className="self-start" onClick={() => setPhase("loading")}>
+              <Button
+                variant="outline"
+                className="self-start"
+                onClick={() => setPhase("loading")}
+              >
                 Try again
               </Button>
             </div>
@@ -159,15 +196,20 @@ export default function BuildOfferSheet({
 
           {phase === "ready" && data && !offer && data.result.noMatch && (
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-semibold text-foreground">No viable offer found.</p>
+              <p className="text-sm font-semibold text-foreground">
+                No viable offer found.
+              </p>
               <div className="flex flex-col gap-1">
                 <SectionLabel>Reason</SectionLabel>
-                <p className="text-sm text-foreground">{data.result.noMatch.reason}</p>
+                <p className="text-sm text-foreground">
+                  {data.result.noMatch.reason}
+                </p>
               </div>
               <BulletList
                 title="Waitlist open"
                 items={data.result.noMatch.waitlistOptions.map(
-                  (option) => `${option.groupName} · ${formatDateRange(option.departureDate, option.returnDate)}`,
+                  (option) =>
+                    `${option.groupName} · ${formatDateRange(option.departureDate, option.returnDate)}`,
                 )}
               />
               <div className="flex flex-wrap gap-2">
@@ -181,7 +223,11 @@ export default function BuildOfferSheet({
                     Adjust Preferences
                   </Button>
                 )}
-                {can.addNote && <Button onClick={recordWaitlistInterest}>Add to Waitlist Interest</Button>}
+                {can.addNote && (
+                  <Button onClick={recordWaitlistInterest}>
+                    Add to Waitlist Interest
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -198,21 +244,34 @@ export default function BuildOfferSheet({
               actions={
                 <div className="flex flex-wrap gap-2">
                   {can.applyCopilotChanges && (
-                    <Button onClick={() => chooseOffer(offer)} disabled={selecting}>
+                    <Button
+                      onClick={() => chooseOffer(offer)}
+                      disabled={selecting}
+                    >
                       {selecting && <Loader2 className="animate-spin" />}
                       Use This Offer
                     </Button>
                   )}
-                  <Button variant="outline" onClick={onCompare} disabled={data.result.offers.length < 2}>
+                  <Button
+                    variant="outline"
+                    onClick={onCompare}
+                    disabled={data.result.offers.length < 2}
+                  >
                     Compare Alternatives
                   </Button>
                   {can.createQuoteDraft && (
-                    <Button variant="outline" onClick={() => onCreateQuote(offer.id)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => onCreateQuote(offer.id)}
+                    >
                       Create Quote
                     </Button>
                   )}
                   {can.draftCustomerReply && (
-                    <Button variant="outline" onClick={() => onDraftReply(offer.id)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => onDraftReply(offer.id)}
+                    >
                       Draft Customer Reply
                     </Button>
                   )}
@@ -248,15 +307,23 @@ function OfferView({
   const money = (value: number) => formatMoney(value, offer.currency);
   const payers = offer.adults + offer.children;
   const simplePricing = offer.children === 0 && offer.infants === 0;
-  const roomDiffers = offer.roomType !== undefined && offer.roomType !== lead.roomPreference;
+  const roomDiffers =
+    offer.roomType !== undefined && offer.roomType !== lead.roomPreference;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 rounded-md border border-border/60 p-3">
         <SectionLabel>Recommended offer</SectionLabel>
         <div>
-          <p className="text-base font-semibold text-foreground">{offer.groupName}</p>
-          <p className="text-sm text-foreground">{formatDateRange(String(offer.departureDate), String(offer.returnDate))}</p>
+          <p className="text-base font-semibold text-foreground">
+            {offer.groupName}
+          </p>
+          <p className="text-sm text-foreground">
+            {formatDateRange(
+              String(offer.departureDate),
+              String(offer.returnDate),
+            )}
+          </p>
           <p className="text-xs text-muted-foreground">
             {offer.packageName} · {offer.availableSeats} seats available
           </p>
@@ -267,27 +334,39 @@ function OfferView({
           <p className="text-sm text-foreground">
             {travellersLabel(offer.adults, offer.children, offer.infants)}
             {offer.roomType ? ` · ${OCCUPANCY_LABELS[offer.roomType]}` : ""}
-            {offer.roomTypeAssumed && <span className="text-muted-foreground"> (not yet confirmed)</span>}
+            {offer.roomTypeAssumed && (
+              <span className="text-muted-foreground">
+                {" "}
+                (not yet confirmed)
+              </span>
+            )}
           </p>
         </div>
 
         <div className="flex flex-col gap-0.5">
           <SectionLabel>Price</SectionLabel>
-          <p className="text-sm text-foreground font-number">
-            {simplePricing ? `${money(offer.pricePerPerson)} × ${payers}` : `${money(offer.pricePerPerson)} per adult`}
+          <p className="text-sm text-foreground tabular-nums">
+            {simplePricing
+              ? `${money(offer.pricePerPerson)} × ${payers}`
+              : `${money(offer.pricePerPerson)} per adult`}
           </p>
-          <p className="text-sm font-semibold text-foreground font-number">Total: {money(offer.totalPrice)}</p>
+          <p className="text-sm font-semibold text-foreground tabular-nums">
+            Total: {money(offer.totalPrice)}
+          </p>
         </div>
 
-        {offer.depositPerPerson !== undefined && offer.totalDeposit !== undefined && (
-          <div className="flex flex-col gap-0.5">
-            <SectionLabel>Deposit</SectionLabel>
-            <p className="text-sm text-foreground font-number">
-              {money(offer.depositPerPerson)} × {payers}
-            </p>
-            <p className="text-sm font-semibold text-foreground font-number">Total deposit: {money(offer.totalDeposit)}</p>
-          </div>
-        )}
+        {offer.depositPerPerson !== undefined &&
+          offer.totalDeposit !== undefined && (
+            <div className="flex flex-col gap-0.5">
+              <SectionLabel>Deposit</SectionLabel>
+              <p className="text-sm text-foreground tabular-nums">
+                {money(offer.depositPerPerson)} × {payers}
+              </p>
+              <p className="text-sm font-semibold text-foreground tabular-nums">
+                Total deposit: {money(offer.totalDeposit)}
+              </p>
+            </div>
+          )}
 
         <BulletList title="Why it fits" items={offer.matchReasons} />
         <BulletList title="Trade-off" items={offer.tradeoffs} />
@@ -295,8 +374,12 @@ function OfferView({
 
         {roomDiffers && offer.roomType && (
           <label className="flex items-center gap-2 text-sm text-foreground">
-            <Checkbox checked={applyRoom} onCheckedChange={(checked) => onApplyRoomChange(checked === true)} />
-            Also set the lead’s room preference to {OCCUPANCY_LABELS[offer.roomType]}
+            <Checkbox
+              checked={applyRoom}
+              onCheckedChange={(checked) => onApplyRoomChange(checked === true)}
+            />
+            Also set the lead’s room preference to{" "}
+            {OCCUPANCY_LABELS[offer.roomType]}
           </label>
         )}
 
@@ -305,7 +388,12 @@ function OfferView({
 
       {data.strategy && (
         <div className="flex flex-col gap-2">
-          <Button variant="ghost" size="sm" className="self-start" onClick={onToggleStrategy}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="self-start"
+            onClick={onToggleStrategy}
+          >
             {showStrategy ? "Hide Sales Strategy" : "View Sales Strategy"}
           </Button>
           {showStrategy && <StrategyBlock strategy={data.strategy} />}
@@ -313,8 +401,11 @@ function OfferView({
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        {data.usedIntent ? "Matched on the applied travel intent" : "Matched on current lead details"} ·{" "}
-        {data.result.offers.length} viable option{data.result.offers.length === 1 ? "" : "s"} · Seats are only reserved
+        {data.usedIntent
+          ? "Matched on the applied travel intent"
+          : "Matched on current lead details"}{" "}
+        · {data.result.offers.length} viable option
+        {data.result.offers.length === 1 ? "" : "s"} · Seats are only reserved
         once a booking is created.
       </p>
     </div>

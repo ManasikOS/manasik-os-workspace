@@ -33,10 +33,7 @@ import {
 } from "lucide-react";
 import React, { useMemo, useRef, useState, useTransition } from "react";
 
-import {
-  importDepartureGroupsAction,
-  type ImportRowResult,
-} from "../actions";
+import { importDepartureGroupsAction, type ImportRowResult } from "../actions";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,7 +81,10 @@ const ImportGroupsDialog = ({
 }: ImportGroupsDialogProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, startImport] = useTransition();
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState<string | null>(null);
@@ -105,7 +105,8 @@ const ImportGroupsDialog = ({
   };
 
   const downloadTemplate = (format: "csv" | "xlsx") => {
-    const example = templates.find((template) => template.isOpenForSale) ?? templates[0];
+    const example =
+      templates.find((template) => template.isOpenForSale) ?? templates[0];
     if (format === "xlsx") {
       downloadBinaryFile(
         "departure-groups-import-template.xlsx",
@@ -255,7 +256,9 @@ const ImportGroupsDialog = ({
         {/* Phase 3: results */}
         {results ? (
           <div className="flex flex-col gap-3">
-            <div className={`flex items-center gap-2 rounded-sm px-3 py-2.5 text-sm ${TONE_CLASS.success}`}>
+            <div
+              className={`flex items-center gap-2 rounded-sm px-3 py-2.5 text-sm ${TONE_CLASS.success}`}
+            >
               <CheckCircle2 className="size-4" />
               {createdCount} group{createdCount === 1 ? "" : "s"} created.
             </div>
@@ -279,10 +282,10 @@ const ImportGroupsDialog = ({
                       .filter((r) => !r.ok)
                       .map((row) => (
                         <TableRow key={row.rowNumber}>
-                          <TableCell className="px-3 py-2 text-xs font-number text-muted-foreground">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-muted-foreground">
                             {row.rowNumber}
                           </TableCell>
-                          <TableCell className="px-3 py-2 text-xs font-number text-foreground">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-foreground">
                             {row.groupCode}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-xs text-destructive">
@@ -346,10 +349,11 @@ const ImportGroupsDialog = ({
                 </p>
                 <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
                   Required columns:{" "}
-                  <span className="font-number">group_name</span>,{" "}
-                  <span className="font-number">group_code</span>,{" "}
-                  <span className="font-number">package_code</span>. The template
-                  includes every optional column and one worked example row.
+                  <span className="tabular-nums">group_name</span>,{" "}
+                  <span className="tabular-nums">group_code</span>,{" "}
+                  <span className="tabular-nums">package_code</span>. The
+                  template includes every optional column and one worked example
+                  row.
                 </p>
               </div>
             )}
@@ -365,7 +369,9 @@ const ImportGroupsDialog = ({
             {previewRows.length > 0 && (
               <>
                 <div className="flex items-center gap-3 text-xs">
-                  <span className={`inline-flex items-center gap-1.5 ${TONE_TEXT.success}`}>
+                  <span
+                    className={`inline-flex items-center gap-1.5 ${TONE_TEXT.success}`}
+                  >
                     <CheckCircle2 className="size-3.5" />
                     {validRows.length} ready
                   </span>
@@ -397,14 +403,14 @@ const ImportGroupsDialog = ({
                           key={row.candidate.rowNumber}
                           className={cn(!row.valid && "bg-destructive/5")}
                         >
-                          <TableCell className="px-3 py-2 text-xs font-number text-muted-foreground align-top">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-muted-foreground align-top">
                             {row.candidate.rowNumber}
                           </TableCell>
                           <TableCell className="px-3 py-2 align-top">
                             <p className="text-xs font-medium text-foreground">
                               {row.candidate.groupName}
                             </p>
-                            <p className="text-[11px] font-number text-muted-foreground">
+                            <p className="text-[11px] tabular-nums text-muted-foreground">
                               {row.candidate.groupCode}
                             </p>
                           </TableCell>
@@ -413,7 +419,9 @@ const ImportGroupsDialog = ({
                           </TableCell>
                           <TableCell className="px-3 py-2 align-top">
                             {row.valid ? (
-                              <Badge className={`${TONE_CLASS.success} border-none rounded-sm text-[10px]`}>
+                              <Badge
+                                className={`${TONE_CLASS.success} border-none rounded-sm text-[10px]`}
+                              >
                                 Ready
                               </Badge>
                             ) : (

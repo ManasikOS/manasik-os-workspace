@@ -315,11 +315,11 @@ export default function RecordPaymentDialog({
                       <p className="text-sm text-foreground truncate">
                         {b.primaryContactName}
                       </p>
-                      <p className="text-[11px] text-muted-foreground font-number truncate">
+                      <p className="text-[11px] text-muted-foreground tabular-nums truncate">
                         {b.bookingReference}
                       </p>
                     </div>
-                    <p className="text-sm font-number font-semibold text-destructive shrink-0">
+                    <p className="text-sm tabular-nums font-semibold text-destructive shrink-0">
                       {formatExactCurrency(b.outstandingBalance, "LKR")}
                     </p>
                   </button>
@@ -334,7 +334,7 @@ export default function RecordPaymentDialog({
                 <InputGroupAddon align={"block-start"}>
                   <InputGroupText> Amount Received *</InputGroupText>
                 </InputGroupAddon>
-                <ButtonGroup className="w-full px-2.5 font-number">
+                <ButtonGroup className="w-full px-2.5 tabular-nums">
                   <InputGroupText>LKR</InputGroupText>
                   <CurrencyInput value={amount} onValueChange={setAmount} />
                 </ButtonGroup>
@@ -410,7 +410,7 @@ export default function RecordPaymentDialog({
                       <span className="text-sm text-foreground flex-1">
                         {m.label}
                       </span>
-                      <span className="text-xs font-number text-muted-foreground">
+                      <span className="text-xs tabular-nums text-muted-foreground">
                         {formatExactCurrency(
                           m.amount - m.paid_amount,
                           chosen.currency,

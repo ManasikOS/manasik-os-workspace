@@ -49,9 +49,7 @@ import { KpiCard } from "@/components/data-table/kpi-card";
 import SectionHeading from "@/components/section-heading";
 import { TONE_TEXT } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import {
   Ban,
   FileText,
@@ -110,7 +108,10 @@ import {
 } from "../../../../utils";
 
 import { setBookingCampaignAction } from "@/app/(main)/campaigns/actions";
-import type { BookingCampaignAttribution, CampaignOption } from "@/lib/data/campaigns-repository";
+import type {
+  BookingCampaignAttribution,
+  CampaignOption,
+} from "@/lib/data/campaigns-repository";
 import type { AttributionType } from "@/lib/types/campaigns";
 import {
   addTravellerRelationshipAction,
@@ -172,7 +173,7 @@ function Fact({
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className={cn("text-sm text-foreground", mono && "font-number")}>
+      <span className={cn("text-sm text-foreground", mono && "tabular-nums")}>
         {value}
       </span>
     </div>
@@ -226,8 +227,12 @@ export default function BookingDetailView({
   const can = useDepartureCapabilities(role);
   const currency = snapshot.currency || "LKR";
   const [tab, setTab] = useState<BookingTabId>("overview");
-  const [campaignId, setCampaignId] = useState(campaignAttribution.campaignId ?? "NONE");
-  const [attributionType, setAttributionType] = useState<AttributionType>(campaignAttribution.attributionType);
+  const [campaignId, setCampaignId] = useState(
+    campaignAttribution.campaignId ?? "NONE",
+  );
+  const [attributionType, setAttributionType] = useState<AttributionType>(
+    campaignAttribution.attributionType,
+  );
   const [savingAttribution, setSavingAttribution] = useState(false);
 
   const [payerName, setPayerName] = useState(booking.payerName ?? "");
@@ -239,7 +244,9 @@ export default function BookingDetailView({
   const [relType, setRelType] = useState<TravellerRelationshipType>("MAHRAM");
   const [relIsMahram, setRelIsMahram] = useState(true);
   const [savingRelationship, setSavingRelationship] = useState(false);
-  const [relationshipError, setRelationshipError] = useState<string | null>(null);
+  const [relationshipError, setRelationshipError] = useState<string | null>(
+    null,
+  );
 
   const savePayer = async () => {
     setSavingPayer(true);
@@ -301,7 +308,10 @@ export default function BookingDetailView({
     }
   };
 
-  const saveAttribution = async (nextCampaignId: string, nextAttributionType: AttributionType) => {
+  const saveAttribution = async (
+    nextCampaignId: string,
+    nextAttributionType: AttributionType,
+  ) => {
     setSavingAttribution(true);
     const result = await setBookingCampaignAction({
       bookingId: booking.id,
@@ -400,7 +410,10 @@ export default function BookingDetailView({
         action={
           <div className="flex items-center gap-2">
             {can.recordPayments && booking.outstandingBalance > 0 && (
-              <Button variant="outline_without_border" onClick={() => setPaymentOpen(true)}>
+              <Button
+                variant="outline_without_border"
+                onClick={() => setPaymentOpen(true)}
+              >
                 <Wallet /> Record Payment
               </Button>
             )}
@@ -456,7 +469,7 @@ export default function BookingDetailView({
           <p className="text-sm font-medium text-foreground truncate">
             {booking.primaryContactName}
           </p>
-          <p className="text-xs text-muted-foreground font-number flex items-center gap-1.5">
+          <p className="text-xs text-muted-foreground tabular-nums flex items-center gap-1.5">
             <Phone className="size-3" />
             {booking.primaryContactPhone}
           </p>
@@ -490,7 +503,10 @@ export default function BookingDetailView({
               />
             )}
             {can.viewFinance && booking.nextDueAt && (
-              <Fact label="Next payment due" value={formatDate(booking.nextDueAt)} />
+              <Fact
+                label="Next payment due"
+                value={formatDate(booking.nextDueAt)}
+              />
             )}
           </div>
 
@@ -506,7 +522,10 @@ export default function BookingDetailView({
               />
               <KpiCard
                 title="Outstanding balance"
-                value={formatExactCurrency(booking.outstandingBalance, currency)}
+                value={formatExactCurrency(
+                  booking.outstandingBalance,
+                  currency,
+                )}
                 desc={
                   booking.outstandingBalance > 0 ? (
                     <span className={TONE_TEXT.warning}>Payment due</span>
@@ -526,11 +545,15 @@ export default function BookingDetailView({
           )}
 
           <Card className="p-4 flex flex-col gap-3 max-w-md">
-            <p className="text-sm font-medium text-foreground">Campaign attribution</p>
+            <p className="text-sm font-medium text-foreground">
+              Campaign attribution
+            </p>
             {can.editGroupDetails ? (
               <>
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Campaign</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Campaign
+                  </label>
                   <Select
                     value={campaignId}
                     onValueChange={(v) => {
@@ -540,18 +563,24 @@ export default function BookingDetailView({
                     }}
                     disabled={savingAttribution}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="NONE">No campaign</SelectItem>
                       {campaignOptions.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 {campaignId !== "NONE" && (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">Attribution</label>
+                    <label className="text-xs font-medium text-muted-foreground">
+                      Attribution
+                    </label>
                     <Select
                       value={attributionType}
                       onValueChange={(v) => {
@@ -561,7 +590,9 @@ export default function BookingDetailView({
                       }}
                       disabled={savingAttribution}
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="DIRECT">Direct</SelectItem>
                         <SelectItem value="ASSISTED">Assisted</SelectItem>
@@ -573,7 +604,9 @@ export default function BookingDetailView({
               </>
             ) : (
               <p className="text-xs text-muted-foreground">
-                {campaignOptions.find((c) => c.id === campaignAttribution.campaignId)?.name ?? "No campaign attributed"}
+                {campaignOptions.find(
+                  (c) => c.id === campaignAttribution.campaignId,
+                )?.name ?? "No campaign attributed"}
               </p>
             )}
           </Card>
@@ -632,117 +665,129 @@ export default function BookingDetailView({
 
       {tab === "travellers" && (
         <div className="flex flex-col gap-4">
-        <Card className="p-0 overflow-x-auto no-scrollbar">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent border-none!">
-                {["Pilgrim", "Passport", "Seat", "Visa", "Payment", "Docs"].map(
-                  (label) => (
+          <Card className="p-0 overflow-x-auto no-scrollbar">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent border-none!">
+                  {[
+                    "Pilgrim",
+                    "Passport",
+                    "Seat",
+                    "Visa",
+                    "Payment",
+                    "Docs",
+                  ].map((label) => (
                     <TableHead
                       key={label}
                       className="h-9 px-3 text-xs font-medium text-muted-foreground"
                     >
                       {label}
                     </TableHead>
-                  ),
-                )}
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-border/20">
-              {travellers.map((traveller) => (
-                <TableRow
-                  key={traveller.id}
-                  className="hover:bg-muted/40 cursor-pointer"
-                  onClick={() =>
-                    router.push(
-                      `/departure-groups/${group.id}/pilgrim/${traveller.pilgrimId}`,
-                    )
-                  }
-                >
-                  <TableCell className="px-3 py-2.5 text-sm text-foreground">
-                    {traveller.fullName}
-                  </TableCell>
-                  <TableCell className="px-3 py-2.5 text-xs font-number text-muted-foreground">
-                    {traveller.passportNumber ?? "—"}
-                  </TableCell>
-                  <TableCell className="px-3 py-2.5">
-                    <SeatStatusBadge value={traveller.seatStatus} />
-                  </TableCell>
-                  <TableCell className="px-3 py-2.5">
-                    <VisaStatusBadge value={traveller.visaStatus} />
-                  </TableCell>
-                  <TableCell className="px-3 py-2.5">
-                    <PaymentStatusBadge value={traveller.paymentStatus} />
-                  </TableCell>
-                  <TableCell className="px-3 py-2.5">
-                    <div className="flex flex-col gap-1 min-w-20">
-                      <span className="text-[11px] font-number text-foreground">
-                        {traveller.documentsCompleted} / {traveller.documentsRequired}
-                      </span>
-                      <ProgressBar percent={traveller.documentCompletionPercent} />
-                    </div>
-                  </TableCell>
+                  ))}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+              </TableHeader>
+              <TableBody className="divide-y divide-border/20">
+                {travellers.map((traveller) => (
+                  <TableRow
+                    key={traveller.id}
+                    className="hover:bg-muted/40 cursor-pointer"
+                    onClick={() =>
+                      router.push(
+                        `/departure-groups/${group.id}/pilgrim/${traveller.pilgrimId}`,
+                      )
+                    }
+                  >
+                    <TableCell className="px-3 py-2.5 text-sm text-foreground">
+                      {traveller.fullName}
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
+                      {traveller.passportNumber ?? "—"}
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5">
+                      <SeatStatusBadge value={traveller.seatStatus} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5">
+                      <VisaStatusBadge value={traveller.visaStatus} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5">
+                      <PaymentStatusBadge value={traveller.paymentStatus} />
+                    </TableCell>
+                    <TableCell className="px-3 py-2.5">
+                      <div className="flex flex-col gap-1 min-w-20">
+                        <span className="text-[11px] tabular-nums text-foreground">
+                          {traveller.documentsCompleted} /{" "}
+                          {traveller.documentsRequired}
+                        </span>
+                        <ProgressBar
+                          percent={traveller.documentCompletionPercent}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
 
-        <Card className="p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Traveller relationships
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Mahram, spouse and family links between travellers on this
-                booking.
-              </p>
-            </div>
-            {can.addBookings && travellers.length >= 2 && (
-              <Button size="sm" variant="outline_without_border" onClick={openRelationshipDialog}>
-                <Plus /> Add
-              </Button>
-            )}
-          </div>
-          {travellerRelationships.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              No relationships recorded yet.
-            </p>
-          ) : (
-            <div className="flex flex-col divide-y divide-border/20">
-              {travellerRelationships.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex items-center justify-between gap-3 py-2"
+          <Card className="p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Traveller relationships
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Mahram, spouse and family links between travellers on this
+                  booking.
+                </p>
+              </div>
+              {can.addBookings && travellers.length >= 2 && (
+                <Button
+                  size="sm"
+                  variant="outline_without_border"
+                  onClick={openRelationshipDialog}
                 >
-                  <div className="flex items-center gap-2 text-sm text-foreground min-w-0">
-                    <UserRound className="size-3.5 text-muted-foreground shrink-0" />
-                    <span className="truncate">
-                      {r.fromName} is {RELATIONSHIP_LABELS[r.relationship]} of{" "}
-                      {r.toName}
-                    </span>
-                    {r.isMahram && (
-                      <Badge variant="secondary" className="shrink-0">
-                        Mahram
-                      </Badge>
+                  <Plus /> Add
+                </Button>
+              )}
+            </div>
+            {travellerRelationships.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No relationships recorded yet.
+              </p>
+            ) : (
+              <div className="flex flex-col divide-y divide-border/20">
+                {travellerRelationships.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex items-center justify-between gap-3 py-2"
+                  >
+                    <div className="flex items-center gap-2 text-sm text-foreground min-w-0">
+                      <UserRound className="size-3.5 text-muted-foreground shrink-0" />
+                      <span className="truncate">
+                        {r.fromName} is {RELATIONSHIP_LABELS[r.relationship]} of{" "}
+                        {r.toName}
+                      </span>
+                      {r.isMahram && (
+                        <Badge variant="secondary" className="shrink-0">
+                          Mahram
+                        </Badge>
+                      )}
+                    </div>
+                    {can.addBookings && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Remove relationship"
+                        onClick={() => removeRelationship(r.id)}
+                      >
+                        <X className="size-3.5" />
+                      </Button>
                     )}
                   </div>
-                  {can.addBookings && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label="Remove relationship"
-                      onClick={() => removeRelationship(r.id)}
-                    >
-                      <X className="size-3.5" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
       )}
 
@@ -750,8 +795,10 @@ export default function BookingDetailView({
         <div className="flex flex-col gap-4">
           <Card className="p-3 shadow-xs min-h-fit flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground text-[15px]">Base fare</span>
-              <span className="font-number text-[15px]">
+              <span className="text-muted-foreground text-[15px]">
+                Base fare
+              </span>
+              <span className="tabular-nums text-[15px]">
                 {formatExactCurrency(baseFareTotal, currency)}
               </span>
             </div>
@@ -760,7 +807,7 @@ export default function BookingDetailView({
                 <span className="text-muted-foreground text-[15px]">
                   Customisations
                 </span>
-                <span className="font-number text-[15px]">
+                <span className="tabular-nums text-[15px]">
                   {formatExactCurrency(customisationsTotal, currency)}
                 </span>
               </div>
@@ -770,7 +817,9 @@ export default function BookingDetailView({
                 <span className={cn("text-[15px]", TONE_TEXT.warning)}>
                   Pending approval (not yet billed)
                 </span>
-                <span className={cn("font-number text-[15px]", TONE_TEXT.warning)}>
+                <span
+                  className={cn("tabular-nums text-[15px]", TONE_TEXT.warning)}
+                >
                   {formatExactCurrency(pendingTotal, currency)}
                 </span>
               </div>
@@ -787,15 +836,20 @@ export default function BookingDetailView({
                   (sum, c) => sum + c.amount * c.quantity,
                   0,
                 );
-                const voided = traveller.charges.filter((c) => c.voidedAt !== null);
+                const voided = traveller.charges.filter(
+                  (c) => c.voidedAt !== null,
+                );
 
                 return (
-                  <Card key={traveller.id} className="p-3 shadow-xs flex flex-col gap-2">
+                  <Card
+                    key={traveller.id}
+                    className="p-3 shadow-xs flex flex-col gap-2"
+                  >
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs font-medium text-foreground">
                         {traveller.fullName}
                       </span>
-                      <span className="text-xs font-number text-muted-foreground">
+                      <span className="text-xs tabular-nums text-muted-foreground">
                         {formatExactCurrency(subtotal, currency)}
                       </span>
                     </div>
@@ -815,22 +869,32 @@ export default function BookingDetailView({
                             className="flex items-start justify-between gap-3 py-2"
                           >
                             <div className="min-w-0">
-                              <p className="text-sm text-foreground truncate">{title}</p>
+                              <p className="text-sm text-foreground truncate">
+                                {title}
+                              </p>
                               {details.map((line: string, i: number) => (
-                                <p key={i} className="text-[11px] text-muted-foreground">
+                                <p
+                                  key={i}
+                                  className="text-[11px] text-muted-foreground"
+                                >
                                   {line}
                                 </p>
                               ))}
-                              {charge.requiresApproval && !charge.approvedAt && (
-                                <p className={`text-[11px] ${TONE_TEXT.warning}`}>
-                                  Awaiting approval
-                                </p>
-                              )}
+                              {charge.requiresApproval &&
+                                !charge.approvedAt && (
+                                  <p
+                                    className={`text-[11px] ${TONE_TEXT.warning}`}
+                                  >
+                                    Awaiting approval
+                                  </p>
+                                )}
                             </div>
                             <span
                               className={cn(
-                                "text-sm font-number shrink-0",
-                                charge.amount < 0 ? TONE_TEXT.success : "text-foreground",
+                                "text-sm tabular-nums shrink-0",
+                                charge.amount < 0
+                                  ? TONE_TEXT.success
+                                  : "text-foreground",
                               )}
                             >
                               {charge.amount < 0 ? "-" : ""}
@@ -846,7 +910,8 @@ export default function BookingDetailView({
                     {voided.length > 0 && (
                       <details className="text-[11px] text-muted-foreground">
                         <summary className="cursor-pointer">
-                          {voided.length} voided line{voided.length === 1 ? "" : "s"}
+                          {voided.length} voided line
+                          {voided.length === 1 ? "" : "s"}
                         </summary>
                         <div className="flex flex-col gap-1 mt-1">
                           {voided.map((c) => (
@@ -874,8 +939,12 @@ export default function BookingDetailView({
         <div className="flex flex-col gap-4">
           <Card className="p-3 shadow-xs flex flex-col gap-2">
             <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground text-[15px]">Amount paid</span>
-              <span className={cn("font-number text-[15px]", TONE_TEXT.success)}>
+              <span className="text-muted-foreground text-[15px]">
+                Amount paid
+              </span>
+              <span
+                className={cn("tabular-nums text-[15px]", TONE_TEXT.success)}
+              >
                 {formatExactCurrency(booking.amountPaid, currency)}
               </span>
             </div>
@@ -885,7 +954,7 @@ export default function BookingDetailView({
               </span>
               <span
                 className={cn(
-                  "font-number text-[15px]",
+                  "tabular-nums text-[15px]",
                   booking.outstandingBalance > 0 && "text-destructive",
                 )}
               >
@@ -894,8 +963,10 @@ export default function BookingDetailView({
             </div>
             {booking.nextDueAt && (
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground text-[15px]">Next due</span>
-                <span className="font-number text-[15px]">
+                <span className="text-muted-foreground text-[15px]">
+                  Next due
+                </span>
+                <span className="tabular-nums text-[15px]">
                   {formatDate(booking.nextDueAt)}
                 </span>
               </div>
@@ -904,7 +975,10 @@ export default function BookingDetailView({
           <p className="text-xs text-muted-foreground">
             Full transaction history, invoices and refunds for this booking live
             in{" "}
-            <a href="/finance?view=receivables&subview=balances" className="underline">
+            <a
+              href="/finance?view=receivables&subview=balances"
+              className="underline"
+            >
               Finance
             </a>
             .
@@ -933,11 +1007,14 @@ export default function BookingDetailView({
                   <TableCell className="px-3 py-2.5 text-sm text-foreground">
                     {traveller.fullName}
                   </TableCell>
-                  <TableCell className="px-3 py-2.5 text-xs font-number text-muted-foreground">
-                    {traveller.documentsCompleted} / {traveller.documentsRequired}
+                  <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
+                    {traveller.documentsCompleted} /{" "}
+                    {traveller.documentsRequired}
                   </TableCell>
                   <TableCell className="px-3 py-2.5">
-                    <ProgressBar percent={traveller.documentCompletionPercent} />
+                    <ProgressBar
+                      percent={traveller.documentCompletionPercent}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
@@ -1051,8 +1128,13 @@ export default function BookingDetailView({
                 <label className="text-xs font-medium text-muted-foreground">
                   Traveller
                 </label>
-                <Select value={relFrom} onValueChange={(v) => setRelFrom(v ?? "")}>
-                  <SelectTrigger><SelectValue placeholder="Choose a traveller" /></SelectTrigger>
+                <Select
+                  value={relFrom}
+                  onValueChange={(v) => setRelFrom(v ?? "")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a traveller" />
+                  </SelectTrigger>
                   <SelectContent>
                     {travellers.map((t) => (
                       <SelectItem key={t.id} value={t.id}>
@@ -1068,17 +1150,23 @@ export default function BookingDetailView({
                 </label>
                 <Select
                   value={relType}
-                  onValueChange={(v) => setRelType((v ?? "MAHRAM") as TravellerRelationshipType)}
+                  onValueChange={(v) =>
+                    setRelType((v ?? "MAHRAM") as TravellerRelationshipType)
+                  }
                 >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(RELATIONSHIP_LABELS) as TravellerRelationshipType[]).map(
-                      (type) => (
-                        <SelectItem key={type} value={type}>
-                          {RELATIONSHIP_LABELS[type]}
-                        </SelectItem>
-                      ),
-                    )}
+                    {(
+                      Object.keys(
+                        RELATIONSHIP_LABELS,
+                      ) as TravellerRelationshipType[]
+                    ).map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {RELATIONSHIP_LABELS[type]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -1087,7 +1175,9 @@ export default function BookingDetailView({
                   of
                 </label>
                 <Select value={relTo} onValueChange={(v) => setRelTo(v ?? "")}>
-                  <SelectTrigger><SelectValue placeholder="Choose a traveller" /></SelectTrigger>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a traveller" />
+                  </SelectTrigger>
                   <SelectContent>
                     {travellers
                       .filter((t) => t.id !== relFrom)
@@ -1117,7 +1207,10 @@ export default function BookingDetailView({
               >
                 Cancel
               </Button>
-              <Button disabled={savingRelationship} onClick={submitRelationship}>
+              <Button
+                disabled={savingRelationship}
+                onClick={submitRelationship}
+              >
                 {savingRelationship ? "Saving…" : "Add relationship"}
               </Button>
             </DialogFooter>

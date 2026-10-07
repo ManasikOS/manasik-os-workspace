@@ -122,7 +122,7 @@ export function DateTimePicker({
                 type="time"
                 value={timeOnly}
                 onChange={(e) => handleTime(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
                 step={60}
               />
             </InputGroup>

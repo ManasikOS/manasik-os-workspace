@@ -537,7 +537,7 @@ const OverviewTab = ({
           <p className="text-sm font-medium text-foreground">
             {snapshot.packageName}
           </p>
-          <p className="text-xs text-muted-foreground font-number">
+          <p className="text-xs text-muted-foreground tabular-nums">
             {snapshot.packageCode}
           </p>
           <p className="text-xs text-muted-foreground">
@@ -547,7 +547,7 @@ const OverviewTab = ({
           {can.viewFinance && pricing.quadPrice !== null && (
             <p className="text-xs text-muted-foreground">
               Quad from{" "}
-              <span className="font-number text-foreground">
+              <span className="tabular-nums text-foreground">
                 {formatCurrency(pricing.quadPrice, pricing.currency)}
               </span>
               {pricing.priceSource === "OVERRIDDEN" && (

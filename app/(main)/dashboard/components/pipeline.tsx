@@ -63,12 +63,12 @@ export default function Pipeline({ data }: { data: PipelineData }) {
                       width: `${Math.max(4, (stage.count / maxCount) * 100)}%`,
                     }}
                   >
-                    <span className="text-[11px] font-number text-primary-foreground">
+                    <span className="text-[11px] tabular-nums text-primary-foreground">
                       {stage.count}
                     </span>
                   </div>
                 </div>
-                <span className="w-14 shrink-0 text-right font-number text-muted-foreground">
+                <span className="w-14 shrink-0 text-right tabular-nums text-muted-foreground">
                   {stage.conversionFromPreviousPercent === null
                     ? "—"
                     : `${Math.round(stage.conversionFromPreviousPercent)}%`}
@@ -88,7 +88,7 @@ export default function Pipeline({ data }: { data: PipelineData }) {
                   className="flex items-center justify-between text-xs"
                 >
                   <span className="text-foreground">{source.label}</span>
-                  <span className="text-muted-foreground font-number">
+                  <span className="text-muted-foreground tabular-nums">
                     {source.leadCount} leads ·{" "}
                     {Math.round(source.conversionPercent)}% conv ·{" "}
                     {formatCurrency(source.revenue)}

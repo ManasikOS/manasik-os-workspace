@@ -19,9 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -286,7 +284,7 @@ const PaymentsTab = ({
             <span className="text-xs text-muted-foreground">
               Deposit collected
             </span>
-            <span className="text-sm font-number text-foreground">
+            <span className="text-sm tabular-nums text-foreground">
               {depositCollected} / {liveBookings.length} bookings
             </span>
             <ProgressBar
@@ -301,7 +299,9 @@ const PaymentsTab = ({
             <span className="text-xs text-muted-foreground">
               Not yet paid in full
             </span>
-            <span className="text-sm font-number text-foreground">{owing}</span>
+            <span className="text-sm tabular-nums text-foreground">
+              {owing}
+            </span>
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-muted-foreground">
@@ -309,7 +309,7 @@ const PaymentsTab = ({
             </span>
             <span
               className={cn(
-                "text-sm font-number",
+                "text-sm tabular-nums",
                 overdueBookings > 0 ? "text-destructive" : "text-foreground",
               )}
             >
@@ -320,7 +320,7 @@ const PaymentsTab = ({
             <span className="text-xs text-muted-foreground">
               Advance deposit
             </span>
-            <span className="text-sm font-number text-foreground">
+            <span className="text-sm tabular-nums text-foreground">
               {pricing.advanceDeposit === null
                 ? "—"
                 : formatExactCurrency(pricing.advanceDeposit, currency)}
@@ -393,31 +393,31 @@ const PaymentsTab = ({
                     <TableRow key={booking.id} className="hover:bg-muted/50">
                       <TableCell className="px-3 py-2.5 text-sm text-foreground">
                         {booking.primaryContactName}
-                        <span className="block text-[11px] text-muted-foreground font-number">
+                        <span className="block text-[11px] text-muted-foreground tabular-nums">
                           {booking.bookingReference}
                         </span>
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-xs font-number text-foreground">
+                      <TableCell className="px-3 py-2.5 text-xs tabular-nums text-foreground">
                         {booking.travellerCount}
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-xs font-number text-foreground">
+                      <TableCell className="px-3 py-2.5 text-xs tabular-nums text-foreground">
                         {formatExactCurrency(
                           booking.packagePricePerPerson,
                           currency,
                         )}
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-xs font-number text-foreground">
+                      <TableCell className="px-3 py-2.5 text-xs tabular-nums text-foreground">
                         {formatExactCurrency(
                           booking.totalBookingValue,
                           currency,
                         )}
                       </TableCell>
                       <TableCell
-                        className={`px-3 py-2.5 text-xs font-number ${TONE_TEXT.success}`}
+                        className={`px-3 py-2.5 text-xs tabular-nums ${TONE_TEXT.success}`}
                       >
                         {formatExactCurrency(booking.amountPaid, currency)}
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-xs font-number">
+                      <TableCell className="px-3 py-2.5 text-xs tabular-nums">
                         <span
                           className={
                             booking.outstandingBalance > 0

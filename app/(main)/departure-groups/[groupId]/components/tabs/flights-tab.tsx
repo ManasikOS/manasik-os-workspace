@@ -14,9 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import {
   AlertTriangle,
   ArrowRight,
@@ -82,7 +80,7 @@ function FlightDetailField({
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className={`text-sm text-foreground ${mono ? "font-number" : ""}`}>
+      <span className={`text-sm text-foreground ${mono ? "tabular-nums" : ""}`}>
         {value}
       </span>
     </div>
@@ -140,39 +138,46 @@ function FlightCard({
       {/* Route line */}
       <div className="flex flex-wrap items-center gap-4 rounded-sm bg-muted/50 px-3 py-3">
         <div className="flex flex-col">
-          <span className="text-lg font-semibold font-number text-foreground">
+          <span className="text-lg font-semibold tabular-nums text-foreground">
             {flight.originAirportCode}
           </span>
           <span className="text-[11px] text-muted-foreground max-w-40 truncate">
             {flight.originAirportName}
           </span>
-          <span className="text-xs text-foreground mt-1 font-number">
+          <span className="text-xs text-foreground mt-1 tabular-nums">
             {formatDateTime(flight.departureAt)}
           </span>
         </div>
         <ArrowRight className="size-4 text-muted-foreground" />
         <div className="flex flex-col">
-          <span className="text-lg font-semibold font-number text-foreground">
+          <span className="text-lg font-semibold tabular-nums text-foreground">
             {flight.destinationAirportCode}
           </span>
           <span className="text-[11px] text-muted-foreground max-w-40 truncate">
             {flight.destinationAirportName}
           </span>
-          <span className="text-xs text-foreground mt-1 font-number">
+          <span className="text-xs text-foreground mt-1 tabular-nums">
             {formatDateTime(flight.arrivalAt)}
           </span>
         </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <FlightDetailField label="PNR" value={flight.pnr ?? "Not issued"} mono />
+        <FlightDetailField
+          label="PNR"
+          value={flight.pnr ?? "Not issued"}
+          mono
+        />
         <FlightDetailField
           label="Booking reference"
           value={flight.bookingReference ?? "—"}
           mono
         />
         <FlightDetailField label="Cabin class" value={flight.cabinClass} />
-        <FlightDetailField label="Supplier / agent" value={flight.supplierName ?? "—"} />
+        <FlightDetailField
+          label="Supplier / agent"
+          value={flight.supplierName ?? "—"}
+        />
         <FlightDetailField label="Seats held" value={flight.seatsHeld} mono />
         <FlightDetailField
           label="Tickets issued"
@@ -183,7 +188,11 @@ function FlightCard({
           label="Ticketing deadline"
           value={formatDate(flight.ticketingDeadline)}
         />
-        <FlightDetailField label="Seat capacity" value={flight.seatCapacity} mono />
+        <FlightDetailField
+          label="Seat capacity"
+          value={flight.seatCapacity}
+          mono
+        />
       </div>
 
       {flight.notes && (
@@ -220,18 +229,18 @@ function FlightCard({
                   <div className="flex items-center gap-3">
                     <Badge
                       variant="outline"
-                      className="text-[10px] font-number text-muted-foreground"
+                      className="text-[10px] tabular-nums text-muted-foreground"
                     >
                       Leg {leg.legOrder}
                     </Badge>
-                    <span className="text-sm text-foreground font-number">
+                    <span className="text-sm text-foreground tabular-nums">
                       {leg.originAirportCode} → {leg.destinationAirportCode}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {leg.airline} {leg.flightNumber}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-number">
+                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground tabular-nums">
                     <span>
                       {formatTime(leg.departureAt)} →{" "}
                       {formatTime(leg.arrivalAt)}
@@ -445,12 +454,16 @@ const FlightsTab = ({
               label="Flight status"
               value={<FlightStatusBadge value={outbound.status} />}
             />
-            <FlightDetailField label="Seats held" value={outbound.seatsHeld} mono />
+            <FlightDetailField
+              label="Seats held"
+              value={outbound.seatsHeld}
+              mono
+            />
             <div className="flex flex-col gap-1">
               <span className="text-[11px] text-muted-foreground">
                 Tickets issued
               </span>
-              <span className="text-sm text-foreground font-number">
+              <span className="text-sm text-foreground tabular-nums">
                 {ticketed.length} / {manifest.length}
               </span>
               <ProgressBar percent={ticketedPercent} />
@@ -468,7 +481,11 @@ const FlightsTab = ({
               label="Supplier / agent"
               value={outbound.supplierName ?? "—"}
             />
-            <FlightDetailField label="PNR" value={outbound.pnr ?? "Not issued"} mono />
+            <FlightDetailField
+              label="PNR"
+              value={outbound.pnr ?? "Not issued"}
+              mono
+            />
           </div>
         ) : (
           <EmptyState
@@ -560,10 +577,15 @@ const FlightsTab = ({
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {deviation.blocksDeparture && (
-                      <AlertTriangle className={cn("size-3.5", TONE_TEXT.warning)} />
+                      <AlertTriangle
+                        className={cn("size-3.5", TONE_TEXT.warning)}
+                      />
                     )}
                     <Badge
-                      className={cn("text-[10px]", TONE_CLASS[deviationTone(deviation.status)])}
+                      className={cn(
+                        "text-[10px]",
+                        TONE_CLASS[deviationTone(deviation.status)],
+                      )}
                     >
                       {deviation.status}
                     </Badge>
@@ -611,16 +633,14 @@ const FlightsTab = ({
                     "Seat status",
                     "Ticket status",
                     "Ticket file",
-                  ].map(
-                    (label) => (
-                      <TableHead
-                        key={label}
-                        className="h-10 px-3 text-xs font-medium text-muted-foreground"
-                      >
-                        {label}
-                      </TableHead>
-                    ),
-                  )}
+                  ].map((label) => (
+                    <TableHead
+                      key={label}
+                      className="h-10 px-3 text-xs font-medium text-muted-foreground"
+                    >
+                      {label}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-border/20">
@@ -630,7 +650,7 @@ const FlightsTab = ({
                     <TableCell className="px-3 py-2.5 text-sm text-foreground">
                       {row.fullName}
                     </TableCell>
-                    <TableCell className="px-3 py-2.5 text-xs font-number text-muted-foreground">
+                    <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
                       {row.passportNumber ?? "Restricted"}
                     </TableCell>
                     <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">

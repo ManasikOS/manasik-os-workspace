@@ -80,7 +80,7 @@ export default function PaymentReminderDialog({
                 </span>
                 <span>
                   Phone:{" "}
-                  <strong className="text-foreground font-number">
+                  <strong className="text-foreground tabular-nums">
                     {record.phone}
                   </strong>
                 </span>
@@ -88,7 +88,7 @@ export default function PaymentReminderDialog({
               <div className="flex justify-between text-muted-foreground mt-1">
                 <span>
                   Amount:{" "}
-                  <strong className="text-foreground font-number">
+                  <strong className="text-foreground tabular-nums">
                     {record.amount}
                   </strong>
                 </span>

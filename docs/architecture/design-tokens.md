@@ -11,19 +11,20 @@ Six steps. Every heading or label in the app should land on one of these —
 if what you're building doesn't fit, that's a signal to ask whether a new
 step is really needed, not to reach for an arbitrary `text-*` value.
 
-| Step | Classes | Component | Used for |
-|---|---|---|---|
-| Display | `text-3xl font-semibold tracking-tight` | `PageHeader`'s `<h2>` | The one title per page. Never more than one per page. |
-| H2 | `text-xl font-medium tracking-tight` | `SectionHeading`, `DialogTitle` | A named section within a page, or a dialog's own title. A dialog title must never be larger than this — it floats over a page and should never visually outrank that page's own Display title. |
-| H3 | `text-base font-medium` | `CardTitle` | A card's own heading inside a section. |
-| Body | `text-sm` | plain paragraph text, `CardDescription` | Default running text — descriptions, longer labels, table cells that hold prose rather than data. |
-| Label | `text-xs font-medium` | form field labels, KPI card titles, nav item labels | The dominant size in this app — a dense CRM reads mostly at this size. Weight and color carry hierarchy here, not size. |
-| Caption | `text-[11px]` / `text-[10px]` | timestamps, meta text, badge counts | The smallest step. Muted-foreground color, never the only way status is conveyed. |
+| Step    | Classes                                 | Component                                           | Used for                                                                                                                                                                                       |
+| ------- | --------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Display | `text-3xl font-semibold tracking-tight` | `PageHeader`'s `<h2>`                               | The one title per page. Never more than one per page.                                                                                                                                          |
+| H2      | `text-xl font-medium tracking-tight`    | `SectionHeading`, `DialogTitle`                     | A named section within a page, or a dialog's own title. A dialog title must never be larger than this — it floats over a page and should never visually outrank that page's own Display title. |
+| H3      | `text-base font-medium`                 | `CardTitle`                                         | A card's own heading inside a section.                                                                                                                                                         |
+| Body    | `text-sm`                               | plain paragraph text, `CardDescription`             | Default running text — descriptions, longer labels, table cells that hold prose rather than data.                                                                                              |
+| Label   | `text-xs font-medium`                   | form field labels, KPI card titles, nav item labels | The dominant size in this app — a dense CRM reads mostly at this size. Weight and color carry hierarchy here, not size.                                                                        |
+| Caption | `text-[11px]` / `text-[10px]`           | timestamps, meta text, badge counts                 | The smallest step. Muted-foreground color, never the only way status is conveyed.                                                                                                              |
 
 Two exceptions, both deliberate rather than accidental:
+
 - **KPI/metric numbers** (dashboard cards, detail-page stat rows) — these
   are the one place a step above Display is earned. `text-3xl`–`text-4xl`
-  with `font-number` (Roboto Mono) is correct there; it's not a stray
+  with `tabular-nums` (Roboto Mono) is correct there; it's not a stray
   oversized heading, it's the number the whole card exists to show.
 - **`font-playfair` (Playfair Display)** — reserved for the login page's
   hero headline only. One expensive typographic moment, used exactly once.
@@ -52,12 +53,12 @@ Read `app/globals.css`'s `:root` / `.dark` blocks for the literal values.
 The rule that matters more than the values themselves:
 
 - **Brand** — `--primary` (emerald) and `--accent` (teal) are the two brand
-  colors. `--secondary` is a neutral slate, deliberately *not* a second
+  colors. `--secondary` is a neutral slate, deliberately _not_ a second
   green — it means "muted emphasis," not "a slightly different brand
   color." Don't reach for `--secondary` expecting brand-green.
 - **Status** — every status/severity color in the app goes through
   `lib/ui/tone.ts`'s `Tone` vocabulary (`neutral | info | success | warning
-  | danger | brand`) and its exports (`TONE_CLASS`, `TONE_BAR`, `TONE_TEXT`,
+| danger | brand`) and its exports (`TONE_CLASS`, `TONE_BAR`, `TONE_TEXT`,
   `TONE_BORDER`, `TONE_BADGE_BORDER`, `TONE_STAT_CARD`). An ESLint rule
   (`eslint.config.mjs`) fails the build on a raw Tailwind status-color
   utility (`bg-amber-500`, `text-emerald-600`, etc.) anywhere outside
@@ -96,6 +97,7 @@ The rule that matters more than the values themselves:
 
 Two canonical paddings for a card/section-shaped container — pick one, not
 whatever felt right in the moment:
+
 - **Default**: `px-6 py-5` (`Card`'s own default) — the standard case.
 - **Compact**: `p-3` to `p-4` — dense contexts (KPI tiles, table-adjacent
   panels, nested cards inside another card).
@@ -126,6 +128,7 @@ site.
 
 What's actually machine-checked today, so you don't have to remember it
 by hand:
+
 - `no-restricted-syntax` in `eslint.config.mjs` — raw status-color
   utilities outside the tone system (see Color tokens above).
 - `no-restricted-syntax` in `eslint.config.mjs` — a literal `rounded-[Npx]`
@@ -135,7 +138,7 @@ by hand:
 - `no-restricted-syntax` in `eslint.config.mjs` — a raw-palette shadow
   color (`shadow-gray-400`, `shadow-black`, …).
 - `no-restricted-syntax` in `eslint.config.mjs` — `toISOString().slice(0,
-  10)` instead of `colomboDayKey()` (unrelated to styling, but the same
+10)` instead of `colomboDayKey()` (unrelated to styling, but the same
   mechanism — worth knowing it's there if you're adding a rule of your
   own).
 

@@ -244,8 +244,12 @@ const AddEditFlightSheet = ({
     toLocalInputValue(flight?.ticketingDeadline),
   );
   const [supplierName, setSupplierName] = useState(flight?.supplierName ?? "");
-  const [supplierId, setSupplierId] = useState<string | null>(flight?.supplierId ?? null);
-  const [supplierOptions, setSupplierOptions] = useState<ActiveSupplierOption[]>([]);
+  const [supplierId, setSupplierId] = useState<string | null>(
+    flight?.supplierId ?? null,
+  );
+  const [supplierOptions, setSupplierOptions] = useState<
+    ActiveSupplierOption[]
+  >([]);
   const [notes, setNotes] = useState(flight?.notes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [legs, setLegs] = useState<DraftLeg[]>(() => legsFromFlight(flight));
@@ -253,9 +257,11 @@ const AddEditFlightSheet = ({
 
   useEffect(() => {
     if (!open) return;
-    listActiveSuppliersAction([...SUPPLIER_TYPES_BY_CONTEXT.FLIGHT]).then((res) => {
-      if (res.ok) setSupplierOptions(res.suppliers);
-    });
+    listActiveSuppliersAction([...SUPPLIER_TYPES_BY_CONTEXT.FLIGHT]).then(
+      (res) => {
+        if (res.ok) setSupplierOptions(res.suppliers);
+      },
+    );
   }, [open]);
 
   useResetOnOpen(open, flight?.id ?? "", () => {
@@ -489,7 +495,10 @@ const AddEditFlightSheet = ({
       });
       setLegBusyKey(null);
       if (!result.ok) {
-        toast.add({ title: "Could not save this leg", description: result.error });
+        toast.add({
+          title: "Could not save this leg",
+          description: result.error,
+        });
         return;
       }
       toast.add({ title: "Transit leg updated" });
@@ -507,7 +516,10 @@ const AddEditFlightSheet = ({
       });
       setLegBusyKey(null);
       if (!result.ok) {
-        toast.add({ title: "Could not remove this leg", description: result.error });
+        toast.add({
+          title: "Could not remove this leg",
+          description: result.error,
+        });
         return;
       }
       toast.add({ title: "Transit leg removed" });
@@ -811,7 +823,7 @@ const AddEditFlightSheet = ({
                           }
                           placeholder="CMB"
                           maxLength={3}
-                          className="font-number uppercase rounded-r-none border-r-none!"
+                          className="tabular-nums uppercase rounded-r-none border-r-none!"
                         />
                       </InputGroup>
                       <InputGroup className="flex-6">
@@ -855,7 +867,7 @@ const AddEditFlightSheet = ({
                           }
                           placeholder="JED"
                           maxLength={3}
-                          className="font-number uppercase border-r-none rounded-r-none"
+                          className="tabular-nums uppercase border-r-none rounded-r-none"
                         />
                       </InputGroup>
                       <InputGroup className="flex-6">
@@ -883,7 +895,9 @@ const AddEditFlightSheet = ({
                 </div>
 
                 {tripWindowWarning && (
-                  <div className={`flex items-start gap-2 rounded-sm px-3 py-2 text-xs ${TONE_CLASS.warning}`}>
+                  <div
+                    className={`flex items-start gap-2 rounded-sm px-3 py-2 text-xs ${TONE_CLASS.warning}`}
+                  >
                     <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
                     <span>
                       {tripWindowWarning} Trip runs {groupDepartureDate} →{" "}
@@ -892,7 +906,9 @@ const AddEditFlightSheet = ({
                   </div>
                 )}
                 {orderingWarning && (
-                  <div className={`flex items-start gap-2 rounded-sm px-3 py-2 text-xs ${TONE_CLASS.warning}`}>
+                  <div
+                    className={`flex items-start gap-2 rounded-sm px-3 py-2 text-xs ${TONE_CLASS.warning}`}
+                  >
                     <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
                     <span>{orderingWarning}</span>
                   </div>
@@ -934,7 +950,7 @@ const AddEditFlightSheet = ({
                       <span className="text-md text-muted-foreground">
                         Total
                       </span>
-                      <span className="text-md font-medium font-number text-foreground">
+                      <span className="text-md font-medium tabular-nums text-foreground">
                         {journey.totalMinutes === null
                           ? "—"
                           : formatDuration(journey.totalMinutes)}
@@ -946,18 +962,20 @@ const AddEditFlightSheet = ({
                         <span className="text-md text-muted-foreground">
                           In air
                         </span>
-                        <span className="text-md font-medium font-number text-foreground">
+                        <span className="text-md font-medium tabular-nums text-foreground">
                           {formatDuration(journey.inAirMinutes)}
                         </span>
                       </div>
                     )}
                     {journey.layoverMinutes !== null && journey.stops > 0 && (
                       <div className="flex items-center gap-1.5">
-                        <TimerReset className={`size-3.5 ${TONE_TEXT.warning}`} />
+                        <TimerReset
+                          className={`size-3.5 ${TONE_TEXT.warning}`}
+                        />
                         <span className="text-md text-muted-foreground">
                           On ground
                         </span>
-                        <span className="text-md font-medium font-number text-foreground">
+                        <span className="text-md font-medium tabular-nums text-foreground">
                           {formatDuration(journey.layoverMinutes)}
                         </span>
                       </div>
@@ -978,14 +996,14 @@ const AddEditFlightSheet = ({
                       </div>
                       <div className="flex-1 pb-4">
                         <div className="flex items-baseline gap-2">
-                          <span className="text-base font-semibold font-number text-foreground">
+                          <span className="text-base font-semibold tabular-nums text-foreground">
                             {originCode.trim().toUpperCase() || "—"}
                           </span>
                           <span className="text-xs text-muted-foreground truncate">
                             {originName || "Origin airport"}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground font-number mt-0.5">
+                        <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
                           {departureAt
                             ? `Departs ${format(new Date(departureAt), "EEE, MMM d · HH:mm")}`
                             : "No departure time set"}
@@ -1009,7 +1027,7 @@ const AddEditFlightSheet = ({
                               {journey.inAirMinutes !== null && (
                                 <Badge
                                   variant="secondary"
-                                  className="text-[10px] font-number ml-auto"
+                                  className="text-[10px] tabular-nums ml-auto"
                                 >
                                   {formatDuration(journey.inAirMinutes)}
                                 </Badge>
@@ -1049,17 +1067,21 @@ const AddEditFlightSheet = ({
                             <div className="flex items-start gap-3">
                               <div className="flex flex-col items-center">
                                 <div className="w-px h-2 bg-border" />
-                                <div className={`size-3 rounded-full ${TONE_BAR.warning} shrink-0`} />
+                                <div
+                                  className={`size-3 rounded-full ${TONE_BAR.warning} shrink-0`}
+                                />
                                 <div className="w-px flex-1 bg-border" />
                               </div>
                               <div className="flex-1 py-2 -mt-1">
-                                <div className={`inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs ${TONE_CLASS.warning}`}>
+                                <div
+                                  className={`inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs ${TONE_CLASS.warning}`}
+                                >
                                   <TimerReset className="size-3" />
                                   <span className="font-medium">
                                     Layover at {legOrigin(i)}
                                   </span>
                                   {layoverBefore !== null && (
-                                    <span className="font-number">
+                                    <span className="tabular-nums">
                                       · {formatDuration(layoverBefore)}
                                     </span>
                                   )}
@@ -1081,11 +1103,11 @@ const AddEditFlightSheet = ({
                                   <div className="flex items-center gap-2 min-w-0">
                                     <Badge
                                       variant="outline"
-                                      className="text-[10px] font-number text-muted-foreground shrink-0"
+                                      className="text-[10px] tabular-nums text-muted-foreground shrink-0"
                                     >
                                       Leg {i + 1}
                                     </Badge>
-                                    <span className="text-lg font-number font-medium text-foreground truncate">
+                                    <span className="text-lg tabular-nums font-medium text-foreground truncate">
                                       {legOrigin(i)}{" "}
                                       <ArrowRight className="inline size-3 text-muted-foreground align-middle" />{" "}
                                       {leg.destinationCode
@@ -1095,7 +1117,7 @@ const AddEditFlightSheet = ({
                                     {legMinutes !== null && (
                                       <Badge
                                         variant="outline"
-                                        className="text-xs bg-primary/10 text-primary font-number"
+                                        className="text-xs bg-primary/10 text-primary tabular-nums"
                                       >
                                         {formatDuration(legMinutes)}
                                       </Badge>
@@ -1188,7 +1210,9 @@ const AddEditFlightSheet = ({
                                       </InputGroupAddon>
                                       <InputGroupInput
                                         value={leg.airline}
-                                        disabled={leg.saved && editingLegKey !== leg.key}
+                                        disabled={
+                                          leg.saved && editingLegKey !== leg.key
+                                        }
                                         onChange={(e) =>
                                           updateLeg(leg.key, {
                                             airline: e.target.value,
@@ -1208,7 +1232,9 @@ const AddEditFlightSheet = ({
                                       </InputGroupAddon>
                                       <InputGroupInput
                                         value={leg.flightNumber}
-                                        disabled={leg.saved && editingLegKey !== leg.key}
+                                        disabled={
+                                          leg.saved && editingLegKey !== leg.key
+                                        }
                                         onChange={(e) =>
                                           updateLeg(leg.key, {
                                             flightNumber: e.target.value,
@@ -1230,7 +1256,9 @@ const AddEditFlightSheet = ({
                                     </InputGroupAddon>
                                     <InputGroupInput
                                       value={leg.destinationCode}
-                                      disabled={leg.saved && editingLegKey !== leg.key}
+                                      disabled={
+                                        leg.saved && editingLegKey !== leg.key
+                                      }
                                       onChange={(e) =>
                                         updateLeg(leg.key, {
                                           destinationCode:
@@ -1239,7 +1267,7 @@ const AddEditFlightSheet = ({
                                       }
                                       placeholder="DXB"
                                       maxLength={3}
-                                      className="font-number uppercase"
+                                      className="tabular-nums uppercase"
                                     />
                                   </InputGroup>
 
@@ -1251,7 +1279,9 @@ const AddEditFlightSheet = ({
                                       onChange={(v) =>
                                         updateLeg(leg.key, { departureAt: v })
                                       }
-                                      disabled={leg.saved && editingLegKey !== leg.key}
+                                      disabled={
+                                        leg.saved && editingLegKey !== leg.key
+                                      }
                                     />
                                     <DateTimePicker
                                       label="Arrives"
@@ -1260,7 +1290,9 @@ const AddEditFlightSheet = ({
                                       onChange={(v) =>
                                         updateLeg(leg.key, { arrivalAt: v })
                                       }
-                                      disabled={leg.saved && editingLegKey !== leg.key}
+                                      disabled={
+                                        leg.saved && editingLegKey !== leg.key
+                                      }
                                     />
                                   </div>
                                 </div>
@@ -1278,14 +1310,14 @@ const AddEditFlightSheet = ({
                       </div>
                       <div className="flex-1">
                         <div className="flex items-baseline gap-2">
-                          <span className="text-base font-semibold font-number text-foreground">
+                          <span className="text-base font-semibold tabular-nums text-foreground">
                             {destinationCode.trim().toUpperCase() || "—"}
                           </span>
                           <span className="text-xs text-muted-foreground truncate">
                             {destinationName || "Destination airport"}
                           </span>
                         </div>
-                        <p className="text-xs text-muted-foreground font-number mt-0.5">
+                        <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
                           {arrivalAt
                             ? `Arrives ${format(new Date(arrivalAt), "EEE, MMM d · HH:mm")}`
                             : "No arrival time set"}
@@ -1296,17 +1328,19 @@ const AddEditFlightSheet = ({
                 </Card>
 
                 {!lastLegLandsAtDestination && (
-                  <div className={`flex items-start gap-2 rounded-sm px-3 py-2 text-xs ${TONE_CLASS.warning}`}>
+                  <div
+                    className={`flex items-start gap-2 rounded-sm px-3 py-2 text-xs ${TONE_CLASS.warning}`}
+                  >
                     <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
                     <span>
                       Last stop lands at{" "}
-                      <span className="font-number">
+                      <span className="tabular-nums">
                         {legs[legs.length - 1].destinationCode
                           .trim()
                           .toUpperCase() || "—"}
                       </span>
                       , not the final destination{" "}
-                      <span className="font-number">
+                      <span className="tabular-nums">
                         {destinationCode.trim().toUpperCase() || "—"}
                       </span>
                       . Add one more stop or update the last one so the chain
@@ -1351,7 +1385,7 @@ const AddEditFlightSheet = ({
                       placeholder="40"
                       value={seatCapacity}
                       onChange={(e) => setSeatCapacity(e.target.value)}
-                      className="font-number"
+                      className="tabular-nums"
                     />
                   </InputGroup>
                   <InputGroup>
@@ -1364,7 +1398,7 @@ const AddEditFlightSheet = ({
                       min={seatsTicketed}
                       value={seatsHeld}
                       onChange={(e) => setSeatsHeld(e.target.value)}
-                      className="font-number"
+                      className="tabular-nums"
                     />
                   </InputGroup>
                 </div>
@@ -1394,11 +1428,16 @@ const AddEditFlightSheet = ({
                           <InputGroupInput
                             readOnly
                             value={supplierName || "No supplier assigned"}
-                            className={supplierName ? undefined : "text-muted-foreground"}
+                            className={
+                              supplierName ? undefined : "text-muted-foreground"
+                            }
                           />
                         </InputGroup>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="min-w-56 max-h-64 overflow-y-auto">
+                      <DropdownMenuContent
+                        align="start"
+                        className="min-w-56 max-h-64 overflow-y-auto"
+                      >
                         {supplierId && (
                           <DropdownMenuItem
                             onClick={() => {
@@ -1412,7 +1451,8 @@ const AddEditFlightSheet = ({
                         )}
                         {supplierOptions.length === 0 ? (
                           <div className="px-2 py-1.5 text-xs text-muted-foreground max-w-56">
-                            No ticketing agents or brokers in your Supplier Directory yet.
+                            No ticketing agents or brokers in your Supplier
+                            Directory yet.
                           </div>
                         ) : (
                           supplierOptions.map((s) => (
@@ -1423,7 +1463,9 @@ const AddEditFlightSheet = ({
                                 setSupplierId(s.id);
                               }}
                             >
-                              {supplierId === s.id && <Link2 className="size-3.5" />}
+                              {supplierId === s.id && (
+                                <Link2 className="size-3.5" />
+                              )}
                               {s.name}
                             </DropdownMenuItem>
                           ))
@@ -1444,7 +1486,9 @@ const AddEditFlightSheet = ({
                 </div>
 
                 {deadlineWarning && (
-                  <div className={`flex items-start gap-2 rounded-sm px-3 py-2 text-xs ${TONE_CLASS.warning}`}>
+                  <div
+                    className={`flex items-start gap-2 rounded-sm px-3 py-2 text-xs ${TONE_CLASS.warning}`}
+                  >
                     <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
                     <span>{deadlineWarning}</span>
                   </div>

@@ -6,9 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import {
   AlertTriangle,
   Bus,
@@ -66,7 +64,7 @@ function Detail({
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className={`text-sm text-foreground ${mono ? "font-number" : ""}`}>
+      <span className={`text-sm text-foreground ${mono ? "tabular-nums" : ""}`}>
         {value}
       </span>
     </div>
@@ -168,7 +166,7 @@ const TransportTab = ({
           }
         />
         <p className="text-xs text-muted-foreground">
-          <strong className="font-number text-foreground">{confirmed}</strong>{" "}
+          <strong className="tabular-nums text-foreground">{confirmed}</strong>{" "}
           of {transports.length} routes confirmed. Routes are copied from the
           Package Template and belong to this group once created.
         </p>
@@ -383,7 +381,9 @@ const TransportTab = ({
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {deviation.blocksDeparture && (
-                      <AlertTriangle className={`size-3.5 ${TONE_TEXT.warning}`} />
+                      <AlertTriangle
+                        className={`size-3.5 ${TONE_TEXT.warning}`}
+                      />
                     )}
                     <Badge
                       className={`text-[10px] ${

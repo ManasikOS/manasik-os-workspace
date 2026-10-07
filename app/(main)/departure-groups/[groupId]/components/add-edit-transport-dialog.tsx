@@ -25,9 +25,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { transportSchema } from "@/lib/validations/departure-groups";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
 import { Loader2, TriangleAlert, Link2, Link2Off } from "lucide-react";
@@ -186,9 +184,11 @@ const AddEditTransportSheet = ({
 
   useEffect(() => {
     if (!open) return;
-    listActiveSuppliersAction([...SUPPLIER_TYPES_BY_CONTEXT.TRANSPORT]).then((res) => {
-      if (res.ok) setSupplierOptions(res.suppliers);
-    });
+    listActiveSuppliersAction([...SUPPLIER_TYPES_BY_CONTEXT.TRANSPORT]).then(
+      (res) => {
+        if (res.ok) setSupplierOptions(res.suppliers);
+      },
+    );
   }, [open]);
 
   const submit = () => {
@@ -340,11 +340,16 @@ const AddEditTransportSheet = ({
                     <InputGroupInput
                       readOnly
                       value={supplierName || "No supplier assigned"}
-                      className={supplierName ? undefined : "text-muted-foreground"}
+                      className={
+                        supplierName ? undefined : "text-muted-foreground"
+                      }
                     />
                   </InputGroup>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-56 max-h-64 overflow-y-auto">
+                <DropdownMenuContent
+                  align="start"
+                  className="min-w-56 max-h-64 overflow-y-auto"
+                >
                   {supplierId && (
                     <DropdownMenuItem
                       onClick={() => {
@@ -358,7 +363,8 @@ const AddEditTransportSheet = ({
                   )}
                   {supplierOptions.length === 0 ? (
                     <div className="px-2 py-1.5 text-xs text-muted-foreground max-w-56">
-                      No transport companies or brokers in your Supplier Directory yet.
+                      No transport companies or brokers in your Supplier
+                      Directory yet.
                     </div>
                   ) : (
                     supplierOptions.map((s) => (
@@ -435,7 +441,7 @@ const AddEditTransportSheet = ({
                 min={0}
                 value={vehicleCapacity}
                 onChange={(e) => setVehicleCapacity(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
             <InputGroup>
@@ -448,7 +454,7 @@ const AddEditTransportSheet = ({
                 min={0}
                 value={passengerCount}
                 onChange={(e) => setPassengerCount(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
           </div>
@@ -491,7 +497,7 @@ const AddEditTransportSheet = ({
               <InputGroupInput
                 value={driverPhone}
                 onChange={(e) => setDriverPhone(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
           </div>
@@ -513,7 +519,7 @@ const AddEditTransportSheet = ({
               <InputGroupInput
                 value={coordinatorPhone}
                 onChange={(e) => setCoordinatorPhone(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
           </div>
@@ -529,7 +535,7 @@ const AddEditTransportSheet = ({
                 min={0}
                 value={internalCost}
                 onChange={(e) => setInternalCost(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
           )}

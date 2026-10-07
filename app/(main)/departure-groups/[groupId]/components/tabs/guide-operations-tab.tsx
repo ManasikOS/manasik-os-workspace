@@ -14,9 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import {
   CheckCircle2,
   Download,
@@ -110,7 +108,10 @@ const GuideOperationsTab = ({
       setBusyTaskId(null);
 
       if (!result.ok) {
-        toast.add({ title: "Could not update task", description: result.error });
+        toast.add({
+          title: "Could not update task",
+          description: result.error,
+        });
         return;
       }
       toast.add({
@@ -142,7 +143,9 @@ const GuideOperationsTab = ({
       ],
       [
         "Check-in opens",
-        outbound ? `${formatTime(outbound.departureAt)} minus 3h` : "To be confirmed",
+        outbound
+          ? `${formatTime(outbound.departureAt)} minus 3h`
+          : "To be confirmed",
       ],
       [
         "Flight departure",
@@ -224,7 +227,7 @@ const GuideOperationsTab = ({
             <span className="text-[11px] text-muted-foreground">
               Local emergency contact
             </span>
-            <span className="text-sm font-number text-foreground">
+            <span className="text-sm tabular-nums text-foreground">
               {group.localCoordinatorPhone ?? group.emergencyPhone ?? "—"}
             </span>
           </div>
@@ -258,7 +261,9 @@ const GuideOperationsTab = ({
                   Open group chat
                 </a>
               ) : (
-                <span className="text-xs text-muted-foreground">Not set up</span>
+                <span className="text-xs text-muted-foreground">
+                  Not set up
+                </span>
               )}
             </div>
             <div className="flex items-center justify-between py-2.5">
@@ -275,14 +280,16 @@ const GuideOperationsTab = ({
                   Open broadcast list
                 </a>
               ) : (
-                <span className="text-xs text-muted-foreground">Not set up</span>
+                <span className="text-xs text-muted-foreground">
+                  Not set up
+                </span>
               )}
             </div>
             <div className="flex items-center justify-between py-2.5">
               <span className="text-xs text-muted-foreground">
                 Emergency phone
               </span>
-              <span className="text-xs font-number text-foreground flex items-center gap-1.5">
+              <span className="text-xs tabular-nums text-foreground flex items-center gap-1.5">
                 <Phone className="size-3.5 text-muted-foreground" />
                 {group.emergencyPhone ?? "—"}
               </span>

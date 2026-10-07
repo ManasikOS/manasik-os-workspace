@@ -65,10 +65,15 @@ function format(value: unknown): string {
   return String(value);
 }
 
-const ActivityTab = ({ departureGroupId, activity: initialActivity }: ActivityTabProps) => {
+const ActivityTab = ({
+  departureGroupId,
+  activity: initialActivity,
+}: ActivityTabProps) => {
   const [filter, setFilter] = useState<Filter>("All activity");
   const [activity, setActivity] = useState(initialActivity);
-  const [hasMore, setHasMore] = useState(initialActivity.length >= INITIAL_PAGE_SIZE);
+  const [hasMore, setHasMore] = useState(
+    initialActivity.length >= INITIAL_PAGE_SIZE,
+  );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
 
@@ -173,17 +178,21 @@ const ActivityTab = ({ departureGroupId, activity: initialActivity }: ActivityTa
                       </Badge>
                     )}
                     {entry.isHighImpact && (
-                      <Badge className={cn(TONE_CLASS.warning, "border-none text-[10px] rounded-sm")}>
+                      <Badge
+                        className={cn(
+                          TONE_CLASS.warning,
+                          "border-none text-[10px] rounded-sm",
+                        )}
+                      >
                         High impact
                       </Badge>
                     )}
                   </div>
                   <p className="text-sm text-foreground mt-1">
-                    <ActorChip name={entry.actorName} inline />{" "}
-                    {entry.message}
+                    <ActorChip name={entry.actorName} inline /> {entry.message}
                   </p>
                   {change && (
-                    <p className="text-[11px] text-muted-foreground mt-1 font-number">
+                    <p className="text-[11px] text-muted-foreground mt-1 tabular-nums">
                       {change}
                     </p>
                   )}
@@ -196,7 +205,12 @@ const ActivityTab = ({ departureGroupId, activity: initialActivity }: ActivityTa
 
       {hasMore && (
         <div className="flex flex-col items-center gap-2 pt-1">
-          <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={isLoadingMore}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+          >
             {isLoadingMore ? "Loading…" : "Load more"}
           </Button>
           {loadMoreError && (

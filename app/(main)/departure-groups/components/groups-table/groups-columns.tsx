@@ -99,7 +99,7 @@ export function buildGroupColumns(
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Badge
                 variant="outline"
-                className="text-muted-foreground text-[10px] font-number"
+                className="text-muted-foreground text-[10px] tabular-nums"
               >
                 {group.groupCode}
               </Badge>
@@ -166,7 +166,7 @@ export function buildGroupColumns(
               );
         return (
           <div className="flex flex-col gap-1.5 min-w-28">
-            <span className="text-xs font-medium text-foreground font-number">
+            <span className="text-xs font-medium text-foreground tabular-nums">
               {group.bookedSeats} / {group.capacity}
             </span>
             <div
@@ -220,7 +220,7 @@ export function buildGroupColumns(
         return (
           <div className="flex flex-col gap-1.5 min-w-28">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-foreground font-number">
+              <span className="text-xs font-semibold text-foreground tabular-nums">
                 {group.readinessScore}%
               </span>
               <ReadinessStatusBadge value={group.readinessStatus} />

@@ -3,7 +3,14 @@
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 
 import { Card } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState, ProgressBar, ToneBadge } from "@/components/ui/tone-badge";
 import { PlaneTakeoff } from "lucide-react";
 
@@ -24,7 +31,10 @@ export function GroupHealthTable({ groups }: { groups: ReportGroupFact[] }) {
   if (rows.length === 0) {
     return (
       <Card>
-        <EmptyState icon={<PlaneTakeoff className="size-8" />} title="No active departure groups" />
+        <EmptyState
+          icon={<PlaneTakeoff className="size-8" />}
+          title="No active departure groups"
+        />
       </Card>
     );
   }
@@ -47,25 +57,39 @@ export function GroupHealthTable({ groups }: { groups: ReportGroupFact[] }) {
             <TableRow
               key={row.departureGroupId}
               className="cursor-pointer hover:bg-muted/40"
-              onClick={() => router.push(`/departure-groups/${row.departureGroupId}`)}
+              onClick={() =>
+                router.push(`/departure-groups/${row.departureGroupId}`)
+              }
             >
               <TableCell>
                 <div className="flex flex-col">
                   <span className="font-medium">{row.groupName}</span>
-                  <span className="text-xs text-muted-foreground">{row.groupCode}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {row.groupCode}
+                  </span>
                 </div>
               </TableCell>
               <TableCell className="min-w-32">
                 <div className="flex items-center gap-2">
-                  <ProgressBar percent={row.readinessPercent} tone={readinessTone(row.readinessPercent)} className="w-16" />
-                  <span className="text-xs font-number tabular-nums">{row.readinessPercent}%</span>
+                  <ProgressBar
+                    percent={row.readinessPercent}
+                    tone={readinessTone(row.readinessPercent)}
+                    className="w-16"
+                  />
+                  <span className="text-xs tabular-nums tabular-nums">
+                    {row.readinessPercent}%
+                  </span>
                 </div>
               </TableCell>
-              <TableCell className="font-number tabular-nums">
+              <TableCell className="tabular-nums tabular-nums">
                 {row.bookedSeats}/{row.capacity}
               </TableCell>
-              <TableCell className="font-number tabular-nums">{formatCurrency(row.revenue)}</TableCell>
-              <TableCell className="text-muted-foreground">{formatShortDate(row.departureDate)}</TableCell>
+              <TableCell className="tabular-nums tabular-nums">
+                {formatCurrency(row.revenue)}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {formatShortDate(row.departureDate)}
+              </TableCell>
               <TableCell>
                 <ToneBadge tone={row.riskTone} label={row.riskLabel} />
               </TableCell>

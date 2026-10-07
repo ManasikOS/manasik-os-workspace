@@ -78,7 +78,10 @@ const EditRoomDialog = ({
       departureGroupId,
       roomNumber: roomNumber.trim() || undefined,
       roomType,
-      occupancyCapacity: Math.max(0, Math.round(Number(occupancyCapacity) || 0)),
+      occupancyCapacity: Math.max(
+        0,
+        Math.round(Number(occupancyCapacity) || 0),
+      ),
       blocked,
       notes: notes.trim() || undefined,
     };
@@ -144,16 +147,24 @@ const EditRoomDialog = ({
               />
             </InputGroup>
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-foreground">Room type</span>
+              <span className="text-xs font-medium text-foreground">
+                Room type
+              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger>
                   <InputGroup>
-                    <InputGroupInput readOnly value={ROOM_TYPE_LABELS[roomType]} />
+                    <InputGroupInput
+                      readOnly
+                      value={ROOM_TYPE_LABELS[roomType]}
+                    />
                   </InputGroup>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-40">
                   {ROOM_TYPES.map((option) => (
-                    <DropdownMenuItem key={option} onClick={() => setRoomType(option)}>
+                    <DropdownMenuItem
+                      key={option}
+                      onClick={() => setRoomType(option)}
+                    >
                       {ROOM_TYPE_LABELS[option]}
                     </DropdownMenuItem>
                   ))}
@@ -173,7 +184,7 @@ const EditRoomDialog = ({
               onWheel={(e) => (e.target as HTMLInputElement).blur()}
               value={occupancyCapacity}
               onChange={(e) => setOccupancyCapacity(e.target.value)}
-              className="font-number"
+              className="tabular-nums"
             />
           </InputGroup>
 
@@ -182,7 +193,8 @@ const EditRoomDialog = ({
               checked={blocked}
               onCheckedChange={(v) => setBlocked(v === true)}
             />
-            Blocked (out of service — hidden from Assign Manually and Auto Assign)
+            Blocked (out of service — hidden from Assign Manually and Auto
+            Assign)
           </label>
 
           <InputGroup className="overflow-hidden min-h-fit">
@@ -217,7 +229,9 @@ const EditRoomDialog = ({
           <Button
             variant="ghost"
             className="text-destructive hover:text-destructive"
-            disabled={isPending || Boolean(room && room.assignedPilgrimCount > 0)}
+            disabled={
+              isPending || Boolean(room && room.assignedPilgrimCount > 0)
+            }
             title={
               room && room.assignedPilgrimCount > 0
                 ? "Move everyone out of this room before deleting it."
@@ -237,7 +251,9 @@ const EditRoomDialog = ({
               Cancel
             </Button>
             <Button disabled={isPending} onClick={submit}>
-              {isPending && !confirmingDelete && <Loader2 className="animate-spin" />}
+              {isPending && !confirmingDelete && (
+                <Loader2 className="animate-spin" />
+              )}
               Save Changes
             </Button>
           </div>

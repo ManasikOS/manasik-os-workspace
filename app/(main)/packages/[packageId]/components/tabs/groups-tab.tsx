@@ -34,7 +34,8 @@ type GroupBucket = "live" | "completed" | "cancelled" | "archived";
 function bucketFor(g: DepartureGroupUsingPackage): GroupBucket {
   if (g.archived) return "archived";
   if (g.groupStatus === "CANCELLED") return "cancelled";
-  if (g.groupStatus === "COMPLETED" || g.groupStatus === "CLOSED") return "completed";
+  if (g.groupStatus === "COMPLETED" || g.groupStatus === "CLOSED")
+    return "completed";
   return "live";
 }
 
@@ -46,7 +47,11 @@ const FILTERS: { key: GroupBucket | "all"; label: string }[] = [
   { key: "archived", label: "Archived" },
 ];
 
-export default function GroupsTab({ groups }: { groups: DepartureGroupUsingPackage[] }) {
+export default function GroupsTab({
+  groups,
+}: {
+  groups: DepartureGroupUsingPackage[];
+}) {
   const router = useRouter();
   const [filter, setFilter] = useState<GroupBucket | "all">("all");
 
@@ -62,7 +67,8 @@ export default function GroupsTab({ groups }: { groups: DepartureGroupUsingPacka
   }, [groups]);
 
   const filtered = useMemo(
-    () => (filter === "all" ? groups : groups.filter((g) => bucketFor(g) === filter)),
+    () =>
+      filter === "all" ? groups : groups.filter((g) => bucketFor(g) === filter),
     [groups, filter],
   );
 
@@ -92,7 +98,7 @@ export default function GroupsTab({ groups }: { groups: DepartureGroupUsingPacka
               className={cn(!selected && "text-muted-foreground")}
             >
               {label}
-              <span className="ml-1 font-number opacity-70">{count}</span>
+              <span className="ml-1 tabular-nums opacity-70">{count}</span>
             </Button>
           );
         })}
@@ -107,7 +113,10 @@ export default function GroupsTab({ groups }: { groups: DepartureGroupUsingPacka
           {filtered.map((g) => {
             const status = g.groupStatus as DepartureGroupStatus;
             const sales = g.salesStatus as GroupSalesStatus;
-            const filledPercent = g.capacity > 0 ? Math.round((g.bookedSeats / g.capacity) * 100) : 0;
+            const filledPercent =
+              g.capacity > 0
+                ? Math.round((g.bookedSeats / g.capacity) * 100)
+                : 0;
             return (
               <div
                 key={g.id}
@@ -115,28 +124,43 @@ export default function GroupsTab({ groups }: { groups: DepartureGroupUsingPacka
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground truncate">{g.groupName}</p>
-                    <span className="text-[10px] font-number text-muted-foreground">{g.groupCode}</span>
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {g.groupName}
+                    </p>
+                    <span className="text-[10px] tabular-nums text-muted-foreground">
+                      {g.groupCode}
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-1">
-                    <CalendarDays className="size-3" /> {formatShortDate(g.departureDate)}
+                    <CalendarDays className="size-3" />{" "}
+                    {formatShortDate(g.departureDate)}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <ToneBadge tone={groupStatusTone(status)} label={GROUP_STATUS_LABELS[status] ?? g.groupStatus} />
-                  <ToneBadge tone={salesTone(sales)} label={SALES_STATUS_LABELS[sales] ?? g.salesStatus} />
+                  <ToneBadge
+                    tone={groupStatusTone(status)}
+                    label={GROUP_STATUS_LABELS[status] ?? g.groupStatus}
+                  />
+                  <ToneBadge
+                    tone={salesTone(sales)}
+                    label={SALES_STATUS_LABELS[sales] ?? g.salesStatus}
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1 w-32">
-                  <span className="text-xs font-number text-foreground">
+                  <span className="text-xs tabular-nums text-foreground">
                     {g.bookedSeats} / {g.capacity}
                   </span>
-                  <ProgressBar percent={filledPercent} tone="brand" className="h-1" />
+                  <ProgressBar
+                    percent={filledPercent}
+                    tone="brand"
+                    className="h-1"
+                  />
                 </div>
 
                 <div className="w-28 text-right">
-                  <p className="text-xs font-number text-foreground">
+                  <p className="text-xs tabular-nums text-foreground">
                     {formatCurrency(g.expectedRevenue)}
                   </p>
                   <p className="text-[10px] text-muted-foreground">revenue</p>

@@ -167,7 +167,7 @@ const FlightTicketingDialog = ({
                 value={pnr}
                 onChange={(e) => setPnr(e.target.value.toUpperCase())}
                 placeholder="ABC123"
-                className="font-number uppercase"
+                className="tabular-nums uppercase"
                 autoFocus
               />
             </InputGroup>

@@ -21,9 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { capabilitiesForFinance } from "@/lib/access/finance-access";
 import {
   Eraser,
@@ -166,7 +164,10 @@ const PilgrimsBookingsTab = ({
     kind: ReminderKind;
   } | null>(null);
   const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
-  const [eraseTraveller, setEraseTraveller] = useState<{ id: string; fullName: string } | null>(null);
+  const [eraseTraveller, setEraseTraveller] = useState<{
+    id: string;
+    fullName: string;
+  } | null>(null);
   const [invoiceBookingId, setInvoiceBookingId] = useState<string | null>(null);
   const [editBookingId, setEditBookingId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -529,7 +530,7 @@ const PilgrimsBookingsTab = ({
                         </TableCell>
                         <TableCell className="px-3 py-3 text-xs">
                           {row.roomAssignments.length > 0 ? (
-                            <span className="text-foreground font-number">
+                            <span className="text-foreground tabular-nums">
                               {row.roomAssignments
                                 .map(
                                   (a) =>
@@ -562,7 +563,7 @@ const PilgrimsBookingsTab = ({
                           </span>
                         </TableCell>
                         {can.viewPilgrimPricing && (
-                          <TableCell className="px-3 py-3 text-xs font-number text-foreground whitespace-nowrap">
+                          <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground whitespace-nowrap">
                             {formatExactCurrency(row.totalPrice ?? 0)}
                           </TableCell>
                         )}
@@ -618,7 +619,11 @@ const PilgrimsBookingsTab = ({
                             />
                             <DropdownMenuContent align="end">
                               <DropdownMenuItem
-                                onClick={() => router.push(`/departure-groups/${group.id}/bookings/${row.bookingId}`)}
+                                onClick={() =>
+                                  router.push(
+                                    `/departure-groups/${group.id}/bookings/${row.bookingId}`,
+                                  )
+                                }
                               >
                                 <FileText /> Open Booking
                               </DropdownMenuItem>
@@ -684,7 +689,10 @@ const PilgrimsBookingsTab = ({
                                 <DropdownMenuItem
                                   variant="destructive"
                                   onClick={() =>
-                                    setEraseTraveller({ id: row.id, fullName: row.fullName })
+                                    setEraseTraveller({
+                                      id: row.id,
+                                      fullName: row.fullName,
+                                    })
                                   }
                                 >
                                   <Eraser /> Erase Sensitive Details
@@ -732,7 +740,11 @@ const PilgrimsBookingsTab = ({
 
                       <ContextMenuContent>
                         <ContextMenuItem
-                          onClick={() => router.push(`/departure-groups/${group.id}/bookings/${row.bookingId}`)}
+                          onClick={() =>
+                            router.push(
+                              `/departure-groups/${group.id}/bookings/${row.bookingId}`,
+                            )
+                          }
                         >
                           <FileText /> Open Booking
                         </ContextMenuItem>
@@ -900,7 +912,11 @@ const PilgrimsBookingsTab = ({
                       render={
                         <TableRow
                           className="hover:bg-muted/50 cursor-pointer"
-                          onClick={() => router.push(`/departure-groups/${group.id}/bookings/${booking.id}`)}
+                          onClick={() =>
+                            router.push(
+                              `/departure-groups/${group.id}/bookings/${booking.id}`,
+                            )
+                          }
                         />
                       }
                     >
@@ -911,11 +927,11 @@ const PilgrimsBookingsTab = ({
                         <p className="text-sm text-foreground">
                           {booking.primaryContactName}
                         </p>
-                        <p className="text-[11px] text-muted-foreground font-number">
+                        <p className="text-[11px] text-muted-foreground tabular-nums">
                           {booking.primaryContactPhone}
                         </p>
                       </TableCell>
-                      <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                      <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                         {booking.travellerCount}
                       </TableCell>
                       <TableCell className="px-3 py-3 text-xs text-foreground">
@@ -954,7 +970,11 @@ const PilgrimsBookingsTab = ({
 
                     <ContextMenuContent>
                       <ContextMenuItem
-                        onClick={() => router.push(`/departure-groups/${group.id}/bookings/${booking.id}`)}
+                        onClick={() =>
+                          router.push(
+                            `/departure-groups/${group.id}/bookings/${booking.id}`,
+                          )
+                        }
                       >
                         <FileText /> Open Booking
                       </ContextMenuItem>

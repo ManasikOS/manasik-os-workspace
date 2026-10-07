@@ -6,7 +6,11 @@ import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import PageHeader from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { DataTableSurface } from "@/components/data-table/data-table-surface";
-import { Tabs, TabsList, TabsTrigger } from "@/components/animate-ui/components/animate/tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/animate/tabs";
 import { EmptyState } from "@/components/ui/tone-badge";
 import {
   Table,
@@ -50,7 +54,11 @@ export interface GuideRosterRow {
   branch: StaffBranch;
   status: StaffAccountStatus;
   assignedGroupCount: number;
-  assignments: { groupId: string; groupName: string; responsibility: StaffAssignmentResponsibility }[];
+  assignments: {
+    groupId: string;
+    groupName: string;
+    responsibility: StaffAssignmentResponsibility;
+  }[];
   openTaskCount: number;
   overdueTaskCount: number;
   dueTodayCount: number;
@@ -59,7 +67,11 @@ export interface GuideRosterRow {
 
 type Filter = "ALL" | "ASSIGNED" | "UNASSIGNED" | "OVERDUE_TASKS";
 
-export default function GuidesListView({ guides }: { guides: GuideRosterRow[] }) {
+export default function GuidesListView({
+  guides,
+}: {
+  guides: GuideRosterRow[];
+}) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("ALL");
@@ -71,19 +83,30 @@ export default function GuidesListView({ guides }: { guides: GuideRosterRow[] })
       if (filter === "UNASSIGNED" && g.assignedGroupCount > 0) return false;
       if (filter === "OVERDUE_TASKS" && g.overdueTaskCount === 0) return false;
       if (!needle) return true;
-      return [g.fullName, ...g.assignments.map((a) => a.groupName)].join(" ").toLowerCase().includes(needle);
+      return [g.fullName, ...g.assignments.map((a) => a.groupName)]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle);
     });
   }, [guides, search, filter]);
 
   const assignedCount = guides.filter((g) => g.assignedGroupCount > 0).length;
-  const unassignedCount = guides.filter((g) => g.assignedGroupCount === 0).length;
-  const overdueTaskCount = guides.reduce((sum, g) => sum + g.overdueTaskCount, 0);
+  const unassignedCount = guides.filter(
+    (g) => g.assignedGroupCount === 0,
+  ).length;
+  const overdueTaskCount = guides.reduce(
+    (sum, g) => sum + g.overdueTaskCount,
+    0,
+  );
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Guides & Field Team"
-        breadcrumb={[{ title: "Operations", link: "/operations" }, { title: "Guides & Field Team", link: "/guides-field-team" }]}
+        breadcrumb={[
+          { title: "Operations", link: "/operations" },
+          { title: "Guides & Field Team", link: "/guides-field-team" },
+        ]}
         subTitle="Every active guide, their current departure-group assignments and task workload. Assign a guide from that group's Overview tab."
         action={null}
       />
@@ -95,30 +118,41 @@ export default function GuidesListView({ guides }: { guides: GuideRosterRow[] })
         <KpiCard
           title="Overdue tasks"
           value={String(overdueTaskCount)}
-          desc={overdueTaskCount > 0 ? <span className={TONE_TEXT.warning}>Across the roster</span> : undefined}
+          desc={
+            overdueTaskCount > 0 ? (
+              <span className={TONE_TEXT.warning}>Across the roster</span>
+            ) : undefined
+          }
         />
       </div>
 
-      <Tabs value={filter} onValueChange={(value) => setFilter(value as Filter)}>
+      <Tabs
+        value={filter}
+        onValueChange={(value) => setFilter(value as Filter)}
+      >
         <TabsList>
-          {(["ALL", "ASSIGNED", "UNASSIGNED", "OVERDUE_TASKS"] as const).map((key) => (
-            <TabsTrigger
-              key={key}
-              value={key}
-            >
-              {key === "ALL"
-                ? "All"
-                : key === "ASSIGNED"
-                  ? "Assigned"
-                  : key === "UNASSIGNED"
-                    ? "Unassigned"
-                    : "Has Overdue Tasks"}
-            </TabsTrigger>
-          ))}
+          {(["ALL", "ASSIGNED", "UNASSIGNED", "OVERDUE_TASKS"] as const).map(
+            (key) => (
+              <TabsTrigger key={key} value={key}>
+                {key === "ALL"
+                  ? "All"
+                  : key === "ASSIGNED"
+                    ? "Assigned"
+                    : key === "UNASSIGNED"
+                      ? "Unassigned"
+                      : "Has Overdue Tasks"}
+              </TabsTrigger>
+            ),
+          )}
         </TabsList>
       </Tabs>
 
-      <DataTableSurface search={search} onSearchChange={setSearch} searchPlaceholder="Search guide or group…" rowCount={filtered.length}>
+      <DataTableSurface
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search guide or group…"
+        rowCount={filtered.length}
+      >
         {filtered.length === 0 ? (
           <EmptyState
             icon={<UserCog className="size-8" />}
@@ -129,8 +163,18 @@ export default function GuidesListView({ guides }: { guides: GuideRosterRow[] })
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-none!">
-                {["Guide", "Branch", "Assignments", "Workload", "Last Active", ""].map((label) => (
-                  <TableHead key={label} className="h-9 px-3 text-xs font-medium text-muted-foreground">
+                {[
+                  "Guide",
+                  "Branch",
+                  "Assignments",
+                  "Workload",
+                  "Last Active",
+                  "",
+                ].map((label) => (
+                  <TableHead
+                    key={label}
+                    className="h-9 px-3 text-xs font-medium text-muted-foreground"
+                  >
                     {label}
                   </TableHead>
                 ))}
@@ -141,24 +185,38 @@ export default function GuidesListView({ guides }: { guides: GuideRosterRow[] })
                 <TableRow
                   key={g.id}
                   className="hover:bg-muted/40 cursor-pointer"
-                  onClick={() => router.push(`/management/team/${g.id}?tab=groups`)}
+                  onClick={() =>
+                    router.push(`/management/team/${g.id}?tab=groups`)
+                  }
                 >
                   <TableCell className="px-3 py-3">
                     <p className="text-sm text-foreground">{g.fullName}</p>
                     {g.whatsapp && (
-                      <p className="text-[11px] text-muted-foreground font-number">{g.whatsapp}</p>
+                      <p className="text-[11px] text-muted-foreground tabular-nums">
+                        {g.whatsapp}
+                      </p>
                     )}
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs text-foreground">{BRANCH_LABELS[g.branch]}</TableCell>
+                  <TableCell className="px-3 py-3 text-xs text-foreground">
+                    {BRANCH_LABELS[g.branch]}
+                  </TableCell>
                   <TableCell className="px-3 py-3">
                     {g.assignments.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">Unassigned</span>
+                      <span className="text-xs text-muted-foreground">
+                        Unassigned
+                      </span>
                     ) : (
                       <div className="flex flex-col gap-0.5">
                         {g.assignments.slice(0, 2).map((a) => (
-                          <span key={a.groupId} className="text-xs text-foreground">
+                          <span
+                            key={a.groupId}
+                            className="text-xs text-foreground"
+                          >
                             {a.groupName}
-                            <span className="text-muted-foreground"> · {RESPONSIBILITY_LABELS[a.responsibility]}</span>
+                            <span className="text-muted-foreground">
+                              {" "}
+                              · {RESPONSIBILITY_LABELS[a.responsibility]}
+                            </span>
                           </span>
                         ))}
                         {g.assignments.length > 2 && (
@@ -170,19 +228,32 @@ export default function GuidesListView({ guides }: { guides: GuideRosterRow[] })
                     )}
                   </TableCell>
                   <TableCell className="px-3 py-3 text-xs">
-                    <span className="text-foreground">{g.openTaskCount} open</span>
+                    <span className="text-foreground">
+                      {g.openTaskCount} open
+                    </span>
                     {g.overdueTaskCount > 0 && (
-                      <span className={`ml-1.5 ${TONE_TEXT.danger}`}>· {g.overdueTaskCount} overdue</span>
+                      <span className={`ml-1.5 ${TONE_TEXT.danger}`}>
+                        · {g.overdueTaskCount} overdue
+                      </span>
                     )}
                     {g.dueTodayCount > 0 && (
-                      <span className={`ml-1.5 ${TONE_TEXT.warning}`}>· {g.dueTodayCount} due today</span>
+                      <span className={`ml-1.5 ${TONE_TEXT.warning}`}>
+                        · {g.dueTodayCount} due today
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="px-3 py-3 text-xs text-muted-foreground">
                     {g.lastActiveAt ? formatDate(g.lastActiveAt) : "—"}
                   </TableCell>
-                  <TableCell className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                    <Button size="sm" variant="outline" onClick={() => router.push(`/guides-field-team/${g.id}`)}>
+                  <TableCell
+                    className="px-3 py-3"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => router.push(`/guides-field-team/${g.id}`)}
+                    >
                       Field ops
                     </Button>
                   </TableCell>

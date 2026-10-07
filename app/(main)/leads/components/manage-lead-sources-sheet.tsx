@@ -2,7 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupInput } from "@/components/ui/input-group";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { Plus, Radio } from "lucide-react";
@@ -43,7 +48,10 @@ const ManageLeadSourcesSheet = ({
     });
     setSaving(null);
     if (!result.ok) {
-      toast.add({ title: "Could not update source", description: result.error });
+      toast.add({
+        title: "Could not update source",
+        description: result.error,
+      });
       return;
     }
     onChanged();
@@ -74,8 +82,8 @@ const ManageLeadSourcesSheet = ({
             <Radio className="size-4 text-primary" /> Manage lead sources
           </SheetTitle>
           <p className="text-sm text-muted-foreground">
-            Deactivating a source hides it from the &ldquo;New Lead&rdquo; source picker without
-            touching leads already recorded against it.
+            Deactivating a source hides it from the &ldquo;New Lead&rdquo;
+            source picker without touching leads already recorded against it.
           </p>
         </SheetHeader>
 
@@ -86,8 +94,12 @@ const ManageLeadSourcesSheet = ({
               className="flex items-center justify-between gap-3 rounded-md border border-border/50 px-3 py-2"
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{source.label}</p>
-                <p className="text-[11px] text-muted-foreground font-number">{source.code}</p>
+                <p className="text-sm font-medium text-foreground truncate">
+                  {source.label}
+                </p>
+                <p className="text-[11px] text-muted-foreground tabular-nums">
+                  {source.code}
+                </p>
               </div>
               <Switch
                 checked={source.active}

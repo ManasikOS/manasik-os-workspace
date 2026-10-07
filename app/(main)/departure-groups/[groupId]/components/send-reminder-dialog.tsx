@@ -12,9 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import { bookingReminderSchema } from "@/lib/validations/departure-groups";
 import {
@@ -262,7 +260,7 @@ const SendReminderDialog = ({
                       <span className="text-muted-foreground">
                         Outstanding balance
                       </span>
-                      <span className="font-number font-semibold text-destructive">
+                      <span className="tabular-nums font-semibold text-destructive">
                         {formatExactCurrency(
                           booking.outstandingBalance,
                           currency,
@@ -275,7 +273,7 @@ const SendReminderDialog = ({
                     <span className="text-muted-foreground">
                       Travellers with documents outstanding
                     </span>
-                    <span className="font-number font-semibold text-foreground">
+                    <span className="tabular-nums font-semibold text-foreground">
                       {outstandingTravellers.length} of {travellers.length}
                     </span>
                   </div>

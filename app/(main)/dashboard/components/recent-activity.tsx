@@ -67,7 +67,7 @@ export default function RecentActivity({ activities }: RecentActivityProps) {
         {activities.map((act) => (
           <div key={act.id} className="flex items-start gap-3 relative z-10">
             {/* Actor Initials Badge */}
-            <div className="size-8 rounded-full bg-accent border border-border flex items-center justify-center text-[11px] font-bold text-foreground font-number shrink-0 shadow-xs">
+            <div className="size-8 rounded-full bg-accent border border-border flex items-center justify-center text-[11px] font-bold text-foreground tabular-nums shrink-0 shadow-xs">
               {act.avatarInitials}
             </div>
 
@@ -88,7 +88,7 @@ export default function RecentActivity({ activities }: RecentActivityProps) {
                   <span className="capitalize">{act.type}</span>
                 </div>
                 <span>•</span>
-                <span className="flex items-center gap-1 font-number">
+                <span className="flex items-center gap-1 tabular-nums">
                   <Clock className="size-2.5" />
                   {act.timeAgo}
                 </span>

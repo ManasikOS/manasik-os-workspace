@@ -12,7 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -246,7 +252,7 @@ export default function ServiceAddonsManager({
                         !addon.active && "opacity-50",
                       )}
                     >
-                      <TableCell className="px-3 py-2.5 text-xs font-number text-foreground">
+                      <TableCell className="px-3 py-2.5 text-xs tabular-nums text-foreground">
                         {addon.code}
                       </TableCell>
                       <TableCell className="px-3 py-2.5 text-sm text-foreground">
@@ -256,7 +262,7 @@ export default function ServiceAddonsManager({
                         {CATEGORIES.find((c) => c.value === addon.category)
                           ?.label ?? addon.category}
                       </TableCell>
-                      <TableCell className="px-3 py-2.5 text-sm font-number text-foreground">
+                      <TableCell className="px-3 py-2.5 text-sm tabular-nums text-foreground">
                         {addon.default_amount !== null
                           ? `${addon.currency} ${Number(addon.default_amount).toLocaleString()}`
                           : "—"}
@@ -285,7 +291,9 @@ export default function ServiceAddonsManager({
                         <Badge
                           className={cn(
                             "text-[10px]",
-                            addon.active ? TONE_CLASS.success : TONE_CLASS.neutral,
+                            addon.active
+                              ? TONE_CLASS.success
+                              : TONE_CLASS.neutral,
                           )}
                         >
                           {addon.active ? "Active" : "Inactive"}
@@ -353,7 +361,9 @@ export default function ServiceAddonsManager({
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
               <InputGroup>
-                <InputGroupAddon align="block-start"><InputGroupText>Code</InputGroupText></InputGroupAddon>
+                <InputGroupAddon align="block-start">
+                  <InputGroupText>Code</InputGroupText>
+                </InputGroupAddon>
                 <InputGroupInput
                   aria-label="Add-on code"
                   value={form.code}
@@ -364,7 +374,9 @@ export default function ServiceAddonsManager({
                 />
               </InputGroup>
               <InputGroup>
-                <InputGroupAddon align="block-start"><InputGroupText>Name</InputGroupText></InputGroupAddon>
+                <InputGroupAddon align="block-start">
+                  <InputGroupText>Name</InputGroupText>
+                </InputGroupAddon>
                 <InputGroupInput
                   aria-label="Add-on name"
                   value={form.name}
@@ -377,7 +389,9 @@ export default function ServiceAddonsManager({
             </div>
 
             <InputGroup>
-              <InputGroupAddon align="block-start"><InputGroupText>Description</InputGroupText></InputGroupAddon>
+              <InputGroupAddon align="block-start">
+                <InputGroupText>Description</InputGroupText>
+              </InputGroupAddon>
               <InputGroupTextarea
                 aria-label="Add-on description"
                 rows={2}
@@ -391,7 +405,9 @@ export default function ServiceAddonsManager({
 
             <div className="grid grid-cols-2 gap-3">
               <InputGroup>
-                <InputGroupAddon align="block-start"><InputGroupText>Category</InputGroupText></InputGroupAddon>
+                <InputGroupAddon align="block-start">
+                  <InputGroupText>Category</InputGroupText>
+                </InputGroupAddon>
                 <Select
                   value={form.category}
                   onValueChange={(value) =>
@@ -411,7 +427,9 @@ export default function ServiceAddonsManager({
                 </Select>
               </InputGroup>
               <InputGroup>
-                <InputGroupAddon align="block-start"><InputGroupText>Unit</InputGroupText></InputGroupAddon>
+                <InputGroupAddon align="block-start">
+                  <InputGroupText>Unit</InputGroupText>
+                </InputGroupAddon>
                 <Select
                   value={form.unit}
                   onValueChange={(value) =>
@@ -433,7 +451,9 @@ export default function ServiceAddonsManager({
             </div>
 
             <InputGroup>
-              <InputGroupAddon align="block-start"><InputGroupText>Default price (LKR)</InputGroupText></InputGroupAddon>
+              <InputGroupAddon align="block-start">
+                <InputGroupText>Default price (LKR)</InputGroupText>
+              </InputGroupAddon>
               <InputGroupInput
                 aria-label="Default price in LKR"
                 type="number"
@@ -449,11 +469,19 @@ export default function ServiceAddonsManager({
             </InputGroup>
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Journey types</span>
+              <span className="text-xs font-medium text-muted-foreground">
+                Journey types
+              </span>
               <div className="flex flex-wrap gap-4">
                 {JOURNEY_TYPES.map((jt) => (
-                  <label key={jt.value} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                    <Checkbox checked={form.journeyTypes.includes(jt.value)} onCheckedChange={() => toggleJourneyType(jt.value)} />
+                  <label
+                    key={jt.value}
+                    className="flex cursor-pointer items-center gap-2 text-sm text-foreground"
+                  >
+                    <Checkbox
+                      checked={form.journeyTypes.includes(jt.value)}
+                      onCheckedChange={() => toggleJourneyType(jt.value)}
+                    />
                     {jt.label}
                   </label>
                 ))}

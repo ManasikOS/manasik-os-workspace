@@ -34,13 +34,19 @@ import {
   CURRENCY_LABELS,
   SERVICE_CATEGORY_LABELS,
 } from "@/lib/data/suppliers-copy";
-import { createCommitmentAction, listGroupLinkableEntitiesAction } from "../actions";
+import {
+  createCommitmentAction,
+  listGroupLinkableEntitiesAction,
+} from "../actions";
 import type { GroupPickerOption } from "../suppliers-store";
 import { DateTimePicker } from "@/components/date-time-picker";
 import { ButtonGroup } from "@/components/ui/button-group";
 
 /** Which linked-entity type (if any) a service category implies — see `loadGroupLinkableEntities()`. FLIGHT is out of scope here, matching `createCommitment()`'s own cost-sync (ACCOMMODATION/TRANSPORT only). */
-const LINK_TYPE_BY_CATEGORY: Record<string, "ACCOMMODATION" | "TRANSPORT" | null> = {
+const LINK_TYPE_BY_CATEGORY: Record<
+  string,
+  "ACCOMMODATION" | "TRANSPORT" | null
+> = {
   MAKKAH_ACCOMMODATION: "ACCOMMODATION",
   MADINAH_ACCOMMODATION: "ACCOMMODATION",
   ACCOMMODATION_OTHER: "ACCOMMODATION",
@@ -100,8 +106,12 @@ export default function CreateCommitmentSheet({
   const [currency, setCurrency] = useState("SAR");
   const [notes, setNotes] = useState("");
   const [linkedEntityId, setLinkedEntityId] = useState<string | null>(null);
-  const [linkableAccommodations, setLinkableAccommodations] = useState<{ id: string; label: string }[]>([]);
-  const [linkableTransports, setLinkableTransports] = useState<{ id: string; label: string }[]>([]);
+  const [linkableAccommodations, setLinkableAccommodations] = useState<
+    { id: string; label: string }[]
+  >([]);
+  const [linkableTransports, setLinkableTransports] = useState<
+    { id: string; label: string }[]
+  >([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -147,7 +157,12 @@ export default function CreateCommitmentSheet({
 
   const selectedGroup = groupOptions.find((g) => g.id === departureGroupId);
   const linkType = LINK_TYPE_BY_CATEGORY[serviceCategory] ?? null;
-  const linkOptions = linkType === "ACCOMMODATION" ? linkableAccommodations : linkType === "TRANSPORT" ? linkableTransports : [];
+  const linkOptions =
+    linkType === "ACCOMMODATION"
+      ? linkableAccommodations
+      : linkType === "TRANSPORT"
+        ? linkableTransports
+        : [];
   const selectedLink = linkOptions.find((o) => o.id === linkedEntityId);
 
   const submit = async () => {
@@ -270,14 +285,26 @@ export default function CreateCommitmentSheet({
                     </InputGroupAddon>
                     <InputGroupInput
                       readOnly
-                      value={selectedLink?.label ?? "Not linked to an existing row"}
-                      className={selectedLink ? "cursor-pointer" : "cursor-pointer text-muted-foreground"}
+                      value={
+                        selectedLink?.label ?? "Not linked to an existing row"
+                      }
+                      className={
+                        selectedLink
+                          ? "cursor-pointer"
+                          : "cursor-pointer text-muted-foreground"
+                      }
                     />
                   </InputGroup>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-72 max-h-64 overflow-y-auto custom-scroll">
+                <DropdownMenuContent
+                  align="start"
+                  className="min-w-72 max-h-64 overflow-y-auto custom-scroll"
+                >
                   {linkedEntityId && (
-                    <DropdownMenuItem onClick={() => setLinkedEntityId(null)} className="text-muted-foreground">
+                    <DropdownMenuItem
+                      onClick={() => setLinkedEntityId(null)}
+                      className="text-muted-foreground"
+                    >
                       <Link2Off className="size-3.5" /> Clear link
                     </DropdownMenuItem>
                   )}
@@ -289,8 +316,13 @@ export default function CreateCommitmentSheet({
                     </div>
                   ) : (
                     linkOptions.map((o) => (
-                      <DropdownMenuItem key={o.id} onClick={() => setLinkedEntityId(o.id)}>
-                        {linkedEntityId === o.id && <Link2 className="size-3.5" />}
+                      <DropdownMenuItem
+                        key={o.id}
+                        onClick={() => setLinkedEntityId(o.id)}
+                      >
+                        {linkedEntityId === o.id && (
+                          <Link2 className="size-3.5" />
+                        )}
                         {o.label}
                       </DropdownMenuItem>
                     ))
@@ -298,7 +330,8 @@ export default function CreateCommitmentSheet({
                 </DropdownMenuContent>
               </DropdownMenu>
               <p className="text-[11px] text-muted-foreground">
-                Linking pushes this supplier onto that hotel/route, and keeps its confirmed status in step.
+                Linking pushes this supplier onto that hotel/route, and keeps
+                its confirmed status in step.
               </p>
             </div>
           )}
@@ -346,7 +379,7 @@ export default function CreateCommitmentSheet({
             <div className="grid grid-cols-2 gap-3">
               <Field label="Supplier Cost">
                 <ButtonGroup>
-                  <InputGroupText className="font-number">LKR</InputGroupText>
+                  <InputGroupText className="tabular-nums">LKR</InputGroupText>
                   <CurrencyInput value={amount} onValueChange={setAmount} />
                 </ButtonGroup>
               </Field>

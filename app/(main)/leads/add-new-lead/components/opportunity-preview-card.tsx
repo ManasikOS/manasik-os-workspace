@@ -100,7 +100,7 @@ export default function OpportunityPreviewCard({
       <div className="flex flex-col items-end shrink-0">
         <span
           className={cn(
-            "text-base font-extrabold font-number",
+            "text-base font-extrabold tabular-nums",
             TONE_TEXT.success,
           )}
         >

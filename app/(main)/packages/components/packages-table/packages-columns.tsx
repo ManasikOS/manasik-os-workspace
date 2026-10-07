@@ -88,7 +88,7 @@ export function buildPackageColumns(
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Badge
                 variant="outline"
-                className="text-muted-foreground text-[10px] font-number"
+                className="text-muted-foreground text-[10px] tabular-nums"
               >
                 {p.code}
               </Badge>
@@ -160,7 +160,7 @@ export function buildPackageColumns(
         const p = row.original;
         return (
           <div className="flex flex-col gap-1.5 min-w-28">
-            <span className="text-xs font-semibold text-foreground font-number">
+            <span className="text-xs font-semibold text-foreground tabular-nums">
               {p.completeness}%
             </span>
             <ProgressBar percent={p.completeness} className="h-1" />

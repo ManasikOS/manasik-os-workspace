@@ -14,9 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import {
   Ban,
@@ -172,7 +170,7 @@ const ReadinessTab = ({ items, summary, role }: ReadinessTabProps) => {
         />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col gap-1.5">
-            <span className="text-4xl font-bold font-number text-foreground">
+            <span className="text-4xl font-bold tabular-nums text-foreground">
               {summary.score}%
             </span>
             <ProgressBar
@@ -188,7 +186,7 @@ const ReadinessTab = ({ items, summary, role }: ReadinessTabProps) => {
             <span className="text-xs text-muted-foreground">Blockers</span>
             <span
               className={cn(
-                "text-2xl font-bold font-number",
+                "text-2xl font-bold tabular-nums",
                 summary.blockerCount > 0
                   ? "text-destructive"
                   : "text-foreground",
@@ -199,7 +197,7 @@ const ReadinessTab = ({ items, summary, role }: ReadinessTabProps) => {
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Due today</span>
-            <span className="text-2xl font-bold font-number text-foreground">
+            <span className="text-2xl font-bold tabular-nums text-foreground">
               {summary.dueTodayCount}
             </span>
           </div>
@@ -207,7 +205,7 @@ const ReadinessTab = ({ items, summary, role }: ReadinessTabProps) => {
             <span className="text-xs text-muted-foreground">
               Due in next 7 days
             </span>
-            <span className="text-2xl font-bold font-number text-foreground">
+            <span className="text-2xl font-bold tabular-nums text-foreground">
               {summary.dueInSevenDaysCount}
             </span>
           </div>
@@ -219,7 +217,7 @@ const ReadinessTab = ({ items, summary, role }: ReadinessTabProps) => {
               <div key={category.category} className="flex flex-col gap-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-foreground">{category.label}</span>
-                  <span className="font-number font-semibold text-foreground">
+                  <span className="tabular-nums font-semibold text-foreground">
                     {category.percent}%
                   </span>
                 </div>
@@ -249,19 +247,23 @@ const ReadinessTab = ({ items, summary, role }: ReadinessTabProps) => {
           aria-label="Filter readiness requirements"
           className="max-w-full overflow-x-auto no-scrollbar"
         >
-        <Card className="flex w-max flex-row items-center px-1 py-1">
-          {STATUS_FILTERS.map((status) => (
-            <Button
-              key={status}
-              variant={statusFilter === status ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setStatusFilter(status)}
-              className={cn(statusFilter !== status && "text-muted-foreground")}
-            >
-              {status === "ALL" ? "All" : READINESS_ITEM_STATUS_LABELS[status]}
-            </Button>
-          ))}
-        </Card>
+          <Card className="flex w-max flex-row items-center px-1 py-1">
+            {STATUS_FILTERS.map((status) => (
+              <Button
+                key={status}
+                variant={statusFilter === status ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setStatusFilter(status)}
+                className={cn(
+                  statusFilter !== status && "text-muted-foreground",
+                )}
+              >
+                {status === "ALL"
+                  ? "All"
+                  : READINESS_ITEM_STATUS_LABELS[status]}
+              </Button>
+            ))}
+          </Card>
         </div>
 
         {rows.length === 0 ? (

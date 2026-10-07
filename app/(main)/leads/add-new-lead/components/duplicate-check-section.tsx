@@ -67,9 +67,7 @@ export default function DuplicateCheckSection({
         <InputGroup>
           <InputGroupAddon align="block-start">
             <InputGroupText>
-              <label htmlFor="duplicate-mobile">
-                WhatsApp / Mobile Number
-              </label>
+              <label htmlFor="duplicate-mobile">WhatsApp / Mobile Number</label>
             </InputGroupText>
           </InputGroupAddon>
           {/* `type="tel"`, not `type="number"`: a number input rejects spaces,
@@ -157,11 +155,11 @@ export default function DuplicateCheckSection({
             >
               <span className="font-semibold text-foreground text-sm">
                 {duplicate.lead.name}{" "}
-                <span className="font-number text-muted-foreground font-normal">
+                <span className="tabular-nums text-muted-foreground font-normal">
                   ({duplicate.lead.reference})
                 </span>
               </span>
-              <span className="text-muted-foreground font-number">
+              <span className="text-muted-foreground tabular-nums">
                 {duplicate.lead.mobile}
                 {duplicate.lead.email ? ` · ${duplicate.lead.email}` : ""}
               </span>

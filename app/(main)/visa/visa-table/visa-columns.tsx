@@ -12,7 +12,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { header, sortableHeader } from "@/components/data-table/sortable-header";
+import {
+  header,
+  sortableHeader,
+} from "@/components/data-table/sortable-header";
 import type { DataTableSort } from "@/components/data-table/data-table";
 import { PersonChip, ProgressBar, ToneBadge } from "@/components/ui/tone-badge";
 import { TONE_TEXT } from "@/lib/ui/tone";
@@ -52,12 +55,17 @@ export function buildVisaColumns(
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
           indeterminate={table.getIsSomePageRowsSelected()}
-          onCheckedChange={(checked) => table.toggleAllPageRowsSelected(checked === true)}
+          onCheckedChange={(checked) =>
+            table.toggleAllPageRowsSelected(checked === true)
+          }
           aria-label="Select all applications on this page"
         />
       ),
       cell: ({ row }) => (
-        <span onClick={(event) => event.stopPropagation()} className="flex items-center">
+        <span
+          onClick={(event) => event.stopPropagation()}
+          className="flex items-center"
+        >
           <Checkbox
             checked={row.getIsSelected()}
             onCheckedChange={(checked) => row.toggleSelected(checked === true)}
@@ -87,13 +95,22 @@ export function buildVisaColumns(
     },
     {
       id: "departureGroup",
-      header: sortableHeader("Departure Group", "departureDate", sort, onSortChange),
+      header: sortableHeader(
+        "Departure Group",
+        "departureDate",
+        sort,
+        onSortChange,
+      ),
       cell: ({ row }) => {
         const item = row.original;
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-foreground">{item.groupName}</span>
-            <span className="text-[11px] text-muted-foreground">{daysRemainingLabel(item.daysToDeparture)}</span>
+            <span className="text-sm font-medium text-foreground">
+              {item.groupName}
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              {daysRemainingLabel(item.daysToDeparture)}
+            </span>
           </div>
         );
       },
@@ -103,8 +120,13 @@ export function buildVisaColumns(
       header: header("Visa Type"),
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm text-foreground">{row.original.visaType}</span>
-          <span className="text-[11px] text-muted-foreground">{JOURNEY_TYPE_LABELS[row.original.journeyType] ?? row.original.journeyType}</span>
+          <span className="text-sm text-foreground">
+            {row.original.visaType}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {JOURNEY_TYPE_LABELS[row.original.journeyType] ??
+              row.original.journeyType}
+          </span>
         </div>
       ),
     },
@@ -115,9 +137,14 @@ export function buildVisaColumns(
         const item = row.original;
         return (
           <div className="flex flex-col gap-1">
-            <ToneBadge tone={visaStatusTone(item.visaStatus)} label={VISA_STATUS_LABELS[item.visaStatus] ?? item.visaStatus} />
+            <ToneBadge
+              tone={visaStatusTone(item.visaStatus)}
+              label={VISA_STATUS_LABELS[item.visaStatus] ?? item.visaStatus}
+            />
             {item.visaStatus === "APPROVED" && !item.verifiedAt && (
-              <span className={`text-[11px] ${TONE_TEXT.warning}`}>Unverified</span>
+              <span className={`text-[11px] ${TONE_TEXT.warning}`}>
+                Unverified
+              </span>
             )}
           </div>
         );
@@ -130,12 +157,14 @@ export function buildVisaColumns(
         const item = row.original;
         return (
           <div className="flex flex-col gap-1 w-32">
-            <span className="text-xs font-number text-foreground">
+            <span className="text-xs tabular-nums text-foreground">
               {item.documentsCompleted} / {item.documentsRequired} verified
             </span>
             <ProgressBar percent={item.documentCompletionPercent} />
             {item.gatingOutstanding > 0 && (
-              <span className="text-[11px] text-destructive">{item.gatingOutstanding} blocking</span>
+              <span className="text-[11px] text-destructive">
+                {item.gatingOutstanding} blocking
+              </span>
             )}
           </div>
         );
@@ -148,7 +177,9 @@ export function buildVisaColumns(
         const item = row.original;
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm text-foreground">{item.applicationReference ?? "—"}</span>
+            <span className="text-sm text-foreground">
+              {item.applicationReference ?? "—"}
+            </span>
             {item.batchReference && (
               <button
                 type="button"
@@ -172,9 +203,13 @@ export function buildVisaColumns(
         const item = row.original;
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm text-foreground">{formatDate(item.submittedAt)}</span>
+            <span className="text-sm text-foreground">
+              {formatDate(item.submittedAt)}
+            </span>
             {item.daysSinceUpdate !== null && (
-              <span className="text-[11px] text-muted-foreground">checked {item.daysSinceUpdate}d ago</span>
+              <span className="text-[11px] text-muted-foreground">
+                checked {item.daysSinceUpdate}d ago
+              </span>
             )}
           </div>
         );
@@ -185,14 +220,23 @@ export function buildVisaColumns(
       header: header("Visa Validity"),
       cell: ({ row }) => {
         const item = row.original;
-        if (!item.visaId) return <span className="text-xs text-muted-foreground">Awaiting issue</span>;
+        if (!item.visaId)
+          return (
+            <span className="text-xs text-muted-foreground">
+              Awaiting issue
+            </span>
+          );
         return (
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-foreground">
               {formatDate(item.issueDate)} → {formatDate(item.expiryDate)}
             </span>
             {item.validityState !== "NONE" && (
-              <ToneBadge tone={validityTone(item.validityState)} label={VALIDITY_STATE_LABELS[item.validityState]} className="w-fit" />
+              <ToneBadge
+                tone={validityTone(item.validityState)}
+                label={VALIDITY_STATE_LABELS[item.validityState]}
+                className="w-fit"
+              />
             )}
           </div>
         );
@@ -202,7 +246,10 @@ export function buildVisaColumns(
       id: "officer",
       header: header("Assigned Officer"),
       cell: ({ row }) => (
-        <PersonChip name={row.original.assignedToName ?? row.original.groupVisaOwnerName} fallback="Unassigned" />
+        <PersonChip
+          name={row.original.assignedToName ?? row.original.groupVisaOwnerName}
+          fallback="Unassigned"
+        />
       ),
     },
     {
@@ -211,16 +258,35 @@ export function buildVisaColumns(
       cell: ({ row }) => {
         const item = row.original;
         return (
-          <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-            <Button variant="ghost" size="sm" onClick={() => actions.onReview(item)}>
+          <div
+            className="flex items-center gap-1"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => actions.onReview(item)}
+            >
               Review
             </Button>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="icon"><MoreHorizontal className="size-4" /></Button>} />
+              <DropdownMenuTrigger
+                render={
+                  <Button variant="ghost" size="icon">
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                }
+              />
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => actions.onAssign(item)}>Assign officer</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => actions.onStatusCheck(item)}>Record status check</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => actions.onOpenDocuments(item)}>Open in Documents</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => actions.onAssign(item)}>
+                  Assign officer
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => actions.onStatusCheck(item)}>
+                  Record status check
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => actions.onOpenDocuments(item)}>
+                  Open in Documents
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

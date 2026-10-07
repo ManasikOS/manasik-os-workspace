@@ -11,7 +11,10 @@ import {
   analysePilgrimTicketAction,
   uploadPilgrimTicketAction,
 } from "../../actions";
-import { createPilgrimFileUploadUrl, createDocumentDownloadUrl } from "../../document-storage";
+import {
+  createPilgrimFileUploadUrl,
+  createDocumentDownloadUrl,
+} from "../../document-storage";
 import type { DepartureGroupManifestRow } from "../../types";
 import { TONE_BADGE_BORDER, TONE_CLASS, TONE_TEXT } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
@@ -51,7 +54,9 @@ const PilgrimTicketCell = ({
   const extractedPnrKey = row.ticketAiExtracted
     ? Object.keys(row.ticketAiExtracted).find((key) => /pnr/i.test(key))
     : undefined;
-  const extractedPnr = extractedPnrKey ? row.ticketAiExtracted?.[extractedPnrKey] : null;
+  const extractedPnr = extractedPnrKey
+    ? row.ticketAiExtracted?.[extractedPnrKey]
+    : null;
 
   const upload = (file: File) => {
     startTransition(async () => {
@@ -99,12 +104,16 @@ const PilgrimTicketCell = ({
         router.refresh();
 
         setIsReviewing(true);
-        const review = await analysePilgrimTicketAction(departureGroupId, row.id);
+        const review = await analysePilgrimTicketAction(
+          departureGroupId,
+          row.id,
+        );
         setIsReviewing(false);
         if (!review.ok) {
           toast.add({
             title: "AI review unavailable",
-            description: review.error ?? "The ticket was saved without a review.",
+            description:
+              review.error ?? "The ticket was saved without a review.",
           });
         } else if (review.issues.length > 0) {
           toast.add({
@@ -184,7 +193,7 @@ const PilgrimTicketCell = ({
         <Badge
           variant="outline"
           className={cn(
-            "text-[10px] font-number",
+            "text-[10px] tabular-nums",
             pnrMismatch
               ? cn(TONE_BADGE_BORDER.warning, TONE_TEXT.warning)
               : "text-muted-foreground",

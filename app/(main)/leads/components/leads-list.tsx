@@ -128,7 +128,9 @@ const LeadsList = () => {
   // Read once, lazily, as the initial value — not in an effect — so this is
   // a plain render-time derivation rather than a synchronised external state.
   const searchParams = useSearchParams();
-  const [openLeadId, setOpenLeadId] = useState<string | null>(() => searchParams.get("open"));
+  const [openLeadId, setOpenLeadId] = useState<string | null>(() =>
+    searchParams.get("open"),
+  );
   const [contactLeadId, setContactLeadId] = useState<string | null>(null);
   const [lostLeadIds, setLostLeadIds] = useState<string[] | null>(null);
 
@@ -511,7 +513,7 @@ const LeadsList = () => {
             <h2 className="text-lg font-bold tracking-tight text-foreground">
               {savedView}
             </h2>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-sm bg-primary/10 text-primary font-number">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-sm bg-primary/10 text-primary tabular-nums">
               {sorted.length} of {leads.length}
             </span>
           </div>

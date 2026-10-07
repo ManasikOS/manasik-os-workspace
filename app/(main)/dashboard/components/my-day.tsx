@@ -8,7 +8,11 @@ import SectionHeading from "@/components/section-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/tone-badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/animate-ui/components/animate/tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/animate/tabs";
 import { toast } from "@/components/ui/toast";
 import type { MyDayData, MyDayTask } from "@/lib/types/dashboard";
 import { updateOperationsTaskStatusAction } from "@/app/(main)/operations/actions";
@@ -22,7 +26,9 @@ type MyDayTab = "overdue" | "due-today" | "upcoming" | "unassigned";
  * signed-in person, not merely visible to their role.
  */
 export default function MyDay({ data }: { data: MyDayData }) {
-  const [tab, setTab] = useState<MyDayTab>(data.overdue.length > 0 ? "overdue" : "due-today");
+  const [tab, setTab] = useState<MyDayTab>(
+    data.overdue.length > 0 ? "overdue" : "due-today",
+  );
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -36,7 +42,10 @@ export default function MyDay({ data }: { data: MyDayData }) {
       });
       setCompletingId(null);
       if (!result.ok) {
-        toast.add({ title: "Could not complete task", description: result.error });
+        toast.add({
+          title: "Could not complete task",
+          description: result.error,
+        });
         return;
       }
       toast.add({ title: "Task completed", description: task.title });
@@ -49,16 +58,29 @@ export default function MyDay({ data }: { data: MyDayData }) {
     { id: "upcoming", label: "Assigned to Me", count: data.upcoming.length },
   ];
   if (data.unassignedCount !== null) {
-    tabs.push({ id: "unassigned", label: "Unassigned", count: data.unassignedCount });
+    tabs.push({
+      id: "unassigned",
+      label: "Unassigned",
+      count: data.unassignedCount,
+    });
   }
 
-  const rows = tab === "overdue" ? data.overdue : tab === "due-today" ? data.dueToday : tab === "upcoming" ? data.upcoming : [];
+  const rows =
+    tab === "overdue"
+      ? data.overdue
+      : tab === "due-today"
+        ? data.dueToday
+        : tab === "upcoming"
+          ? data.upcoming
+          : [];
 
   return (
     <Card className="p-5 flex flex-col gap-4 h-full">
       <div>
         <SectionHeading title="My Day" act={null} />
-        <p className="text-xs text-muted-foreground mt-0.5">Your open work across every group you own.</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Your open work across every group you own.
+        </p>
       </div>
 
       <Tabs value={tab} onValueChange={(next) => setTab(next as MyDayTab)}>
@@ -74,10 +96,16 @@ export default function MyDay({ data }: { data: MyDayData }) {
       {tab === "unassigned" ? (
         <div className="flex flex-col items-start gap-2 py-2">
           <p className="text-sm text-foreground">
-            <strong className="font-number">{data.unassignedCount}</strong> task{data.unassignedCount === 1 ? "" : "s"} across the agency
-            have no owner.
+            <strong className="tabular-nums">{data.unassignedCount}</strong>{" "}
+            task{data.unassignedCount === 1 ? "" : "s"} across the agency have
+            no owner.
           </p>
-          <Button variant="link" size="sm" className="h-5 p-0 text-xs font-medium" render={<Link href="/operations" />}>
+          <Button
+            variant="link"
+            size="sm"
+            className="h-5 p-0 text-xs font-medium"
+            render={<Link href="/operations" />}
+          >
             Open Operations to assign them
           </Button>
         </div>
@@ -97,12 +125,18 @@ export default function MyDay({ data }: { data: MyDayData }) {
                   <Circle className="size-3.5 text-muted-foreground shrink-0" />
                 )}
                 <div className="flex flex-col min-w-0">
-                  <Link href={`/departure-groups/${task.groupId}?tab=tasks`} className="text-xs font-medium text-foreground hover:underline truncate">
+                  <Link
+                    href={`/departure-groups/${task.groupId}?tab=tasks`}
+                    className="text-xs font-medium text-foreground hover:underline truncate"
+                  >
                     {task.title}
                   </Link>
                   <span className="text-[11px] text-muted-foreground truncate">
                     {task.groupName}
-                    {task.daysUntilDeparture !== null ? ` · T-${task.daysUntilDeparture}` : ""} · {task.dueLabel}
+                    {task.daysUntilDeparture !== null
+                      ? ` · T-${task.daysUntilDeparture}`
+                      : ""}{" "}
+                    · {task.dueLabel}
                   </span>
                 </div>
               </div>
@@ -113,7 +147,11 @@ export default function MyDay({ data }: { data: MyDayData }) {
                 disabled={isPending && completingId === task.id}
                 onClick={() => complete(task)}
               >
-                {isPending && completingId === task.id ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                {isPending && completingId === task.id ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Check className="size-3.5" />
+                )}
                 Complete
               </Button>
             </Card>

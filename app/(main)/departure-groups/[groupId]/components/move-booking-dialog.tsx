@@ -20,9 +20,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import { moveBookingSchema } from "@/lib/validations/departure-groups";
 import {
@@ -328,7 +326,7 @@ const MoveBookingDialog = ({
                                 <p className="text-sm font-medium text-foreground truncate">
                                   {option.groupName}
                                 </p>
-                                <span className="text-[10px] text-muted-foreground font-number">
+                                <span className="text-[10px] text-muted-foreground tabular-nums">
                                   {option.groupCode}
                                 </span>
                                 <SalesStatusBadge value={option.salesStatus} />
@@ -343,7 +341,7 @@ const MoveBookingDialog = ({
                             <div className="text-right shrink-0">
                               <p
                                 className={cn(
-                                  "text-xs font-number",
+                                  "text-xs tabular-nums",
                                   blocked
                                     ? "text-destructive"
                                     : "text-foreground",
@@ -369,18 +367,18 @@ const MoveBookingDialog = ({
             {step === 2 && target && (
               <div className="flex flex-col gap-4 px-1">
                 <Card className="flex-row shadow-xs rounded-sm py-4 flex items-center gap-2 text-xs">
-                  <span className="font-number text-muted-foreground">
+                  <span className="tabular-nums text-muted-foreground">
                     {booking.bookingReference}
                   </span>
                   <ArrowRight className="size-3.5 text-muted-foreground shrink-0" />
                   <span className="text-foreground">
                     {target.groupName}{" "}
-                    <span className="font-number text-muted-foreground">
+                    <span className="tabular-nums text-muted-foreground">
                       ({target.groupCode})
                     </span>
                   </span>
                   {needsSeats && (
-                    <span className="ml-auto font-number text-muted-foreground shrink-0">
+                    <span className="ml-auto tabular-nums text-muted-foreground shrink-0">
                       {target.availableSeats} →{" "}
                       {target.availableSeats - booking.travellerCount} seats
                       free
@@ -469,7 +467,7 @@ const MoveBookingDialog = ({
                               setPriceOverride(String(val));
                               setError(null);
                             }}
-                            className="font-number"
+                            className="tabular-nums"
                           />
                         </InputGroup>
                       </div>
@@ -480,7 +478,7 @@ const MoveBookingDialog = ({
                         <span className="text-muted-foreground">
                           Total booking value
                         </span>
-                        <span className="font-number text-foreground">
+                        <span className="tabular-nums text-foreground">
                           {formatExactCurrency(
                             booking.totalBookingValue,
                             currency,
@@ -494,7 +492,7 @@ const MoveBookingDialog = ({
                         <span className="text-muted-foreground">
                           Amount paid
                         </span>
-                        <span className={`font-number ${TONE_TEXT.success}`}>
+                        <span className={`tabular-nums ${TONE_TEXT.success}`}>
                           {formatExactCurrency(booking.amountPaid, currency)}
                         </span>
                       </div>
@@ -504,7 +502,7 @@ const MoveBookingDialog = ({
                         </span>
                         <span
                           className={cn(
-                            "font-number",
+                            "tabular-nums",
                             newOutstanding > 0
                               ? "text-destructive"
                               : "text-muted-foreground",

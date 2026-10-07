@@ -34,9 +34,16 @@ import {
 import { Plus } from "lucide-react";
 
 import { formatDateTime } from "@/app/(main)/departure-groups/utils";
-import type { SurveyQuestionRow, SurveyResponseWithPilgrim, SurveyRow } from "@/lib/types/feedback";
+import type {
+  SurveyQuestionRow,
+  SurveyResponseWithPilgrim,
+  SurveyRow,
+} from "@/lib/types/feedback";
 
-import { recordSurveyResponseAction, updateSurveyActiveAction } from "../../actions";
+import {
+  recordSurveyResponseAction,
+  updateSurveyActiveAction,
+} from "../../actions";
 
 interface SurveyDetailViewProps {
   survey: SurveyRow;
@@ -45,7 +52,12 @@ interface SurveyDetailViewProps {
   canManage: boolean;
 }
 
-export default function SurveyDetailView({ survey, questions, responses, canManage }: SurveyDetailViewProps) {
+export default function SurveyDetailView({
+  survey,
+  questions,
+  responses,
+  canManage,
+}: SurveyDetailViewProps) {
   const [recordOpen, setRecordOpen] = useState(false);
 
   return (
@@ -54,8 +66,14 @@ export default function SurveyDetailView({ survey, questions, responses, canMana
         title={survey.title}
         breadcrumb={[
           { title: "Relationships", link: "#" },
-          { title: "Feedback & Complaints", link: "/relationships/feedback-complaints" },
-          { title: survey.title, link: `/relationships/feedback-complaints/${survey.id}` },
+          {
+            title: "Feedback & Complaints",
+            link: "/relationships/feedback-complaints",
+          },
+          {
+            title: survey.title,
+            link: `/relationships/feedback-complaints/${survey.id}`,
+          },
         ]}
         subTitle={survey.description ?? undefined}
         action={
@@ -67,8 +85,14 @@ export default function SurveyDetailView({ survey, questions, responses, canMana
               <Button
                 variant="outline"
                 onClick={async () => {
-                  const result = await updateSurveyActiveAction(survey.id, !survey.is_active);
-                  if (!result.ok) return toast.add({ title: result.error ?? "Could not update" });
+                  const result = await updateSurveyActiveAction(
+                    survey.id,
+                    !survey.is_active,
+                  );
+                  if (!result.ok)
+                    return toast.add({
+                      title: result.error ?? "Could not update",
+                    });
                 }}
               >
                 {survey.is_active ? "Deactivate" : "Activate"}
@@ -79,8 +103,13 @@ export default function SurveyDetailView({ survey, questions, responses, canMana
       />
 
       <div className="flex items-center gap-2">
-        <Badge variant="secondary">{survey.trigger === "POST_TRIP" ? "Post-trip" : "Manual"}</Badge>
-        <ToneBadge tone={survey.is_active ? "success" : "neutral"} label={survey.is_active ? "Active" : "Inactive"} />
+        <Badge variant="secondary">
+          {survey.trigger === "POST_TRIP" ? "Post-trip" : "Manual"}
+        </Badge>
+        <ToneBadge
+          tone={survey.is_active ? "success" : "neutral"}
+          label={survey.is_active ? "Active" : "Inactive"}
+        />
       </div>
 
       <Card className="p-4">
@@ -88,7 +117,10 @@ export default function SurveyDetailView({ survey, questions, responses, canMana
         <ul className="flex flex-col gap-1">
           {questions.map((q) => (
             <li key={q.id} className="text-xs text-muted-foreground">
-              {q.question_text} <span className="text-muted-foreground/70">({q.question_type.replace(/_/g, " ")})</span>
+              {q.question_text}{" "}
+              <span className="text-muted-foreground/70">
+                ({q.question_type.replace(/_/g, " ")})
+              </span>
             </li>
           ))}
         </ul>
@@ -101,22 +133,35 @@ export default function SurveyDetailView({ survey, questions, responses, canMana
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-none!">
-                {["Pilgrim", "Score", "Recorded by", "Submitted"].map((label) => (
-                  <TableHead key={label} className="h-9 px-3 text-xs font-medium text-muted-foreground">
-                    {label}
-                  </TableHead>
-                ))}
+                {["Pilgrim", "Score", "Recorded by", "Submitted"].map(
+                  (label) => (
+                    <TableHead
+                      key={label}
+                      className="h-9 px-3 text-xs font-medium text-muted-foreground"
+                    >
+                      {label}
+                    </TableHead>
+                  ),
+                )}
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-border/20">
               {responses.map((r) => (
                 <TableRow key={r.id}>
-                  <TableCell className="px-3 py-3 text-sm text-foreground">{r.pilgrimName}</TableCell>
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
-                    {r.overall_score !== null ? r.overall_score.toFixed(1) : "—"}
+                  <TableCell className="px-3 py-3 text-sm text-foreground">
+                    {r.pilgrimName}
                   </TableCell>
-                  <TableCell className="px-3 py-3 text-xs text-muted-foreground">{r.recorded_by_name}</TableCell>
-                  <TableCell className="px-3 py-3 text-xs text-muted-foreground">{formatDateTime(r.submitted_at)}</TableCell>
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
+                    {r.overall_score !== null
+                      ? r.overall_score.toFixed(1)
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="px-3 py-3 text-xs text-muted-foreground">
+                    {r.recorded_by_name}
+                  </TableCell>
+                  <TableCell className="px-3 py-3 text-xs text-muted-foreground">
+                    {formatDateTime(r.submitted_at)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -159,7 +204,9 @@ function RecordResponseDialog({
       departureGroupId: null,
       answers: questions.map((q) => {
         const raw = answers[q.id] ?? "";
-        const isRating = q.question_type === "RATING_1_5" || q.question_type === "RATING_NPS_0_10";
+        const isRating =
+          q.question_type === "RATING_1_5" ||
+          q.question_type === "RATING_NPS_0_10";
         return {
           questionId: q.id,
           answerRating: isRating && raw !== "" ? Number(raw) : null,
@@ -181,21 +228,40 @@ function RecordResponseDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-w-lg!">
-        <DialogHeader><DialogTitle>Record a response</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>Record a response</DialogTitle>
+        </DialogHeader>
         <div className="flex flex-col gap-4 py-2 max-h-[60vh] overflow-y-auto">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Pilgrim ID</label>
-            <Input value={pilgrimId} onChange={(e) => setPilgrimId(e.target.value)} placeholder="from the pilgrim record's URL" />
+            <label className="text-xs font-medium text-muted-foreground">
+              Pilgrim ID
+            </label>
+            <Input
+              value={pilgrimId}
+              onChange={(e) => setPilgrimId(e.target.value)}
+              placeholder="from the pilgrim record's URL"
+            />
           </div>
           {questions.map((q) => (
             <div key={q.id} className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">{q.question_text}</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                {q.question_text}
+              </label>
               {q.question_type === "RATING_1_5" ? (
-                <Select value={answers[q.id] ?? ""} onValueChange={(v) => setAnswers((prev) => ({ ...prev, [q.id]: v ?? "" }))}>
-                  <SelectTrigger><SelectValue placeholder="Select a rating" /></SelectTrigger>
+                <Select
+                  value={answers[q.id] ?? ""}
+                  onValueChange={(v) =>
+                    setAnswers((prev) => ({ ...prev, [q.id]: v ?? "" }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a rating" />
+                  </SelectTrigger>
                   <SelectContent>
                     {[1, 2, 3, 4, 5].map((n) => (
-                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                      <SelectItem key={n} value={String(n)}>
+                        {n}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -205,26 +271,44 @@ function RecordResponseDialog({
                   min={0}
                   max={10}
                   value={answers[q.id] ?? ""}
-                  onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
+                  onChange={(e) =>
+                    setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                  }
                 />
               ) : q.question_type === "YES_NO" ? (
-                <Select value={answers[q.id] ?? ""} onValueChange={(v) => setAnswers((prev) => ({ ...prev, [q.id]: v ?? "" }))}>
-                  <SelectTrigger><SelectValue placeholder="Yes or no" /></SelectTrigger>
+                <Select
+                  value={answers[q.id] ?? ""}
+                  onValueChange={(v) =>
+                    setAnswers((prev) => ({ ...prev, [q.id]: v ?? "" }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Yes or no" />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Yes">Yes</SelectItem>
                     <SelectItem value="No">No</SelectItem>
                   </SelectContent>
                 </Select>
               ) : (
-                <Input value={answers[q.id] ?? ""} onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))} />
+                <Input
+                  value={answers[q.id] ?? ""}
+                  onChange={(e) =>
+                    setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
+                  }
+                />
               )}
             </div>
           ))}
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={submit} disabled={submitting || !pilgrimId.trim()}>{submitting ? "Saving…" : "Save response"}</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={submit} disabled={submitting || !pilgrimId.trim()}>
+            {submitting ? "Saving…" : "Save response"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

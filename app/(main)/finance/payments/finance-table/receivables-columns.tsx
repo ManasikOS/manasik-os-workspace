@@ -1,7 +1,12 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Wallet, MegaphoneIcon, ExternalLink } from "lucide-react";
+import {
+  MoreHorizontal,
+  Wallet,
+  MegaphoneIcon,
+  ExternalLink,
+} from "lucide-react";
 import React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -12,11 +17,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { DataTableSort } from "@/components/data-table/data-table";
-import { header, sortableHeader } from "@/components/data-table/sortable-header";
+import {
+  header,
+  sortableHeader,
+} from "@/components/data-table/sortable-header";
 import { PersonChip, ToneBadge } from "@/components/ui/tone-badge";
 
 import { RECEIVABLE_STATUS_LABELS } from "@/lib/data/finance-copy";
-import { deriveReceivableStatus, RECEIVABLE_STATUS_TONE } from "@/lib/data/finance";
+import {
+  deriveReceivableStatus,
+  RECEIVABLE_STATUS_TONE,
+} from "@/lib/data/finance";
 import type { FinanceReceivableRow } from "@/lib/types/finance";
 import { departureCountdown, formatDate, formatExactCurrency } from "../utils";
 import { TONE_TEXT } from "@/lib/ui/tone";
@@ -45,11 +56,20 @@ export function buildReceivableColumns(
   const columns: ColumnDef<FinanceReceivableRow>[] = [
     {
       id: "customer",
-      header: sortableHeader("Customer / Booking", "primary_contact_name", sort, onSortChange),
+      header: sortableHeader(
+        "Customer / Booking",
+        "primary_contact_name",
+        sort,
+        onSortChange,
+      ),
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium text-foreground">{row.original.primary_contact_name}</span>
-          <span className="text-[11px] text-muted-foreground font-number">{row.original.booking_reference}</span>
+          <span className="text-sm font-medium text-foreground">
+            {row.original.primary_contact_name}
+          </span>
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {row.original.booking_reference}
+          </span>
         </div>
       ),
     },
@@ -58,8 +78,12 @@ export function buildReceivableColumns(
       header: header("Departure Group"),
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm text-foreground">{row.original.group_name}</span>
-          <span className="text-[11px] text-muted-foreground">{departureCountdown(daysUntil(row.original.departure_date, nowIso))}</span>
+          <span className="text-sm text-foreground">
+            {row.original.group_name}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {departureCountdown(daysUntil(row.original.departure_date, nowIso))}
+          </span>
         </div>
       ),
     },
@@ -69,10 +93,18 @@ export function buildReceivableColumns(
     columns.push(
       {
         id: "totalValue",
-        header: sortableHeader("Total Value", "total_booking_value", sort, onSortChange),
+        header: sortableHeader(
+          "Total Value",
+          "total_booking_value",
+          sort,
+          onSortChange,
+        ),
         cell: ({ row }) => (
-          <span className="text-sm font-number text-foreground">
-            {formatExactCurrency(row.original.total_booking_value, row.original.currency)}
+          <span className="text-sm tabular-nums text-foreground">
+            {formatExactCurrency(
+              row.original.total_booking_value,
+              row.original.currency,
+            )}
           </span>
         ),
       },
@@ -80,19 +112,34 @@ export function buildReceivableColumns(
         id: "paid",
         header: header("Paid"),
         cell: ({ row }) => (
-          <span className={cn("text-sm font-number", TONE_TEXT.success)}>
-            {formatExactCurrency(row.original.amount_paid, row.original.currency)}
+          <span className={cn("text-sm tabular-nums", TONE_TEXT.success)}>
+            {formatExactCurrency(
+              row.original.amount_paid,
+              row.original.currency,
+            )}
           </span>
         ),
       },
       {
         id: "balance",
-        header: sortableHeader("Balance", "outstanding_balance", sort, onSortChange),
+        header: sortableHeader(
+          "Balance",
+          "outstanding_balance",
+          sort,
+          onSortChange,
+        ),
         cell: ({ row }) => (
           <span
-            className={row.original.outstanding_balance > 0 ? "text-sm font-number text-destructive" : "text-sm font-number text-muted-foreground"}
+            className={
+              row.original.outstanding_balance > 0
+                ? "text-sm tabular-nums text-destructive"
+                : "text-sm tabular-nums text-muted-foreground"
+            }
           >
-            {formatExactCurrency(row.original.outstanding_balance, row.original.currency)}
+            {formatExactCurrency(
+              row.original.outstanding_balance,
+              row.original.currency,
+            )}
           </span>
         ),
       },
@@ -101,13 +148,22 @@ export function buildReceivableColumns(
         header: header("Next Milestone"),
         cell: ({ row }) => {
           const r = row.original;
-          if (!r.next_milestone_id) return <span className="text-sm text-muted-foreground">—</span>;
-          const due = Math.max((r.next_milestone_amount ?? 0) - (r.next_milestone_paid ?? 0), 0);
+          if (!r.next_milestone_id)
+            return <span className="text-sm text-muted-foreground">—</span>;
+          const due = Math.max(
+            (r.next_milestone_amount ?? 0) - (r.next_milestone_paid ?? 0),
+            0,
+          );
           return (
             <div className="flex flex-col gap-0.5">
-              <span className="text-sm text-foreground">{r.next_milestone_label}</span>
-              <span className="text-[11px] text-muted-foreground font-number">
-                {formatExactCurrency(due, r.currency)} · {r.next_milestone_due_at ? formatDate(r.next_milestone_due_at) : "No due date"}
+              <span className="text-sm text-foreground">
+                {r.next_milestone_label}
+              </span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {formatExactCurrency(due, r.currency)} ·{" "}
+                {r.next_milestone_due_at
+                  ? formatDate(r.next_milestone_due_at)
+                  : "No due date"}
               </span>
             </div>
           );
@@ -122,7 +178,12 @@ export function buildReceivableColumns(
       header: header("Status"),
       cell: ({ row }) => {
         const status = deriveReceivableStatus(row.original, nowIso);
-        return <ToneBadge tone={RECEIVABLE_STATUS_TONE[status]} label={RECEIVABLE_STATUS_LABELS[status]} />;
+        return (
+          <ToneBadge
+            tone={RECEIVABLE_STATUS_TONE[status]}
+            label={RECEIVABLE_STATUS_LABELS[status]}
+          />
+        );
       },
     },
     {
@@ -134,10 +195,17 @@ export function buildReceivableColumns(
       id: "actions",
       header: header(""),
       cell: ({ row }) => {
-        const canAct = row.original.booking_status !== "CANCELLED" && (canRecordPayments || canSendReminders);
+        const canAct =
+          row.original.booking_status !== "CANCELLED" &&
+          (canRecordPayments || canSendReminders);
         if (!canAct) {
           return (
-            <Button variant="ghost" size="icon" onClick={() => actions.onOpenBooking(row.original)} aria-label="Open booking">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => actions.onOpenBooking(row.original)}
+              aria-label="Open booking"
+            >
               <ExternalLink />
             </Button>
           );
@@ -146,23 +214,33 @@ export function buildReceivableColumns(
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
-                <Button variant="ghost" size="icon" aria-label={`Actions for ${row.original.booking_reference}`}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Actions for ${row.original.booking_reference}`}
+                >
                   <MoreHorizontal />
                 </Button>
               }
             />
             <DropdownMenuContent align="end">
               {canRecordPayments && row.original.outstanding_balance > 0 && (
-                <DropdownMenuItem onClick={() => actions.onRecordPayment(row.original)}>
+                <DropdownMenuItem
+                  onClick={() => actions.onRecordPayment(row.original)}
+                >
                   <Wallet /> Record Payment
                 </DropdownMenuItem>
               )}
               {canSendReminders && (
-                <DropdownMenuItem onClick={() => actions.onSendReminder(row.original)}>
+                <DropdownMenuItem
+                  onClick={() => actions.onSendReminder(row.original)}
+                >
                   <MegaphoneIcon /> Send Reminder
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem onClick={() => actions.onOpenBooking(row.original)}>
+              <DropdownMenuItem
+                onClick={() => actions.onOpenBooking(row.original)}
+              >
                 <ExternalLink /> Open Booking
               </DropdownMenuItem>
             </DropdownMenuContent>

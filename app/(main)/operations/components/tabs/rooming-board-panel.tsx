@@ -19,7 +19,11 @@ import {
 import { KpiCard } from "@/components/data-table/kpi-card";
 import { EmptyState } from "@/app/(main)/departure-groups/components/status-badges";
 import { formatDate } from "@/app/(main)/departure-groups/utils";
-import type { AccommodationCity, CrossGroupRoomRow, RoomStatus } from "@/lib/data/hotels-repository";
+import type {
+  AccommodationCity,
+  CrossGroupRoomRow,
+  RoomStatus,
+} from "@/lib/data/hotels-repository";
 import type { Tone } from "@/lib/ui/tone";
 
 import {
@@ -63,7 +67,11 @@ const MODE_LABELS: Record<RoomingBoardMode, string> = {
  * Read-only: moving pilgrims between rooms is a per-group action on that
  * group's own Hotels tab, which each row links to.
  */
-export default function RoomingBoardPanel({ rooms }: { rooms: CrossGroupRoomRow[] }) {
+export default function RoomingBoardPanel({
+  rooms,
+}: {
+  rooms: CrossGroupRoomRow[];
+}) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<RoomingBoardMode>("PARTIAL");
@@ -85,7 +93,11 @@ export default function RoomingBoardPanel({ rooms }: { rooms: CrossGroupRoomRow[
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search hotel…" />
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search hotel…"
+        />
         <div className="flex flex-wrap gap-1.5">
           {(["PARTIAL", "MULTI_GROUP", "ALL"] as const).map((key) => (
             <Badge
@@ -109,21 +121,39 @@ export default function RoomingBoardPanel({ rooms }: { rooms: CrossGroupRoomRow[
       ) : (
         <div className="flex flex-col gap-4">
           {visibleClusters.map((cluster) => (
-            <Card key={cluster.key} className="p-0 overflow-x-auto no-scrollbar">
+            <Card
+              key={cluster.key}
+              className="p-0 overflow-x-auto no-scrollbar"
+            >
               <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
                 <div>
-                  <p className="text-sm font-medium text-foreground">{cluster.hotelName}</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {cluster.hotelName}
+                  </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {CITY_LABELS[cluster.city]} · {formatDate(cluster.checkInDate)} – {formatDate(cluster.checkOutDate)}
-                    {cluster.groupCount > 1 && ` · ${cluster.groupCount} groups`}
+                    {CITY_LABELS[cluster.city]} ·{" "}
+                    {formatDate(cluster.checkInDate)} –{" "}
+                    {formatDate(cluster.checkOutDate)}
+                    {cluster.groupCount > 1 &&
+                      ` · ${cluster.groupCount} groups`}
                   </p>
                 </div>
               </div>
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent border-none!">
-                    {["Group", "Room", "Type", "Occupancy", "Status", "Notes"].map((label) => (
-                      <TableHead key={label} className="h-9 px-3 text-xs font-medium text-muted-foreground">
+                    {[
+                      "Group",
+                      "Room",
+                      "Type",
+                      "Occupancy",
+                      "Status",
+                      "Notes",
+                    ].map((label) => (
+                      <TableHead
+                        key={label}
+                        className="h-9 px-3 text-xs font-medium text-muted-foreground"
+                      >
                         {label}
                       </TableHead>
                     ))}
@@ -134,20 +164,36 @@ export default function RoomingBoardPanel({ rooms }: { rooms: CrossGroupRoomRow[
                     <TableRow
                       key={room.id}
                       className="hover:bg-muted/40 cursor-pointer"
-                      onClick={() => router.push(`/departure-groups/${room.departureGroupId}?tab=hotels`)}
+                      onClick={() =>
+                        router.push(
+                          `/departure-groups/${room.departureGroupId}?tab=hotels`,
+                        )
+                      }
                     >
                       <TableCell className="px-3 py-3 text-xs text-foreground">
-                        {room.groupName} <span className="text-muted-foreground">· {room.groupCode}</span>
+                        {room.groupName}{" "}
+                        <span className="text-muted-foreground">
+                          · {room.groupCode}
+                        </span>
                       </TableCell>
-                      <TableCell className="px-3 py-3 text-xs font-number text-foreground">{room.roomNumber ?? "—"}</TableCell>
-                      <TableCell className="px-3 py-3 text-xs text-foreground">{room.roomType}</TableCell>
-                      <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                      <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
+                        {room.roomNumber ?? "—"}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-xs text-foreground">
+                        {room.roomType}
+                      </TableCell>
+                      <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                         {room.assignedPilgrimCount} / {room.occupancyCapacity}
                       </TableCell>
                       <TableCell className="px-3 py-3">
-                        <ToneBadge tone={ROOM_STATUS_TONE[room.status]} label={ROOM_STATUS_LABELS[room.status]} />
+                        <ToneBadge
+                          tone={ROOM_STATUS_TONE[room.status]}
+                          label={ROOM_STATUS_LABELS[room.status]}
+                        />
                       </TableCell>
-                      <TableCell className="px-3 py-3 text-xs text-muted-foreground">{room.notes ?? "—"}</TableCell>
+                      <TableCell className="px-3 py-3 text-xs text-muted-foreground">
+                        {room.notes ?? "—"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
