@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
+import BookingDetailDialog from "@/app/(main)/departure-groups/[groupId]/components/booking-detail/booking-detail-dialog";
 
 import PageHeader from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +73,14 @@ export default function BookingsListView({
   can,
 }: BookingsListViewProps) {
   const router = useRouter();
+  // `/bookings?booking=<id>` is how links from other screens (inbox, search,
+  // campaigns, finance) open a booking straight in the detail dialog.
+  const searchParams = useSearchParams();
+  const [openBookingId, setOpenBookingId] = useState<string | null>(searchParams.get("booking"));
+  const closeBookingDetail = () => {
+    setOpenBookingId(null);
+    if (searchParams.has("booking")) window.history.replaceState(null, "", "/bookings");
+  };
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<StatusFilter>("ALL");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -133,7 +143,7 @@ export default function BookingsListView({
           { title: "Sell", link: "#" },
           { title: "Bookings", link: "/bookings" },
         ]}
-        subTitle="Every booking across every departure group in one ledger. Bookings still live inside their group — open one to manage it."
+        subTitle="Every booking across every departure group in one ledger. Click a booking to see and manage it."
         action={
           can.addBookings && (
             <Button onClick={() => setPickerOpen(true)}>
@@ -219,7 +229,7 @@ export default function BookingsListView({
                 <TableRow
                   key={b.id}
                   className="hover:bg-muted/40 cursor-pointer"
-                  onClick={() => router.push(`/bookings/${b.id}`)}
+                  onClick={() => setOpenBookingId(b.id)}
                 >
                   <TableCell className="px-3 py-3 text-sm text-foreground">
                     <div className="flex items-center gap-1.5">
@@ -343,6 +353,7 @@ export default function BookingsListView({
           </div>
         </DialogContent>
       </Dialog>
+      <BookingDetailDialog bookingId={openBookingId} onClose={closeBookingDetail} />
     </div>
   );
 }

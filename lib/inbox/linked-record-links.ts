@@ -44,7 +44,7 @@ export function linkedRecordLinks(input: LinkedRecordInput): LinkedRecordLink[] 
     links.push({
       id: "OPEN_BOOKING",
       label: "Open booking",
-      href: bookingGroupId ? `/departure-groups/${bookingGroupId}/bookings/${bookingId}` : `/bookings/${bookingId}`,
+      href: `/bookings?booking=${bookingId}`,
       shortcutKey: "b",
     });
   }

@@ -15,7 +15,7 @@ import BookingsListView from "./components/bookings-list-view";
  * Cross-group bookings ledger. A booking is still a child of its departure
  * group — this page only reads across every group so a booking can be found
  * without knowing its group first. Every mutation still happens inside the
- * group's own screen at `/departure-groups/[groupId]/bookings/[bookingId]`.
+ * booking detail dialog, which this page opens for any booking.
  */
 export default async function BookingsPage() {
   const { role } = await getCurrentStaffRole();

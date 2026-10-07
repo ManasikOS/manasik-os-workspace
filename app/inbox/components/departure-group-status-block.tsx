@@ -64,7 +64,7 @@ export function DepartureGroupStatusBlock({
       {booking && (
         <dd>
           <a
-            href={`/bookings/${booking.id}`}
+            href={`/bookings?booking=${booking.id}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs font-medium text-primary underline-offset-4 hover:underline"

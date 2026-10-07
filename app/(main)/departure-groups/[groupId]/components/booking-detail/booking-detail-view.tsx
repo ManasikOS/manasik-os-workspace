@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 
-import PageHeader from "@/components/page-header";
 import {
   Tabs,
   TabsList,
@@ -26,7 +25,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -71,20 +74,20 @@ import {
   ProgressBar,
   SeatStatusBadge,
   VisaStatusBadge,
-} from "../../../../components/status-badges";
+} from "../../../components/status-badges";
 import {
   describeCharge,
   type ChargeDescriptionContext,
-} from "../../../../billing-description";
+} from "../../../billing-description";
 import BookingAiAnalysisTab from "./booking-ai-analysis-tab";
-import CancelBookingDialog from "../../../components/cancel-booking-dialog";
-import EditBookingDialog from "../../../components/edit-booking-dialog";
-import InvoicePreviewDialog from "../../../components/invoice-preview-dialog";
-import MoveBookingDialog from "../../../components/move-booking-dialog";
-import RecordPaymentDialog from "../../../components/record-payment-dialog";
+import CancelBookingDialog from "../cancel-booking-dialog";
+import EditBookingDialog from "../edit-booking-dialog";
+import InvoicePreviewDialog from "../invoice-preview-dialog";
+import MoveBookingDialog from "../move-booking-dialog";
+import RecordPaymentDialog from "../record-payment-dialog";
 import SendReminderDialog, {
   type ReminderKind,
-} from "../../../components/send-reminder-dialog";
+} from "../send-reminder-dialog";
 import type {
   DepartureGroupAccommodation,
   DepartureGroupBooking,
@@ -98,14 +101,14 @@ import type {
   PilgrimCharge,
   ServiceAddon,
   TravellerRelationship,
-} from "../../../../types";
+} from "../../../types";
 import {
   ROOM_TYPE_LABELS,
   formatDate,
   formatDateTime,
   formatExactCurrency,
   initialsOf,
-} from "../../../../utils";
+} from "../../../utils";
 
 import { setBookingCampaignAction } from "@/app/(main)/campaigns/actions";
 import type {
@@ -117,7 +120,7 @@ import {
   addTravellerRelationshipAction,
   removeTravellerRelationshipAction,
   setBookingPayerAction,
-} from "../../../../actions";
+} from "../../../actions";
 import type { TravellerRelationshipType } from "@/lib/data/departure-groups-bookings";
 
 type BookingTabId =
@@ -181,6 +184,8 @@ function Fact({
 }
 
 interface BookingDetailViewProps {
+  /** Called after anything inside the dialog changes the booking, so the dialog can reload it. */
+  onChanged: () => void;
   booking: DepartureGroupBooking;
   travellers: DepartureGroupManifestRow[];
   group: DepartureGroupListItem;
@@ -200,10 +205,9 @@ interface BookingDetailViewProps {
 }
 
 /**
- * The booking's in-depth screen. Reuses every dialog the Pilgrims & Bookings
- * tab already uses for mutations (edit, move, cancel, record payment, send
- * reminder, generate invoice) — this page only adds a permanent, linkable
- * home for the read view that used to be a dialog.
+ * The booking's focused dialog view. Reuses every dialog the Pilgrims &
+ * Bookings tab already uses for mutations while keeping the booking identity,
+ * actions and section navigation visible as detail content scrolls.
  */
 export default function BookingDetailView({
   booking,
@@ -222,6 +226,7 @@ export default function BookingDetailView({
   campaignAttribution,
   campaignOptions,
   travellerRelationships,
+  onChanged,
 }: BookingDetailViewProps) {
   const router = useRouter();
   const can = useDepartureCapabilities(role);
@@ -262,6 +267,7 @@ export default function BookingDetailView({
       return;
     }
     toast.add({ title: "Payer updated" });
+    onChanged();
   };
 
   const openRelationshipDialog = () => {
@@ -293,6 +299,7 @@ export default function BookingDetailView({
       return;
     }
     toast.add({ title: "Relationship recorded" });
+    onChanged();
     setRelationshipOpen(false);
   };
 
@@ -306,6 +313,7 @@ export default function BookingDetailView({
       toast.add({ title: result.error ?? "Could not remove the relationship" });
       return;
     }
+    onChanged();
   };
 
   const saveAttribution = async (
@@ -380,37 +388,44 @@ export default function BookingDetailView({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title={`Booking ${booking.bookingReference}`}
-        breadcrumb={[
-          { title: "Departure Groups", link: "/departure-groups" },
-          { title: group.groupName, link: `/departure-groups/${group.id}` },
-          {
-            title: "Pilgrims & Bookings",
-            link: `/departure-groups/${group.id}?tab=pilgrims`,
-          },
-          { title: booking.bookingReference, link: "#" },
-        ]}
-        subTitle={
-          <span className="flex flex-wrap items-center gap-2">
-            <BookingStatusBadge value={booking.bookingStatus} />
-            {isOverdue && (
-              <Badge variant="destructive" className="gap-1">
-                <TriangleAlert className="size-3" /> Overdue
-              </Badge>
-            )}
-            <span>
-              {booking.travellerCount} traveller
-              {booking.travellerCount === 1 ? "" : "s"} ·{" "}
-              {ROOM_TYPE_LABELS[booking.roomOccupancyPreference]} occupancy
-            </span>
-          </span>
-        }
-        action={
-          <div className="flex items-center gap-2">
+    <div className="flex h-full min-h-0 flex-col">
+      <DialogHeader className="shrink-0 border-b border-border/40 px-4 py-4 pr-12 sm:px-6 sm:py-5 sm:pr-14">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+              {initialsOf(booking.primaryContactName)}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <DialogTitle>Booking {booking.bookingReference}</DialogTitle>
+                <BookingStatusBadge value={booking.bookingStatus} />
+                {isOverdue && (
+                  <Badge variant="destructive" className="gap-1">
+                    <TriangleAlert className="size-3" /> Overdue
+                  </Badge>
+                )}
+              </div>
+              <DialogDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                <span className="font-medium text-foreground">
+                  {booking.primaryContactName}
+                </span>
+                <span aria-hidden="true">·</span>
+                <span className="inline-flex items-center gap-1 tabular-nums">
+                  <Phone className="size-3" />
+                  {booking.primaryContactPhone}
+                </span>
+              </DialogDescription>
+              <p className="mt-1 truncate text-xs text-muted-foreground">
+                {group.groupName} · {booking.travellerCount} traveller
+                {booking.travellerCount === 1 ? "" : "s"} ·{" "}
+                {ROOM_TYPE_LABELS[booking.roomOccupancyPreference]} occupancy
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
             {can.recordPayments && booking.outstandingBalance > 0 && (
               <Button
+                size="sm"
                 variant="outline_without_border"
                 onClick={() => setPaymentOpen(true)}
               >
@@ -457,38 +472,25 @@ export default function BookingDetailView({
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        }
-      />
+        </div>
+      </DialogHeader>
 
-      {/* Primary contact */}
-      <div className="flex items-center gap-3">
-        <div className="size-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0">
-          {initialsOf(booking.primaryContactName)}
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">
-            {booking.primaryContactName}
-          </p>
-          <p className="text-xs text-muted-foreground tabular-nums flex items-center gap-1.5">
-            <Phone className="size-3" />
-            {booking.primaryContactPhone}
-          </p>
-        </div>
+      <div className="shrink-0 overflow-x-auto border-b border-border/40 px-4 no-scrollbar sm:px-6">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as BookingTabId)}>
+          <TabsList className="min-w-max">
+            {tabs.map((id) => (
+              <TabsTrigger key={id} value={id}>
+                {TAB_LABELS[id]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as BookingTabId)}>
-        <TabsList>
-          {tabs.map((id) => (
-            <TabsTrigger key={id} value={id}>
-              {TAB_LABELS[id]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      {tab === "overview" && (
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+        {tab === "overview" && (
         <div className="flex flex-col gap-4">
-          <div className="grid p-1 grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-4 rounded-md border border-border/40 p-4 sm:grid-cols-4">
             <Fact label="Travellers" value={booking.travellerCount} mono />
             <Fact
               label="Room occupancy"
@@ -511,7 +513,7 @@ export default function BookingDetailView({
           </div>
 
           {can.viewFinance && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <KpiCard
                 title="Total booking value"
                 value={formatExactCurrency(booking.totalBookingValue, currency)}
@@ -544,7 +546,8 @@ export default function BookingDetailView({
             </div>
           )}
 
-          <Card className="p-4 flex flex-col gap-3 max-w-md">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="flex flex-col gap-3 p-4">
             <p className="text-sm font-medium text-foreground">
               Campaign attribution
             </p>
@@ -609,9 +612,9 @@ export default function BookingDetailView({
                 )?.name ?? "No campaign attributed"}
               </p>
             )}
-          </Card>
+            </Card>
 
-          <Card className="p-4 flex flex-col gap-3 max-w-md">
+            <Card className="flex flex-col gap-3 p-4">
             <p className="text-sm font-medium text-foreground">Payer</p>
             <p className="text-xs text-muted-foreground">
               Who is actually settling this booking, if different from the
@@ -619,27 +622,23 @@ export default function BookingDetailView({
             </p>
             {can.addBookings ? (
               <>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Name
-                  </label>
-                  <Input
+                <InputGroup>
+                  <InputGroupAddon align="block-start">Name</InputGroupAddon>
+                  <InputGroupInput
                     value={payerName}
                     onChange={(e) => setPayerName(e.target.value)}
                     placeholder={booking.primaryContactName}
                   />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    Email
-                  </label>
-                  <Input
+                </InputGroup>
+                <InputGroup>
+                  <InputGroupAddon align="block-start">Email</InputGroupAddon>
+                  <InputGroupInput
                     type="email"
                     value={payerEmail}
                     onChange={(e) => setPayerEmail(e.target.value)}
                     placeholder="payer@example.com"
                   />
-                </div>
+                </InputGroup>
                 <Button
                   size="sm"
                   variant="outline_without_border"
@@ -659,7 +658,8 @@ export default function BookingDetailView({
                 {booking.payerName ?? "Same as primary contact"}
               </p>
             )}
-          </Card>
+            </Card>
+          </div>
         </div>
       )}
 
@@ -1044,7 +1044,7 @@ export default function BookingDetailView({
         </Card>
       )}
 
-      {tab === "ai-analysis" && (
+        {tab === "ai-analysis" && (
         <BookingAiAnalysisTab
           bookingId={booking.id}
           outstandingBalance={booking.outstandingBalance}
@@ -1060,14 +1060,15 @@ export default function BookingDetailView({
             flightStatus: t.flightStatus,
           }))}
         />
-      )}
+        )}
+      </div>
 
       {/* Mutation dialogs — same components the Pilgrims & Bookings tab uses. */}
       <RecordPaymentDialog
         booking={booking}
         currency={currency}
         open={paymentOpen}
-        onClose={() => setPaymentOpen(false)}
+        onClose={() => { setPaymentOpen(false); onChanged(); }}
       />
 
       {can.editGroupDetails && (
@@ -1077,7 +1078,7 @@ export default function BookingDetailView({
           targets={moveTargets}
           role={role}
           open={moveOpen}
-          onClose={() => setMoveOpen(false)}
+          onClose={() => { setMoveOpen(false); onChanged(); }}
         />
       )}
 
@@ -1091,7 +1092,7 @@ export default function BookingDetailView({
           role={role}
           currency={currency}
           open={reminder !== null}
-          onClose={() => setReminder(null)}
+          onClose={() => { setReminder(null); onChanged(); }}
         />
       )}
 
@@ -1099,7 +1100,7 @@ export default function BookingDetailView({
         <EditBookingDialog
           booking={booking}
           open={editOpen}
-          onClose={() => setEditOpen(false)}
+          onClose={() => { setEditOpen(false); onChanged(); }}
         />
       )}
 
@@ -1110,7 +1111,7 @@ export default function BookingDetailView({
           role={role}
           currency={currency}
           open={cancelOpen}
-          onClose={() => setCancelOpen(false)}
+          onClose={() => { setCancelOpen(false); onChanged(); }}
         />
       )}
 
@@ -1226,7 +1227,7 @@ export default function BookingDetailView({
           role={role}
           currency={currency}
           open={invoiceOpen}
-          onClose={() => setInvoiceOpen(false)}
+          onClose={() => { setInvoiceOpen(false); onChanged(); }}
           accommodations={accommodations}
           flights={flights}
           transports={transports}

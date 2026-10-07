@@ -12,7 +12,7 @@ import { identifyBookingBlockers, type BookingBlockerTravellerInput } from "@/li
 import type { BookingInconsistency } from "@/lib/bookings/inconsistencies";
 import type { Tone } from "@/lib/ui/tone";
 
-import { analyzeBookingAction } from "../analysis-actions";
+import { analyzeBookingAction } from "./analysis-actions";
 
 const SEVERITY_TONE: Record<"CRITICAL" | "WARNING", Tone> = { CRITICAL: "danger", WARNING: "warning" };
 

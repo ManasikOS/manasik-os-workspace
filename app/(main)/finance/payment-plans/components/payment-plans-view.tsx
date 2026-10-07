@@ -228,7 +228,7 @@ export default function PaymentPlansView({
                   className="hover:bg-muted/40 cursor-pointer"
                   onClick={() =>
                     router.push(
-                      `/departure-groups/${m.departure_group_id}/bookings/${m.booking_id}`,
+                      `/bookings?booking=${m.booking_id}`,
                     )
                   }
                 >

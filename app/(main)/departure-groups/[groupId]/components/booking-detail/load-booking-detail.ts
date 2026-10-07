@@ -1,9 +1,6 @@
 /**
- * Shared loader behind the booking detail screen — extracted so
- * `/bookings/[bookingId]` (the canonical route, Phase 1 P1.5) and
- * `/departure-groups/[groupId]/bookings/[bookingId]` (unchanged) render
- * the exact same data through the exact same access checks, rather than
- * two copies that could quietly drift apart.
+ * Shared loader behind the booking detail dialog — it reads the booking, its
+ * group and the access checks for it in one place (see `booking-detail-actions.ts`).
  */
 
 import { notFound } from "next/navigation";

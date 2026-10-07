@@ -583,7 +583,7 @@ export default function CampaignDetailView({
                     className="hover:bg-muted/40 cursor-pointer"
                     onClick={() =>
                       router.push(
-                        `/departure-groups/${b.departureGroupId}/bookings/${b.id}`,
+                        `/bookings?booking=${b.id}`,
                       )
                     }
                   >

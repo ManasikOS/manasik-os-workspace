@@ -564,7 +564,8 @@ export async function setBookingCampaignAction(input: {
     return { ok: false, error: error instanceof Error ? error.message : "Could not update attribution." };
   }
 
-  revalidatePath(`/departure-groups/${input.groupId}/bookings/${input.bookingId}`);
+  revalidatePath(`/departure-groups/${input.groupId}`);
+  revalidatePath("/bookings");
   revalidateCampaigns(input.campaignId ?? undefined);
   return { ok: true };
 }

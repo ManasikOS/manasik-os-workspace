@@ -116,7 +116,7 @@ export async function searchEverythingForStaff(
             row.primary_contact_phone,
             String(row.booking_status).replace(/_/g, " ").toLowerCase(),
           ]),
-          href: `/bookings/${row.id}`,
+          href: `/bookings?booking=${row.id}`,
         }));
       })(),
       (async () => {

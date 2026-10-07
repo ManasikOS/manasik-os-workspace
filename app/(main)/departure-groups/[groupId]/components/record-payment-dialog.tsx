@@ -253,7 +253,10 @@ const RecordPaymentDialog = ({
               />
             </InputGroup>
 
-            <Card className="flex-row px-3 py-3 rounded-sm flex items-center justify-between text-sm">
+            <Card
+              variant="md-shadow"
+              className="flex-row px-3 py-3 rounded-sm flex items-center justify-between text-sm"
+            >
               <span className="text-muted-foreground">
                 Balance after this payment
               </span>

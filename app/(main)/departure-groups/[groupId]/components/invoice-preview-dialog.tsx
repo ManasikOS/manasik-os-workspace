@@ -252,7 +252,7 @@ const InvoicePreviewDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-2xl! max-h-[85vh] overflow-y-auto custom-scroll">
+      <DialogContent className="sm:max-w-xl! max-h-[85vh] overflow-y-auto custom-scroll">
         <DialogHeader>
           <DialogTitle>Generate Invoice</DialogTitle>
           <DialogDescription>
@@ -267,7 +267,10 @@ const InvoicePreviewDialog = ({
           </p>
         ) : (
           <div className="flex flex-col gap-3">
-            <Card className="p-3 min-h-fit flex flex-col divide-y divide-border/20">
+            <Card
+              variant="md-shadow"
+              className="px-3 py-1 min-h-fit flex flex-col divide-y divide-border/20"
+            >
               {lineItems.map((item, i) => (
                 <div
                   key={i}
@@ -343,11 +346,7 @@ const InvoicePreviewDialog = ({
                 disabled={isPending || !letterhead || lineItems.length === 0}
                 onClick={generate}
               >
-                {isPending ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <FileText />
-                )}
+                {isPending && <Loader2 className="animate-spin" />}
                 Generate &amp; Download
               </Button>
             )
