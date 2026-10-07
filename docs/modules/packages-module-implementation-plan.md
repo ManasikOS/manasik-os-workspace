@@ -13,25 +13,27 @@ These are the blocks the Packages screens must reuse rather than reinvent. Every
 already written, styled, dark-mode-correct, and accessible.
 
 ### 1.1 Page composition
-| Block | File | Notes |
-|---|---|---|
-| Page shell + breadcrumb + action slot | `components/page-header.tsx` | `PageHeader` |
-| KPI row (4-up) | `app/(main)/departure-groups/components/departure-groups-kpi-cards/` | `Card` + `text-4xl font-number` + caption |
-| Saved-view chip bar | `departure-groups-list.tsx:495-512` | `bg-card/60 backdrop-blur-md border-border/40` pill group |
-| Filter chips (`FilterSelect`) | `departure-groups-list.tsx:117-163` | dropdown chip, active state `bg-primary/10 text-primary` |
-| More/Fewer filters + `Clear N` | `departure-groups-list.tsx:578-596` | |
-| Table shell | `components/groups-table/groups-data-table.tsx` | search `InputGroup`, sticky header, rows-per-page, `startRow–endRow of N`, `resetPageToken`, `aria-sort` |
-| Column builder + sortable headers | `components/groups-table/groups-columns.tsx` | `sortableHeader()`, `GROUP_COLUMN_SORT_FIELDS`, capability-gated row menu |
-| Badges / progress / chips / empty | `components/status-badges.tsx` | `ToneBadge`, `ProgressBar`, `PersonChip`, `EmptyState`, `PermissionDenied` |
-| Tone tokens | `departure-groups/utils.ts` (`TONE_CLASS`, `TONE_BAR`, `percentTone`) | colour is never the only signal |
-| Create flow | `components/create-departure-group-sheet.tsx` | 2-step **Sheet**, not a 7-step wizard |
-| Confirm destructive | `components/confirm-action-dialog.tsx` | |
-| Secondary list in a sheet | `components/archived-groups-sheet.tsx` | |
-| Import dialog | `components/import-groups-dialog.tsx` | |
-| Export | `departure-groups/csv.ts`, `xlsx.ts` | `groupsToCsv`, `matrixToXlsx`, `timestampedFilename`, `downloadTextFile/BinaryFile` |
-| Detail shell | `[groupId]/components/departure-group-detail.tsx:540-551` | animate-ui `Tabs`, **only the active tab is mounted** |
+
+| Block                                 | File                                                                  | Notes                                                                                                    |
+| ------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Page shell + breadcrumb + action slot | `components/page-header.tsx`                                          | `PageHeader`                                                                                             |
+| KPI row (4-up)                        | `app/(main)/departure-groups/components/departure-groups-kpi-cards/`  | `Card` + `text-4xl tabular-nums` + caption                                                               |
+| Saved-view chip bar                   | `departure-groups-list.tsx:495-512`                                   | `bg-card/60 backdrop-blur-md border-border/40` pill group                                                |
+| Filter chips (`FilterSelect`)         | `departure-groups-list.tsx:117-163`                                   | dropdown chip, active state `bg-primary/10 text-primary`                                                 |
+| More/Fewer filters + `Clear N`        | `departure-groups-list.tsx:578-596`                                   |                                                                                                          |
+| Table shell                           | `components/groups-table/groups-data-table.tsx`                       | search `InputGroup`, sticky header, rows-per-page, `startRow–endRow of N`, `resetPageToken`, `aria-sort` |
+| Column builder + sortable headers     | `components/groups-table/groups-columns.tsx`                          | `sortableHeader()`, `GROUP_COLUMN_SORT_FIELDS`, capability-gated row menu                                |
+| Badges / progress / chips / empty     | `components/status-badges.tsx`                                        | `ToneBadge`, `ProgressBar`, `PersonChip`, `EmptyState`, `PermissionDenied`                               |
+| Tone tokens                           | `departure-groups/utils.ts` (`TONE_CLASS`, `TONE_BAR`, `percentTone`) | colour is never the only signal                                                                          |
+| Create flow                           | `components/create-departure-group-sheet.tsx`                         | 2-step **Sheet**, not a 7-step wizard                                                                    |
+| Confirm destructive                   | `components/confirm-action-dialog.tsx`                                |                                                                                                          |
+| Secondary list in a sheet             | `components/archived-groups-sheet.tsx`                                |                                                                                                          |
+| Import dialog                         | `components/import-groups-dialog.tsx`                                 |                                                                                                          |
+| Export                                | `departure-groups/csv.ts`, `xlsx.ts`                                  | `groupsToCsv`, `matrixToXlsx`, `timestampedFilename`, `downloadTextFile/BinaryFile`                      |
+| Detail shell                          | `[groupId]/components/departure-group-detail.tsx:540-551`             | animate-ui `Tabs`, **only the active tab is mounted**                                                    |
 
 ### 1.2 Non-UI patterns worth copying verbatim
+
 - **Capabilities**: `lib/access/departure-groups-access.ts` — pure functions over a role string,
   usable from Server and Client Components; the role is resolved once per request
   (`getCurrentStaffRole`) and threaded as a prop. Capabilities decide what is **fetched**, not just
@@ -121,7 +123,7 @@ silently clobber each other.
 
 ### 2.3 UX
 
-**F14 — There is no way to *look* at a package.** The card grid is the entire module. The only
+**F14 — There is no way to _look_ at a package.** The card grid is the entire module. The only
 "open" path is `openInWizard` (`packages-list.tsx:67`), which drops a user who wanted to check a
 price into a 7-step editing wizard. The card even carries `hover:cursor-pointer`
 (`packages-list.tsx:188`) with **no click handler** — a dead affordance.
@@ -175,6 +177,7 @@ outside the dead set.
 ## 3. Target architecture
 
 ### 3.1 Principles
+
 1. **The server decides what exists; the client decides what is emphasised.** Filtering, sorting and
    paging move into SQL and into `searchParams`. The client keeps only ephemeral UI state
    (open sheets, hovered rows).
@@ -253,39 +256,57 @@ Deleted in phase 0: the 12 dead files in §2.4.
 ```ts
 // lib/data/packages-repository.ts
 export interface PackageListQuery {
-  view: PackageSavedView;            // 'All' | 'Open for Sale' | 'My Drafts' | 'Featured' | 'Selling Now' | 'Needs Attention' | 'Archived'
-  q?: string;                        // title / internal_code / season
-  journeyType?: 'Umrah' | 'Hajj' | 'Early Registration';
-  category?: 'Economy' | 'Standard' | 'Premium' | 'VIP' | 'Custom';
+  view: PackageSavedView; // 'All' | 'Open for Sale' | 'My Drafts' | 'Featured' | 'Selling Now' | 'Needs Attention' | 'Archived'
+  q?: string; // title / internal_code / season
+  journeyType?: "Umrah" | "Hajj" | "Early Registration";
+  category?: "Economy" | "Standard" | "Premium" | "VIP" | "Custom";
   status?: PackageStatusRow;
   season?: string;
   branch?: string;
   visibility?: string;
   featured?: boolean;
-  sort: PackageSortField;            // updatedAt | title | priceFrom | duration | groups | completeness | status
-  dir: 'asc' | 'desc';
-  page: number;                      // 1-based
-  pageSize: number;                  // 10 | 20 | 50 | 100
+  sort: PackageSortField; // updatedAt | title | priceFrom | duration | groups | completeness | status
+  dir: "asc" | "desc";
+  page: number; // 1-based
+  pageSize: number; // 10 | 20 | 50 | 100
 }
 
 export interface PackageListItem {
-  id: string; code: string; title: string;
-  journeyType: string; category: string; season: string; branch: string;
-  status: PackageStatusRow; visibility: string; featured: boolean;
-  durationDays: number; durationNights: number; durationLabel: string;
-  itineraryDays: number;             // from the generated column, not the JSONB
+  id: string;
+  code: string;
+  title: string;
+  journeyType: string;
+  category: string;
+  season: string;
+  branch: string;
+  status: PackageStatusRow;
+  visibility: string;
+  featured: boolean;
+  durationDays: number;
+  durationNights: number;
+  durationLabel: string;
+  itineraryDays: number; // from the generated column, not the JSONB
   currency: string;
-  priceFrom: number | null; priceTo: number | null;
-  completeness: number;              // 0-100, steps 1-6 (see §3.5)
-  missingSteps: number[];            // drives "Primary gap" column
-  groupCount: number; liveGroupCount: number;
-  seatsBooked: number; seatsCapacity: number;
-  updatedAt: string; ownerName: string | null;
+  priceFrom: number | null;
+  priceTo: number | null;
+  completeness: number; // 0-100, steps 1-6 (see §3.5)
+  missingSteps: number[]; // drives "Primary gap" column
+  groupCount: number;
+  liveGroupCount: number;
+  seatsBooked: number;
+  seatsCapacity: number;
+  updatedAt: string;
+  ownerName: string | null;
   // Null unless capabilities.viewInternalFinance
   estimatedMarginPct: number | null;
 }
 
-export interface PackageListResult { items: PackageListItem[]; total: number; kpis: PackageListKpis; facets: PackageFacets }
+export interface PackageListResult {
+  items: PackageListItem[];
+  total: number;
+  kpis: PackageListKpis;
+  facets: PackageFacets;
+}
 ```
 
 `listPackages` issues **two** queries: the filtered/paged page of rows (joined against the usage
@@ -331,6 +352,7 @@ Follow-up (separate migration, flagged as a decision for the owner): tighten the
 `auth.jwt() -> 'user_metadata' ->> 'staff_role'`, matching §3.6.
 
 ### 3.5 Completeness score (the "readiness" analogue)
+
 Reuse the readiness metaphor from Departure Groups: `completeness = round(validSteps / 6 * 100)`,
 computed **server-side** with the shared per-step schemas in `lib/validations/packages.ts`, rendered
 with the existing `ProgressBar` + tone. `missingSteps` drives a "Primary gap" column mirroring
@@ -339,20 +361,20 @@ biggest UX gain, because today a half-finished draft is indistinguishable from a
 
 ### 3.6 Capabilities (`lib/access/packages-access.ts`)
 
-| | ADMIN | CEO | OPERATIONS | FINANCE | MARKETING | VISA | GUIDE |
-|---|---|---|---|---|---|---|---|
-| viewModule | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| createPackage | ✓ | — | ✓ | — | — | — | — |
-| editPackage | ✓ | — | ✓ | — | — | — | — |
-| editPricing | ✓ | — | ✓ | ✓ | — | — | — |
-| publishPackage | ✓ | — | ✓ | — | — | — | — |
-| duplicatePackage | ✓ | — | ✓ | — | ✓ (as draft) | — | — |
-| archiveOrRestore | ✓ | — | ✓ | — | — | — | — |
-| deletePackage | ✓ | — | — | — | — | — | — |
-| toggleFeatured | ✓ | — | ✓ | — | ✓ | — | — |
-| viewInternalFinance | ✓ | ✓ | — | ✓ | — | — | — |
-| exportCatalogue | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
-| createGroupFromPackage | ✓ | — | ✓ | — | — | — | — |
+|                        | ADMIN | CEO | OPERATIONS | FINANCE | MARKETING    | VISA | GUIDE |
+| ---------------------- | ----- | --- | ---------- | ------- | ------------ | ---- | ----- |
+| viewModule             | ✓     | ✓   | ✓          | ✓       | ✓            | ✓    | —     |
+| createPackage          | ✓     | —   | ✓          | —       | —            | —    | —     |
+| editPackage            | ✓     | —   | ✓          | —       | —            | —    | —     |
+| editPricing            | ✓     | —   | ✓          | ✓       | —            | —    | —     |
+| publishPackage         | ✓     | —   | ✓          | —       | —            | —    | —     |
+| duplicatePackage       | ✓     | —   | ✓          | —       | ✓ (as draft) | —    | —     |
+| archiveOrRestore       | ✓     | —   | ✓          | —       | —            | —    | —     |
+| deletePackage          | ✓     | —   | —          | —       | —            | —    | —     |
+| toggleFeatured         | ✓     | —   | ✓          | —       | ✓            | —    | —     |
+| viewInternalFinance    | ✓     | ✓   | —          | ✓       | —            | —    | —     |
+| exportCatalogue        | ✓     | ✓   | ✓          | ✓       | —            | ✓    | —     |
+| createGroupFromPackage | ✓     | —   | ✓          | —       | —            | —    | —     |
 
 `GUIDE` gets `notFound()` on the module, matching how Departure Groups hides what a role must not
 see instead of disabling it. Marketing sees only `Open for Sale` + its own drafts (enforced in the
@@ -368,38 +390,38 @@ Layout, top to bottom, all from §1 blocks:
 
 1. **PageHeader** — title "Packages", subtitle "The commercial catalogue behind every departure
    group.", breadcrumb Home → Packages. Action slot: `Create Package` (secondary, capability-gated) +
-   overflow `MoreVertical` menu with *Import Packages*, *Export ▸ Excel / CSV*, *View Archived
-   Packages (n)* — identical to `departure-groups-list.tsx:438-489`.
+   overflow `MoreVertical` menu with _Import Packages_, _Export ▸ Excel / CSV_, _View Archived
+   Packages (n)_ — identical to `departure-groups-list.tsx:438-489`.
 2. **KPI row** (`packages-kpi-cards/`, 4-up grid, server-computed over the filtered set):
-   - *Open for sale* — `n` · "of N packages in view"
-   - *Drafts in progress* — `n` · "oldest untouched for X days"
-   - *Live departure groups* — `n` · "running from these packages"
-   - *Seats sold* — `booked / capacity` · "`p`% occupancy across live groups"
+   - _Open for sale_ — `n` · "of N packages in view"
+   - _Drafts in progress_ — `n` · "oldest untouched for X days"
+   - _Live departure groups_ — `n` · "running from these packages"
+   - _Seats sold_ — `booked / capacity` · "`p`% occupancy across live groups"
 3. **Saved views** chip bar: `All Packages · Open for Sale · My Drafts · Featured · Selling Now ·
-   Needs Attention · Archived`. "Needs Attention" = published with no live group, or price validity
+Needs Attention · Archived`. "Needs Attention" = published with no live group, or price validity
    expired, or completeness < 100.
-4. **Filter row**: Journey, Category, Status, Season, Price band, Duration — then *More Filters* →
+4. **Filter row**: Journey, Category, Status, Season, Price band, Duration — then _More Filters_ →
    Branch, Visibility, Featured, Owner. `Clear n` when any is set.
 5. **Section line**: `<view name>` + `n Total` pill on the left, "Sorted by …" on the right.
 6. **View toggle** (table ⇄ cards) in the table toolbar, persisted in `?mode=`. Cards stay for
    catalogue browsing but are restyled onto `ToneBadge` and get a real click target.
 7. **Table** (`packages-data-table.tsx`, generic shell):
 
-   | Column | Content | Sortable |
-   |---|---|---|
-   | Package | title + `internal_code` badge + season line | ✓ |
-   | Journey | `ToneBadge` (Umrah / Hajj / Early Reg) | — |
-   | Duration | `12D / 11N` + `n` itinerary days | ✓ |
-   | Price from | `priceFrom` + range hint (`quad → single`) | ✓ |
-   | Status | status `ToneBadge` + visibility chip + ★ featured | ✓ |
-   | Groups | `liveGroupCount` + seats `ProgressBar` (`booked/capacity`) | ✓ |
-   | Completeness | `%` + tone bar + "Primary gap: Pricing" | ✓ |
-   | Updated | relative + owner `PersonChip` | ✓ |
-   | ⋯ | row menu | — |
+   | Column       | Content                                                    | Sortable |
+   | ------------ | ---------------------------------------------------------- | -------- |
+   | Package      | title + `internal_code` badge + season line                | ✓        |
+   | Journey      | `ToneBadge` (Umrah / Hajj / Early Reg)                     | —        |
+   | Duration     | `12D / 11N` + `n` itinerary days                           | ✓        |
+   | Price from   | `priceFrom` + range hint (`quad → single`)                 | ✓        |
+   | Status       | status `ToneBadge` + visibility chip + ★ featured          | ✓        |
+   | Groups       | `liveGroupCount` + seats `ProgressBar` (`booked/capacity`) | ✓        |
+   | Completeness | `%` + tone bar + "Primary gap: Pricing"                    | ✓        |
+   | Updated      | relative + owner `PersonChip`                              | ✓        |
+   | ⋯            | row menu                                                   | —        |
 
-   Row menu (capability-gated): *Open Package* · *Edit Details ▸ jump to step* · *Duplicate* ·
-   *Create Departure Group from this package* (deep-links `/departure-groups?create=1&template=<id>`) ·
-   *Publish / Unpublish* · *Feature / Unfeature* · *Archive* · *Delete* (admin, only when
+   Row menu (capability-gated): _Open Package_ · _Edit Details ▸ jump to step_ · _Duplicate_ ·
+   _Create Departure Group from this package_ (deep-links `/departure-groups?create=1&template=<id>`) ·
+   _Publish / Unpublish_ · _Feature / Unfeature_ · _Archive_ · _Delete_ (admin, only when
    `groupCount === 0`, otherwise shown disabled with the reason).
 
    Row click → `/packages/[packageId]`.
@@ -418,9 +440,9 @@ Tabs (animate-ui `Tabs`, **only the active tab mounted**, tab in `?tab=`):
 Requirements · Group Defaults · Departure Groups`.
 
 - Every tab is read-only and has an "Edit this section" button → `/packages/[id]/edit?step=n`.
-- *Pricing & Payments* hides the internal finance card unless `viewInternalFinance`; the data is not
+- _Pricing & Payments_ hides the internal finance card unless `viewInternalFinance`; the data is not
   fetched for other roles.
-- *Departure Groups* lists groups built from this package (from `package_usage` + a scoped query)
+- _Departure Groups_ lists groups built from this package (from `package_usage` + a scoped query)
   with occupancy and readiness — this is the tab that makes the catalogue actually useful, and it
   reuses the departure-group badge set directly.
 
@@ -483,7 +505,7 @@ export const useStepValidity = (step: number) => …
   `step-1-commercial-identity.tsx:100-119`) move into a `derive()` step inside `setField`, so they
   apply no matter which surface writes the field.
 
-*Alternative considered:* enabling React Compiler (`reactCompiler` in `next.config.ts`). It reduces
+_Alternative considered:_ enabling React Compiler (`reactCompiler` in `next.config.ts`). It reduces
 re-render cost but does not fix a single mutable object being the subscription unit, nor the 7
 parses per keystroke. It can be turned on later as an independent win.
 
@@ -503,6 +525,7 @@ parses per keystroke. It can be turned on later as an independent win.
 ### 5.3 Stepper fix (fixes F11)
 
 In `components/ui/stepper.tsx`:
+
 - Wrap the height callback in `useCallback` (or keep the setter identity by passing `setParentHeight`
   directly) and drop `children` from the `useLayoutEffect` deps — the ResizeObserver already reports
   content changes, so it should be created **once per mounted step**.
@@ -524,7 +547,8 @@ spinner and the table keeps the old rows until the new page arrives.
 
 Each phase is independently shippable and leaves `main` green.
 
-### Phase 0 — Cleanup & shared foundation *(no user-visible change)*
+### Phase 0 — Cleanup & shared foundation _(no user-visible change)_
+
 1. Delete the 12 dead files (§2.4); run `npm run lint` and `npx tsc --noEmit`.
 2. Move domain types → `lib/types/packages.ts`; re-point `lib/types/database.ts` (F6). Keep
    `create-package/types.ts` as a re-export for one release to avoid a wide diff.
@@ -537,6 +561,7 @@ Each phase is independently shippable and leaves `main` green.
    **Exit:** zero behaviour change in Departure Groups, verified by walking the list + detail tabs.
 
 ### Phase 1 — Data layer, access, migration
+
 6. `supabase/migrations/<ts>_packages_module_v2.sql` (§3.4).
 7. `lib/access/packages-access.ts` (§3.6) + `lib/validations/packages.ts` (merging `schemas.ts` and
    `server-schema.ts`, F7) + `toPackageFieldErrors`.
@@ -548,6 +573,7 @@ Each phase is independently shippable and leaves `main` green.
    compatibility adapter.
 
 ### Phase 2 — List screen
+
 10. `page.tsx` → searchParams-driven Server Component; add `loading.tsx` (KPI + table skeleton) and
     `error.tsx` (F8).
 11. `packages-kpi-cards/`, `packages-table/*`, `package-status-badges.tsx`, rewritten
@@ -559,6 +585,7 @@ Each phase is independently shippable and leaves `main` green.
     states, keyboard + `aria-sort`), and no `itinerary` in the RSC payload.
 
 ### Phase 3 — Lifecycle actions
+
 14. `actions.ts`: `archivePackageAction`, `restorePackageAction`, `duplicatePackageAction`,
     `publishPackageAction` (kept, plus redirect target), `unpublishPackageAction`,
     `setFeaturedAction`, and `deletePackageAction` rewritten to check `package_usage` first and
@@ -568,6 +595,7 @@ Each phase is independently shippable and leaves `main` green.
     **Exit:** deleting a used package explains itself; archive/restore round-trips.
 
 ### Phase 4 — Detail screen
+
 16. `/packages/[packageId]` route, `package-detail.tsx` shell, seven read-only tabs, `?tab=` handling,
     loading/error boundaries.
 17. "Departure Groups" tab; "Create Departure Group from this package" deep-link into the existing
@@ -576,6 +604,7 @@ Each phase is independently shippable and leaves `main` green.
     the wizard (F14).
 
 ### Phase 5 — Wizard rebuild
+
 18. Move `create-package/components/step-*` → `packages/wizard/steps/`; add `/packages/new` and
     `/packages/[packageId]/edit`; keep `/packages/create-package(?id=)` as a redirect for one release
     (F16, F20).
@@ -590,6 +619,7 @@ Each phase is independently shippable and leaves `main` green.
     **Exit:** perf budget in §7 met.
 
 ### Phase 6 — Polish & verification
+
 25. Dark-mode and responsive pass on every new surface (the KPI grid, filter row and table already
     have the right breakpoints — inherit, don't re-invent).
 26. Keyboard: row menus, sheet focus traps, `aria-sort`, `aria-live` on the save chip.
@@ -603,6 +633,7 @@ step 19 if the diff is large) · phase 6.
 ## 7. Acceptance criteria
 
 **Correctness**
+
 - No package data leaves the server that the acting role may not see; verified by fetching
   `/packages` as `FINANCE`, `MARKETING`, `VISA`, `GUIDE` and searching the RSC payload for
   `finance_estimate`.
@@ -613,6 +644,7 @@ step 19 if the diff is large) · phase 6.
 
 **Performance** (measured with the React Profiler and the Network panel on a seeded database of 200
 packages / 400 groups)
+
 - `/packages` RSC payload: **< 60 KB** for a 20-row page (today it is the full table including every
   itinerary).
 - `/packages` server query time: **< 120 ms** p95, two queries per request.
@@ -622,6 +654,7 @@ packages / 400 groups)
 - No ResizeObserver disconnect/reconnect during typing.
 
 **Consistency**
+
 - Every colour, badge, table, filter chip, sheet and dialog on the Packages screens resolves to a
   block in `components/` shared with Departure Groups — no bespoke Tailwind status colours remain in
   the packages folder.
@@ -631,15 +664,16 @@ packages / 400 groups)
 
 ## 8. Risks and decisions needed
 
-| Risk | Mitigation |
-|---|---|
-| Phase 0 extraction touches Departure Groups, the module that was just stabilised | Pure moves with no behaviour change; land alone; walk the full DG flow before merging |
-| Route rename `create-package` → `new` / `[id]/edit` breaks bookmarks and any deep link | Keep the old route as a redirect for one release; grep for `/packages/create-package` (currently `packages-list.tsx:68,117,174`) |
-| `package_usage` view + generated column need a migration on a live database | Both are additive and non-blocking; `itinerary_days` is `stored` and `jsonb_array_length` is immutable, so the rewrite is a one-off |
-| Wizard store conversion is 7 large files | Convert one step per PR behind the same public props shape; the store exposes `getState()` so a half-converted wizard still works |
-| RLS remains `using (true)` | Capability checks in Server Actions close the app-level hole now; tightening RLS is a separate, explicitly flagged migration |
+| Risk                                                                                   | Mitigation                                                                                                                          |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 0 extraction touches Departure Groups, the module that was just stabilised       | Pure moves with no behaviour change; land alone; walk the full DG flow before merging                                               |
+| Route rename `create-package` → `new` / `[id]/edit` breaks bookmarks and any deep link | Keep the old route as a redirect for one release; grep for `/packages/create-package` (currently `packages-list.tsx:68,117,174`)    |
+| `package_usage` view + generated column need a migration on a live database            | Both are additive and non-blocking; `itinerary_days` is `stored` and `jsonb_array_length` is immutable, so the rewrite is a one-off |
+| Wizard store conversion is 7 large files                                               | Convert one step per PR behind the same public props shape; the store exposes `getState()` so a half-converted wizard still works   |
+| RLS remains `using (true)`                                                             | Capability checks in Server Actions close the app-level hole now; tightening RLS is a separate, explicitly flagged migration        |
 
 **Decisions for you before phase 1:**
+
 1. **Guides and Packages** — plan assumes `GUIDE` has no access to the module at all. Confirm.
 2. **Marketing** — read-only on published packages + duplicate-to-draft, or no create at all?
 3. **Delete** — keep a hard delete for admins on unused packages, or make Archive the only terminal

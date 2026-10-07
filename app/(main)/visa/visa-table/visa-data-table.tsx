@@ -31,7 +31,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown, ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  X,
+} from "lucide-react";
 
 import type { VisaListItem } from "../types";
 import type { DataTableSort } from "@/components/data-table/data-table";
@@ -99,8 +105,12 @@ export function VisaDataTable({
   const startRow = totalRows === 0 ? 0 : pageIndex * pageSize + 1;
   const endRow = Math.min((pageIndex + 1) * pageSize, totalRows);
 
-  const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
-  const selectedItems = data.filter((item) => selectedIds.includes(item.journeyId));
+  const selectedIds = Object.keys(rowSelection).filter(
+    (id) => rowSelection[id],
+  );
+  const selectedItems = data.filter((item) =>
+    selectedIds.includes(item.journeyId),
+  );
   const clearSelection = () => setRowSelection({});
 
   return (
@@ -121,7 +131,13 @@ export function VisaDataTable({
             />
             {search && (
               <InputGroupAddon>
-                <Button variant="ghost" size="icon" className="size-6 p-0 hover:bg-muted text-muted-foreground" onClick={() => onSearchChange("")} aria-label="Clear search">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-6 p-0 hover:bg-muted text-muted-foreground"
+                  onClick={() => onSearchChange("")}
+                  aria-label="Clear search"
+                >
                   <X className="size-3.5" />
                 </Button>
               </InputGroupAddon>
@@ -133,29 +149,55 @@ export function VisaDataTable({
 
       {selectedItems.length > 0 && bulkBar && (
         <div className="flex flex-wrap items-center gap-2 px-4 py-2 bg-primary/5 border-b border-border/40">
-          <span className="text-xs font-semibold text-primary">{selectedItems.length} selected</span>
+          <span className="text-xs font-semibold text-primary">
+            {selectedItems.length} selected
+          </span>
           {bulkBar(selectedItems, clearSelection)}
-          <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={clearSelection}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto text-muted-foreground"
+            onClick={clearSelection}
+          >
             <X /> Clear
           </Button>
         </div>
       )}
 
-      <div className="overflow-auto no-scrollbar w-full" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      <div
+        className="overflow-auto no-scrollbar w-full"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
         <Table className="w-full text-left border-collapse">
           <TableHeader className="bg-card/70 sticky top-0 z-10 shadow-2xs border-b-transparent!">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="hover:bg-transparent border-none!">
+              <TableRow
+                key={headerGroup.id}
+                className="hover:bg-transparent border-none!"
+              >
                 {headerGroup.headers.map((tableHeader) => {
                   const sortField = sortFieldByColumnId[tableHeader.column.id];
                   const isSortedBy = !!sortField && sort.field === sortField;
                   return (
                     <TableHead
                       key={tableHeader.id}
-                      aria-sort={!sortField ? undefined : isSortedBy ? (sort.direction === "asc" ? "ascending" : "descending") : "none"}
+                      aria-sort={
+                        !sortField
+                          ? undefined
+                          : isSortedBy
+                            ? sort.direction === "asc"
+                              ? "ascending"
+                              : "descending"
+                            : "none"
+                      }
                       className="h-11 px-4 text-xs font-medium tracking-tight text-muted-foreground whitespace-nowrap"
                     >
-                      {tableHeader.isPlaceholder ? null : flexRender(tableHeader.column.columnDef.header, tableHeader.getContext())}
+                      {tableHeader.isPlaceholder
+                        ? null
+                        : flexRender(
+                            tableHeader.column.columnDef.header,
+                            tableHeader.getContext(),
+                          )}
                     </TableHead>
                   );
                 })}
@@ -182,16 +224,28 @@ export function VisaDataTable({
                   }}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-4 py-5 align-middle whitespace-nowrap">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <TableCell
+                      key={cell.id}
+                      className="px-4 py-5 align-middle whitespace-nowrap"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
-                  {emptyMessage ?? (search ? `No results matching "${search}"` : "No results found.")}
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-32 text-center text-muted-foreground"
+                >
+                  {emptyMessage ??
+                    (search
+                      ? `No results matching "${search}"`
+                      : "No results found.")}
                 </TableCell>
               </TableRow>
             )}
@@ -201,26 +255,63 @@ export function VisaDataTable({
 
       <div className="flex items-center justify-end px-4 py-2.5 bg-muted/20 border-t border-border/40 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
-          {search && <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">Filtered</span>}
+          {search && (
+            <span className="text-[11px] bg-primary/10 text-primary px-2 py-0.5 rounded font-medium">
+              Filtered
+            </span>
+          )}
           <DropdownMenu>
-            <DropdownMenuTrigger className="mr-2" render={<Button variant="ghost">Rows {pageSize} <ChevronDown /></Button>} />
-            <DropdownMenuContent side="top" align="end" sideOffset={4} className="w-20 p-1 space-y-1">
+            <DropdownMenuTrigger
+              className="mr-2"
+              render={
+                <Button variant="ghost">
+                  Rows {pageSize} <ChevronDown />
+                </Button>
+              }
+            />
+            <DropdownMenuContent
+              side="top"
+              align="end"
+              sideOffset={4}
+              className="w-20 p-1 space-y-1"
+            >
               {[5, 10, 20, 50, 100].map((size) => (
-                <DropdownMenuItem key={size} onClick={() => setPagination({ pageIndex: 0, pageSize: size })}>
+                <DropdownMenuItem
+                  key={size}
+                  onClick={() =>
+                    setPagination({ pageIndex: 0, pageSize: size })
+                  }
+                >
                   {size}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="flex items-center justify-between sm:justify-end gap-3 text-sm">
-            <span className="font-medium text-foreground min-w-17.5 text-right font-number">
+            <span className="font-medium text-foreground min-w-17.5 text-right tabular-nums">
               {startRow}–{endRow} of {totalRows}
             </span>
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="bg-transparent! border-none!" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} title="Previous page" aria-label="Previous page">
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-transparent! border-none!"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                title="Previous page"
+                aria-label="Previous page"
+              >
                 <ChevronLeft className="size-4" />
               </Button>
-              <Button variant="outline" size="icon" className="bg-transparent! border-none!" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} title="Next page" aria-label="Next page">
+              <Button
+                variant="outline"
+                size="icon"
+                className="bg-transparent! border-none!"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                title="Next page"
+                aria-label="Next page"
+              >
                 <ChevronRight className="size-4" />
               </Button>
             </div>

@@ -57,12 +57,12 @@ RLS, and human approval controls remain authoritative.
 
 ### Primary users and outcomes
 
-| User | Needed outcome | Not granted by this spec |
-| --- | --- | --- |
-| Finance | Work a prioritised exception queue, collection queue, payable queue, and reconciliation workbench; take authorised actions. | Autonomous confirmation, approval, or fund movement. |
-| Admin | Review high-impact refunds/adjustments and manage the same operational queues. | A bypass of audit or RLS controls. |
-| CEO | See cash position, departure risk, margin, and exposure in read-only form. | Raw proof-review and write controls by default. |
-| Operations / Marketing | See payment readiness and finance blockers relevant to their work. | Balances, ledgers, supplier costs, margin, bank details, reconciliation, or Finance writes. |
+| User                   | Needed outcome                                                                                                              | Not granted by this spec                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Finance                | Work a prioritised exception queue, collection queue, payable queue, and reconciliation workbench; take authorised actions. | Autonomous confirmation, approval, or fund movement.                                        |
+| Admin                  | Review high-impact refunds/adjustments and manage the same operational queues.                                              | A bypass of audit or RLS controls.                                                          |
+| CEO                    | See cash position, departure risk, margin, and exposure in read-only form.                                                  | Raw proof-review and write controls by default.                                             |
+| Operations / Marketing | See payment readiness and finance blockers relevant to their work.                                                          | Balances, ledgers, supplier costs, margin, bank details, reconciliation, or Finance writes. |
 
 ## Capability map and delivery order
 
@@ -70,19 +70,19 @@ The reference document contains independently testable capabilities. They must
 not be built as one large Finance-page change. Module IDs below are stable for
 planning and PR selection.
 
-| Module ID | Responsibility | Depends on | Priority |
-| --- | --- | --- | --- |
-| `finance-navigation` | One canonical `/finance` workspace, typed URL state, local navigation, legacy redirects, and role-aware page composition. | Existing Finance capability matrix and workspace data. | P0 |
-| `finance-overview` | Deterministic overview metrics and a cross-finance exception queue with direct, authorised drill-through. | `finance-navigation`; existing receivables, payments, payables, refunds, reconciliation, and profitability reads. | P1 |
-| `finance-receivables` | Consolidated balances, payment activity, payment plans, invoices, and adjustments/refunds as one customer-obligation workflow. | `finance-navigation`; existing Finance workflows. | P0/P1 |
-| `finance-payables` | Supplier obligation, payment, commitment, and departure drill-through; commitment-versus-invoice controls where source data exists. | `finance-navigation`; supplier commitments and payments. | P1 |
-| `finance-reconciliation` | Evidence-rich, explainable candidate ranking and period-close workflow without auto-matching. | `finance-navigation`; existing bank transactions, matches, and periods. | P1 |
-| `departure-financial-safety` | Departure cash-safety, margin-risk, and break-even views based on deterministic cost/revenue data. | `finance-overview`; `departure_group_costing`; receivables/payables. | P1 |
-| `cash-forecast` | Rolling cash outlook and scenario view, separated by currency and backed by an explicit opening-balance source. | `finance-overview`, `finance-payables`, and a confirmed opening-balance/data-source decision. | P1, gated |
-| `collection-strategy` | Deterministic next-best collection action, approved reminder draft, and hand-off context. | `finance-receivables`; payment reminders; consent/channel policy; Inbox integration where used. | P1/P2 |
-| `refund-policy-impact` | Read-only policy eligibility and financial-impact assessment before the existing human decision workflow. | Refund workflow; approved, versioned policy snapshot decision. | P2, gated |
-| `departure-expenses` | Controlled non-supplier departure expense capture and allocation. | New data-model, accounting-owner, approval, and RLS decisions. | P2, separate approval |
-| `finance-copilot` | Evidence-backed explanation, prioritisation, drafting, and approved-scenario simulation. | The deterministic modules above and proposal/approval infrastructure. | P2 |
+| Module ID                    | Responsibility                                                                                                                      | Depends on                                                                                                        | Priority              |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------- |
+| `finance-navigation`         | One canonical `/finance` workspace, typed URL state, local navigation, legacy redirects, and role-aware page composition.           | Existing Finance capability matrix and workspace data.                                                            | P0                    |
+| `finance-overview`           | Deterministic overview metrics and a cross-finance exception queue with direct, authorised drill-through.                           | `finance-navigation`; existing receivables, payments, payables, refunds, reconciliation, and profitability reads. | P1                    |
+| `finance-receivables`        | Consolidated balances, payment activity, payment plans, invoices, and adjustments/refunds as one customer-obligation workflow.      | `finance-navigation`; existing Finance workflows.                                                                 | P0/P1                 |
+| `finance-payables`           | Supplier obligation, payment, commitment, and departure drill-through; commitment-versus-invoice controls where source data exists. | `finance-navigation`; supplier commitments and payments.                                                          | P1                    |
+| `finance-reconciliation`     | Evidence-rich, explainable candidate ranking and period-close workflow without auto-matching.                                       | `finance-navigation`; existing bank transactions, matches, and periods.                                           | P1                    |
+| `departure-financial-safety` | Departure cash-safety, margin-risk, and break-even views based on deterministic cost/revenue data.                                  | `finance-overview`; `departure_group_costing`; receivables/payables.                                              | P1                    |
+| `cash-forecast`              | Rolling cash outlook and scenario view, separated by currency and backed by an explicit opening-balance source.                     | `finance-overview`, `finance-payables`, and a confirmed opening-balance/data-source decision.                     | P1, gated             |
+| `collection-strategy`        | Deterministic next-best collection action, approved reminder draft, and hand-off context.                                           | `finance-receivables`; payment reminders; consent/channel policy; Inbox integration where used.                   | P1/P2                 |
+| `refund-policy-impact`       | Read-only policy eligibility and financial-impact assessment before the existing human decision workflow.                           | Refund workflow; approved, versioned policy snapshot decision.                                                    | P2, gated             |
+| `departure-expenses`         | Controlled non-supplier departure expense capture and allocation.                                                                   | New data-model, accounting-owner, approval, and RLS decisions.                                                    | P2, separate approval |
+| `finance-copilot`            | Evidence-backed explanation, prioritisation, drafting, and approved-scenario simulation.                                            | The deterministic modules above and proposal/approval infrastructure.                                             | P2                    |
 
 **Proposed build order:** `finance-navigation` -> `finance-receivables` ->
 `finance-overview` and `finance-payables` -> `finance-reconciliation` ->
@@ -216,11 +216,11 @@ or undo a bank match. It adds a clear evidence explanation for each suggested
 candidate: amount, reference, date distance, counterparty similarity, and any
 prior confirmed pattern. Confidence communicates review urgency, not truth:
 
-| Band | Behaviour |
-| --- | --- |
-| High | Prefill the candidate; authorised Finance staff must still explicitly confirm. |
-| Medium | Show ranked candidates; require explicit selection. |
-| Low | Keep the line unmatched; do not label a candidate as likely. |
+| Band   | Behaviour                                                                      |
+| ------ | ------------------------------------------------------------------------------ |
+| High   | Prefill the candidate; authorised Finance staff must still explicitly confirm. |
+| Medium | Show ranked candidates; require explicit selection.                            |
+| Low    | Keep the line unmatched; do not label a candidate as likely.                   |
 
 No fuzzy name match, OCR result, or AI output can automatically reconcile a
 bank line. Period close remains server-validated and audit-backed.
@@ -254,7 +254,7 @@ projected cash balance
 ```
 
 The UI distinguishes confirmed, expected, and uncommitted amounts; links
-every material line to evidence; and can show approved *what-if* scenarios
+every material line to evidence; and can show approved _what-if_ scenarios
 without changing financial records. It must never treat an unverified proof,
 open refund request, or unauthorised expense as confirmed cash movement.
 
@@ -295,14 +295,14 @@ capability-gated human workflow and produces an audit event.
 
 ### Data model decisions
 
-| Capability | Existing source | Potential new model | Decision needed before work |
-| --- | --- | --- | --- |
-| Overview / exception queue | Receivables, payments, payables, refunds, bank transactions, group costing | Prefer a `security_invoker` view or repository projection only. | Whether priority policy is configuration or fixed initial weights. |
-| Departure safety | `departure_group_costing`, bookings, milestones, commitments | Prefer a derived view/projection. | Exact definition of cash gap and treatment of incomplete costing. |
-| Cash forecast | Payments, milestones, approved refunds, supplier commitments/payments, reconciliation periods | Possibly a forecast-input/policy table, never a shadow ledger. | Opening cash source, horizon, and approved outflow classes. |
-| Supplier controls | Supplier commitments, supplier payments, existing invoices | New invoice-link model only if the current relationship cannot prove a control. | Ownership and lifecycle of supplier invoice data. |
-| Refund impact | Refund requests, package/booking cancellation terms | Versioned, immutable policy snapshot only if current booking snapshot is insufficient. | Authoritative policy source and exception/threshold rules. |
-| Departure expenses | None for non-supplier expenses | New tenant-scoped expense/allocation/attachment/audit models. | Separate module approval, categories, approvers, and accounting boundaries. |
+| Capability                 | Existing source                                                                               | Potential new model                                                                    | Decision needed before work                                                 |
+| -------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Overview / exception queue | Receivables, payments, payables, refunds, bank transactions, group costing                    | Prefer a `security_invoker` view or repository projection only.                        | Whether priority policy is configuration or fixed initial weights.          |
+| Departure safety           | `departure_group_costing`, bookings, milestones, commitments                                  | Prefer a derived view/projection.                                                      | Exact definition of cash gap and treatment of incomplete costing.           |
+| Cash forecast              | Payments, milestones, approved refunds, supplier commitments/payments, reconciliation periods | Possibly a forecast-input/policy table, never a shadow ledger.                         | Opening cash source, horizon, and approved outflow classes.                 |
+| Supplier controls          | Supplier commitments, supplier payments, existing invoices                                    | New invoice-link model only if the current relationship cannot prove a control.        | Ownership and lifecycle of supplier invoice data.                           |
+| Refund impact              | Refund requests, package/booking cancellation terms                                           | Versioned, immutable policy snapshot only if current booking snapshot is insufficient. | Authoritative policy source and exception/threshold rules.                  |
+| Departure expenses         | None for non-supplier expenses                                                                | New tenant-scoped expense/allocation/attachment/audit models.                          | Separate module approval, categories, approvers, and accounting boundaries. |
 
 Any new tenant-owned table must include `agency_id`, an index for its tenant
 access pattern, RLS in the same migration, and an agency-scoped policy using
@@ -317,13 +317,13 @@ must be added to `module-capability-keys.ts`, defaults, dynamic capability
 resolution, `finance-access.ts`, UI gating, Server Action checks, and the
 database policy or RPC boundary together. Do not hardcode role comparisons.
 
-| Capability area | Default audience | Constraint |
-| --- | --- | --- |
-| Financial overview, payables, P&L, cash forecast | Admin, Finance; CEO read-only | CEO does not receive write controls. |
-| Payment evidence and reconciliation workbench | Admin, Finance | Operations/Marketing never receive bank or proof details. |
-| Customer payment readiness | Existing Operations/Marketing scope | Redacted at repository boundary, not just hidden in the UI. |
-| Refund / adjustment approval | Admin until an approved role/capability decision changes it | Request, approve, and pay remain separately auditable. |
-| Copilot suggestions | Users authorised to view the underlying source data | Source redaction applies before prompts and responses. |
+| Capability area                                  | Default audience                                            | Constraint                                                  |
+| ------------------------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------- |
+| Financial overview, payables, P&L, cash forecast | Admin, Finance; CEO read-only                               | CEO does not receive write controls.                        |
+| Payment evidence and reconciliation workbench    | Admin, Finance                                              | Operations/Marketing never receive bank or proof details.   |
+| Customer payment readiness                       | Existing Operations/Marketing scope                         | Redacted at repository boundary, not just hidden in the UI. |
+| Refund / adjustment approval                     | Admin until an approved role/capability decision changes it | Request, approve, and pay remain separately auditable.      |
+| Copilot suggestions                              | Users authorised to view the underlying source data         | Source redaction applies before prompts and responses.      |
 
 ### Layering and server-entry rules
 
@@ -348,7 +348,7 @@ components never query Supabase directly.
 - Give `/finance` one Display title and one clear primary focal point. The
   overview should lead with actionable attention, not a wall of competing
   metrics.
-- Use tabular `font-number` figures and display currency per value/currency
+- Use tabular `tabular-nums` figures and display currency per value/currency
   group. Never sum or compare different currencies without an approved FX
   policy.
 - Status uses the existing semantic tone system with text/icons, not colour
@@ -371,16 +371,16 @@ npm run test
 npm run build
 ```
 
-| Location | Responsibility |
-| --- | --- |
-| `app/(main)/finance/**` | Finance routes, server components, UI, and actions. |
-| `lib/finance/**` | Pure deterministic finance calculations and their unit tests. |
-| `lib/data/finance-repository.ts`, `lib/data/*-repository.ts` | Agency-scoped Finance reads/writes and domain repositories. |
-| `lib/validations/finance.ts` | Finance Zod schemas at action boundaries. |
-| `lib/access/finance-access.ts` | Typed Finance capability checks. |
-| `supabase/migrations/**` | Schema, RLS, views, RPCs, and database invariants. |
-| `tests/finance/**` or colocated `*.test.ts` | Finance business-rule tests and reusable fixtures. |
-| `docs/modules/` | This living module specification and approved implementation plans. |
+| Location                                                     | Responsibility                                                      |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `app/(main)/finance/**`                                      | Finance routes, server components, UI, and actions.                 |
+| `lib/finance/**`                                             | Pure deterministic finance calculations and their unit tests.       |
+| `lib/data/finance-repository.ts`, `lib/data/*-repository.ts` | Agency-scoped Finance reads/writes and domain repositories.         |
+| `lib/validations/finance.ts`                                 | Finance Zod schemas at action boundaries.                           |
+| `lib/access/finance-access.ts`                               | Typed Finance capability checks.                                    |
+| `supabase/migrations/**`                                     | Schema, RLS, views, RPCs, and database invariants.                  |
+| `tests/finance/**` or colocated `*.test.ts`                  | Finance business-rule tests and reusable fixtures.                  |
+| `docs/modules/`                                              | This living module specification and approved implementation plans. |
 
 ## Code style
 
@@ -415,15 +415,15 @@ Vitest covers pure logic and business-rule branching. Live Supabase/RLS and
 browser checks remain manual verification until the project's test approach
 changes deliberately.
 
-| Area | Automated coverage | Manual verification |
-| --- | --- | --- |
-| URL navigation | Valid, malformed, repeated, inaccessible, and redacted view fallback. | Directly open deep links under each role. |
-| Exception priority | Deterministic rank, tie-break, missing-data, currency separation, and reason output. | Check queue drill-through and copy. |
-| Cash forecast | Opening-balance presence, confirmed/expected separation, no cross-currency total, and scenario non-mutation. | Reconcile a sample period to source records. |
-| Departure safety | Cash gap, margin/break-even edge cases, insufficient-data state, and no false healthy state. | Review an active departure with Finance/CEO permissions. |
-| Reconciliation | Candidate evidence, confidence policy, human-confirmation-only behavior, split residual invariant, and closed-period rejection. | Test confirmation/undo against a scoped test bank line. |
-| Collections / refund impact | Consent/policy gates, explanation evidence, no autonomous send/approval, and threshold edge cases. | Verify approved action routes and audit history. |
-| Access and data isolation | Capability branches and source-data redaction tests. | RLS/advisor check with cross-agency and role test users. |
+| Area                        | Automated coverage                                                                                                              | Manual verification                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| URL navigation              | Valid, malformed, repeated, inaccessible, and redacted view fallback.                                                           | Directly open deep links under each role.                |
+| Exception priority          | Deterministic rank, tie-break, missing-data, currency separation, and reason output.                                            | Check queue drill-through and copy.                      |
+| Cash forecast               | Opening-balance presence, confirmed/expected separation, no cross-currency total, and scenario non-mutation.                    | Reconcile a sample period to source records.             |
+| Departure safety            | Cash gap, margin/break-even edge cases, insufficient-data state, and no false healthy state.                                    | Review an active departure with Finance/CEO permissions. |
+| Reconciliation              | Candidate evidence, confidence policy, human-confirmation-only behavior, split residual invariant, and closed-period rejection. | Test confirmation/undo against a scoped test bank line.  |
+| Collections / refund impact | Consent/policy gates, explanation evidence, no autonomous send/approval, and threshold edge cases.                              | Verify approved action routes and audit history.         |
+| Access and data isolation   | Capability branches and source-data redaction tests.                                                                            | RLS/advisor check with cross-agency and role test users. |
 
 Before a PR, run `npm run lint`, `npm run typecheck`, and `npm run test`.
 For UI slices, manually verify the golden path, empty state, error state,

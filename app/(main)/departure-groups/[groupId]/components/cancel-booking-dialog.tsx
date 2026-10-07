@@ -13,9 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cancelBookingSchema } from "@/lib/validations/departure-groups";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
 import { Loader2, TriangleAlert } from "lucide-react";
@@ -182,7 +180,7 @@ const CancelBookingDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Cancel this booking?</DialogTitle>
           <DialogDescription>
@@ -227,12 +225,15 @@ const CancelBookingDialog = ({
             </ul>
 
             {can.viewFinance && collected > 0 && (
-              <Card className="flex flex-col gap-2 rounded-md border border-border/50 px-3 py-3">
+              <Card
+                variant="md-shadow"
+                className="flex flex-col gap-2 rounded-md border border-border/50 px-3 py-3"
+              >
                 <div className="flex items-center justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">
                     Collected on this booking
                   </span>
-                  <span className="font-number font-semibold text-foreground">
+                  <span className="tabular-nums font-semibold text-foreground">
                     {formatExactCurrency(collected, currency)}
                   </span>
                 </div>
@@ -254,7 +255,7 @@ const CancelBookingDialog = ({
                             setRefund(event.target.value);
                             setError(null);
                           }}
-                          className="font-number"
+                          className="tabular-nums"
                         />
                       </InputGroup>
                       <div className="flex items-center gap-2">
@@ -310,35 +311,25 @@ const CancelBookingDialog = ({
               </InputGroup>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="confirm-booking-reference"
-                className="text-xs font-medium text-foreground"
-              >
-                Type{" "}
-                <span className="font-number">{booking?.bookingReference}</span>{" "}
-                to confirm
-              </label>
-              <InputGroup>
-                <InputGroupAddon align={"block-start"}>
-                  <InputGroupText>
-                    {" "}
-                    Type{" "}
-                    <span className="font-number">
-                      {booking?.bookingReference}
-                    </span>{" "}
-                    to confirm
-                  </InputGroupText>
-                </InputGroupAddon>
-                <InputGroupInput
-                  id="confirm-booking-reference"
-                  value={typedReference}
-                  onChange={(event) => setTypedReference(event.target.value)}
-                  placeholder={booking?.bookingReference}
-                  autoComplete="off"
-                />
-              </InputGroup>
-            </div>
+            <InputGroup>
+              <InputGroupAddon align={"block-start"}>
+                <InputGroupText>
+                  {" "}
+                  Type{" "}
+                  <span className="tabular-nums">
+                    {booking?.bookingReference}
+                  </span>{" "}
+                  to confirm
+                </InputGroupText>
+              </InputGroupAddon>
+              <InputGroupInput
+                id="confirm-booking-reference"
+                value={typedReference}
+                onChange={(event) => setTypedReference(event.target.value)}
+                placeholder={booking?.bookingReference}
+                autoComplete="off"
+              />
+            </InputGroup>
 
             {error && (
               <div className="flex items-start gap-2 rounded-sm bg-destructive/10 px-3 py-2 text-xs text-destructive">

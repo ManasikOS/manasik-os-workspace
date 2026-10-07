@@ -105,11 +105,11 @@ wrapper for form fields — this is the one accepted pattern across the app.
   lighter weight, muted color) — never two headline-sized numbers
   competing on the same card.
 - Numeric columns and KPI figures use tabular/mono figures
-  (`font-number` / Roboto Mono, per the design tokens) so digits align —
+  (`tabular-nums` / Roboto Mono, per the design tokens) so digits align —
   a column of right-aligned numbers that don't align vertically reads as
   sloppy immediately.
 - Size and weight carry importance; color carries state. Don't use a
-  bigger font *and* a louder color to say the same "this matters" twice.
+  bigger font _and_ a louder color to say the same "this matters" twice.
 
 ## 6. Color discipline
 

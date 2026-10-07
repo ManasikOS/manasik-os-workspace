@@ -27,7 +27,15 @@ import {
 } from "@/components/ui/table";
 import { EmptyState, ToneBadge } from "@/components/ui/tone-badge";
 import SectionHeading from "@/components/section-heading";
-import { AlertTriangle, Loader2, Search, Sparkles, Undo2, Upload, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Loader2,
+  Search,
+  Sparkles,
+  Undo2,
+  Upload,
+  X,
+} from "lucide-react";
 
 import {
   confirmReconciliationMatchAction,
@@ -41,15 +49,25 @@ import {
   suggestMatchesWithAiAction,
   undoReconciliationMatchAction,
 } from "../../actions";
-import type { BankTransactionRow, ReconciliationMatchRow } from "@/lib/data/reconciliation-repository";
-import { isReconciliationCandidatePrefillEligible, type MatchConfidence, type RankedCandidate } from "@/lib/finance/reconciliation-candidates";
+import type {
+  BankTransactionRow,
+  ReconciliationMatchRow,
+} from "@/lib/data/reconciliation-repository";
+import {
+  isReconciliationCandidatePrefillEligible,
+  type MatchConfidence,
+  type RankedCandidate,
+} from "@/lib/finance/reconciliation-candidates";
 import { TONE_TEXT } from "@/lib/ui/tone";
 import { useFinance } from "../../finance-store";
 import { formatDate, formatExactCurrency } from "../../utils";
 import PeriodClosePanel from "./period-close-panel";
 import ReconciliationCandidateEvidence from "../reconciliation-candidate-evidence";
 
-const CONFIDENCE_TONE: Record<MatchConfidence, "danger" | "warning" | "info" | "success" | "neutral"> = {
+const CONFIDENCE_TONE: Record<
+  MatchConfidence,
+  "danger" | "warning" | "info" | "success" | "neutral"
+> = {
   HIGH: "success",
   MEDIUM: "warning",
   LOW: "neutral",
@@ -76,18 +94,28 @@ export default function ReconciliationTab() {
   const [bankAccountLabel, setBankAccountLabel] = useState("Main");
   const [importing, setImporting] = useState(false);
 
-  const [matchTarget, setMatchTarget] = useState<BankTransactionRow | null>(null);
+  const [matchTarget, setMatchTarget] = useState<BankTransactionRow | null>(
+    null,
+  );
   const [candidates, setCandidates] = useState<RankedCandidate[] | null>(null);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
-  const [extractedPayerName, setExtractedPayerName] = useState<string | null>(null);
+  const [extractedPayerName, setExtractedPayerName] = useState<string | null>(
+    null,
+  );
   const [aiNote, setAiNote] = useState<string | null>(null);
-  const [prefilledCandidateKey, setPrefilledCandidateKey] = useState<string | null>(null);
+  const [prefilledCandidateKey, setPrefilledCandidateKey] = useState<
+    string | null
+  >(null);
 
   const [splitMode, setSplitMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectedAmounts, setSelectedAmounts] = useState<Record<string, string>>({});
-  const [residualType, setResidualType] = useState<"" | "UNALLOCATED_CREDIT" | "BANK_CHARGE">("");
+  const [selectedAmounts, setSelectedAmounts] = useState<
+    Record<string, string>
+  >({});
+  const [residualType, setResidualType] = useState<
+    "" | "UNALLOCATED_CREDIT" | "BANK_CHARGE"
+  >("");
   const [residualReason, setResidualReason] = useState("");
   const [submittingSplit, setSubmittingSplit] = useState(false);
 
@@ -115,23 +143,37 @@ export default function ReconciliationTab() {
   }, [can.viewReconciliation]);
 
   const unallocated = useMemo(
-    () => snapshot.payments.filter((p) => p.status === "COMPLETED" && p.allocated_amount < p.amount),
+    () =>
+      snapshot.payments.filter(
+        (p) => p.status === "COMPLETED" && p.allocated_amount < p.amount,
+      ),
     [snapshot.payments],
   );
-  const pendingVerification = snapshot.payments.filter((p) => p.status === "PENDING_VERIFICATION");
+  const pendingVerification = snapshot.payments.filter(
+    (p) => p.status === "PENDING_VERIFICATION",
+  );
 
   const doImport = async () => {
     setImporting(true);
-    const result = await importBankTransactionsAction({ bankAccountLabel, csv });
+    const result = await importBankTransactionsAction({
+      bankAccountLabel,
+      csv,
+    });
     setImporting(false);
     if (!result.ok) {
       toast.add({ title: result.error ?? "Could not import that statement" });
       return;
     }
     const notes: string[] = [];
-    if (result.skippedDuplicates && result.skippedDuplicates > 0) notes.push(`${result.skippedDuplicates} exact duplicate(s) skipped`);
-    if (result.flaggedPossibleDuplicates && result.flaggedPossibleDuplicates > 0)
-      notes.push(`${result.flaggedPossibleDuplicates} possible duplicate(s) flagged for review`);
+    if (result.skippedDuplicates && result.skippedDuplicates > 0)
+      notes.push(`${result.skippedDuplicates} exact duplicate(s) skipped`);
+    if (
+      result.flaggedPossibleDuplicates &&
+      result.flaggedPossibleDuplicates > 0
+    )
+      notes.push(
+        `${result.flaggedPossibleDuplicates} possible duplicate(s) flagged for review`,
+      );
     toast.add({
       title: `Imported ${result.imported ?? 0} line(s)`,
       description: notes.length > 0 ? notes.join(" · ") : result.error,
@@ -161,8 +203,12 @@ export default function ReconciliationTab() {
     }
     const rankedCandidates = result.candidates ?? [];
     setCandidates(rankedCandidates);
-    const prefilled = rankedCandidates.find(isReconciliationCandidatePrefillEligible);
-    setPrefilledCandidateKey(prefilled ? `${prefilled.type}:${prefilled.id}` : null);
+    const prefilled = rankedCandidates.find(
+      isReconciliationCandidatePrefillEligible,
+    );
+    setPrefilledCandidateKey(
+      prefilled ? `${prefilled.type}:${prefilled.id}` : null,
+    );
     setExtractedPayerName(result.extractedPayerName ?? null);
     setAiNote(result.aiNote ?? null);
   };
@@ -195,29 +241,47 @@ export default function ReconciliationTab() {
         next.delete(key);
       } else {
         next.add(key);
-        setSelectedAmounts((amounts) => ({ ...amounts, [key]: String(candidate.amount) }));
+        setSelectedAmounts((amounts) => ({
+          ...amounts,
+          [key]: String(candidate.amount),
+        }));
       }
       return next;
     });
   };
 
-  const selectedTotal = Array.from(selectedIds).reduce((sum, key) => sum + (Number(selectedAmounts[key]) || 0), 0);
-  const residualAmount = matchTarget ? Math.round((Math.abs(matchTarget.amount) - selectedTotal) * 100) / 100 : 0;
+  const selectedTotal = Array.from(selectedIds).reduce(
+    (sum, key) => sum + (Number(selectedAmounts[key]) || 0),
+    0,
+  );
+  const residualAmount = matchTarget
+    ? Math.round((Math.abs(matchTarget.amount) - selectedTotal) * 100) / 100
+    : 0;
 
   const submitSplit = async () => {
     if (!matchTarget || !candidates) return;
     const lines = Array.from(selectedIds).map((key) => {
-      const [type, id] = key.split(":") as ["PAYMENT" | "SUPPLIER_PAYMENT", string];
+      const [type, id] = key.split(":") as [
+        "PAYMENT" | "SUPPLIER_PAYMENT",
+        string,
+      ];
       const candidate = candidates.find((c) => c.type === type && c.id === id)!;
-      return { targetType: type, targetId: id, amount: Number(selectedAmounts[key]) || 0, label: candidate.label };
+      return {
+        targetType: type,
+        targetId: id,
+        amount: Number(selectedAmounts[key]) || 0,
+        label: candidate.label,
+      };
     });
     setSubmittingSplit(true);
     const result = await confirmSplitMatchAction({
       bankTransactionId: matchTarget.id,
       lines,
       residualAmount: residualAmount !== 0 ? residualAmount : undefined,
-      residualType: residualAmount !== 0 ? residualType || undefined : undefined,
-      residualReason: residualAmount !== 0 ? residualReason || undefined : undefined,
+      residualType:
+        residualAmount !== 0 ? residualType || undefined : undefined,
+      residualReason:
+        residualAmount !== 0 ? residualReason || undefined : undefined,
     });
     setSubmittingSplit(false);
     if (!result.ok) {
@@ -262,20 +326,33 @@ export default function ReconciliationTab() {
         <SectionHeading title="Payment queue" />
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
           <div>
-            <span className="text-xs text-muted-foreground block">Pending Verification</span>
-            <span className="font-number text-foreground text-lg">{pendingVerification.length}</span>
+            <span className="text-xs text-muted-foreground block">
+              Pending Verification
+            </span>
+            <span className="tabular-nums text-foreground text-lg">
+              {pendingVerification.length}
+            </span>
           </div>
           <div>
-            <span className="text-xs text-muted-foreground block">Unallocated Payments</span>
-            <span className="font-number text-foreground text-lg">{unallocated.length}</span>
+            <span className="text-xs text-muted-foreground block">
+              Unallocated Payments
+            </span>
+            <span className="tabular-nums text-foreground text-lg">
+              {unallocated.length}
+            </span>
           </div>
           <div>
-            <span className="text-xs text-muted-foreground block">Unmatched bank lines</span>
-            <span className="font-number text-foreground text-lg">{unmatched?.length ?? "—"}</span>
+            <span className="text-xs text-muted-foreground block">
+              Unmatched bank lines
+            </span>
+            <span className="tabular-nums text-foreground text-lg">
+              {unmatched?.length ?? "—"}
+            </span>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
-          Verify a payment from the Payments tab once its proof and reference number are checked.
+          Verify a payment from the Payments tab once its proof and reference
+          number are checked.
         </p>
       </Card>
 
@@ -295,8 +372,10 @@ export default function ReconciliationTab() {
             <Textarea
               value={csv}
               onChange={(e) => setCsv(e.target.value)}
-              placeholder={"date,description,reference,amount\n2026-09-01,Transfer from Jane Doe,TRX001,45000"}
-              className="min-h-28 font-number flex-1"
+              placeholder={
+                "date,description,reference,amount\n2026-09-01,Transfer from Jane Doe,TRX001,45000"
+              }
+              className="min-h-28 tabular-nums flex-1"
             />
           </div>
           <Button
@@ -316,48 +395,68 @@ export default function ReconciliationTab() {
         {loading ? (
           <p className="text-xs text-muted-foreground mt-3">Loading…</p>
         ) : !unmatched || unmatched.length === 0 ? (
-          <EmptyState title="Nothing to match" description="Every imported bank line has a counterparty." />
+          <EmptyState
+            title="Nothing to match"
+            description="Every imported bank line has a counterparty."
+          />
         ) : (
           <Card className="p-0 overflow-x-auto no-scrollbar mt-3">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-none!">
-                  {["Date", "Description", "Reference", "Amount", ""].map((label) => (
-                    <TableHead key={label} className="h-9 px-3 text-xs font-medium text-muted-foreground">
-                      {label}
-                    </TableHead>
-                  ))}
+                  {["Date", "Description", "Reference", "Amount", ""].map(
+                    (label) => (
+                      <TableHead
+                        key={label}
+                        className="h-9 px-3 text-xs font-medium text-muted-foreground"
+                      >
+                        {label}
+                      </TableHead>
+                    ),
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-border/20">
                 {unmatched.map((t) => (
                   <TableRow key={t.id} className="hover:bg-muted/40">
-                    <TableCell className="px-3 py-2.5 text-xs font-number text-muted-foreground">
+                    <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
                       {formatDate(t.statement_date)}
                     </TableCell>
                     <TableCell className="px-3 py-2.5 text-sm text-foreground">
                       {t.description}
                       {t.duplicate_of_id && (
-                        <span className={`ml-1.5 inline-flex items-center gap-1 text-[11px] ${TONE_TEXT.warning}`}>
-                          <AlertTriangle className="size-3" /> possible duplicate
+                        <span
+                          className={`ml-1.5 inline-flex items-center gap-1 text-[11px] ${TONE_TEXT.warning}`}
+                        >
+                          <AlertTriangle className="size-3" /> possible
+                          duplicate
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="px-3 py-2.5 text-xs font-number text-muted-foreground">
+                    <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
                       {t.reference ?? "—"}
                     </TableCell>
                     <TableCell
-                      className={`px-3 py-2.5 text-sm font-number ${t.amount < 0 ? "text-destructive" : "text-foreground"}`}
+                      className={`px-3 py-2.5 text-sm tabular-nums ${t.amount < 0 ? "text-destructive" : "text-foreground"}`}
                     >
                       {formatExactCurrency(t.amount, t.currency)}
                     </TableCell>
                     <TableCell className="px-3 py-2.5">
                       {can.manageReconciliation && (
                         <div className="flex items-center justify-end gap-1">
-                          <Button size="sm" variant="outline_without_border" onClick={() => openMatchDialog(t)}>
+                          <Button
+                            size="sm"
+                            variant="outline_without_border"
+                            onClick={() => openMatchDialog(t)}
+                          >
                             <Search /> Match
                           </Button>
-                          <Button size="icon" variant="ghost" aria-label="Ignore" onClick={() => ignore(t.id)}>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label="Ignore"
+                            onClick={() => ignore(t.id)}
+                          >
                             <X className="size-3.5" />
                           </Button>
                         </div>
@@ -379,7 +478,10 @@ export default function ReconciliationTab() {
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-none!">
                   {["Matched to", "Amount", "By", ""].map((label) => (
-                    <TableHead key={label} className="h-9 px-3 text-xs font-medium text-muted-foreground">
+                    <TableHead
+                      key={label}
+                      className="h-9 px-3 text-xs font-medium text-muted-foreground"
+                    >
                       {label}
                     </TableHead>
                   ))}
@@ -394,7 +496,7 @@ export default function ReconciliationTab() {
                         {m.matched_type === "PAYMENT" ? "Customer" : "Supplier"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="px-3 py-2.5 text-sm font-number text-foreground">
+                    <TableCell className="px-3 py-2.5 text-sm tabular-nums text-foreground">
                       {formatExactCurrency(m.matched_amount, "LKR")}
                     </TableCell>
                     <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">
@@ -402,7 +504,11 @@ export default function ReconciliationTab() {
                     </TableCell>
                     <TableCell className="px-3 py-2.5">
                       {can.manageReconciliation && (
-                        <Button size="sm" variant="ghost" onClick={() => undo(m.bank_transaction_id)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => undo(m.bank_transaction_id)}
+                        >
                           <Undo2 /> Undo
                         </Button>
                       )}
@@ -416,21 +522,33 @@ export default function ReconciliationTab() {
       )}
 
       {can.viewReconciliation && (
-        <PeriodClosePanel bankAccountLabel={bankAccountLabel} canManage={can.manageReconciliation} />
+        <PeriodClosePanel
+          bankAccountLabel={bankAccountLabel}
+          canManage={can.manageReconciliation}
+        />
       )}
 
       {ignored && ignored.length > 0 && (
         <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer">{ignored.length} ignored line(s)</summary>
+          <summary className="cursor-pointer">
+            {ignored.length} ignored line(s)
+          </summary>
           <div className="flex flex-col gap-1 mt-2">
             {ignored.map((t) => (
-              <div key={t.id} className="flex items-center justify-between gap-3 py-1">
+              <div
+                key={t.id}
+                className="flex items-center justify-between gap-3 py-1"
+              >
                 <span>
                   {formatDate(t.statement_date)} · {t.description} ·{" "}
                   {formatExactCurrency(t.amount, t.currency)}
                 </span>
                 {can.manageReconciliation && (
-                  <Button size="sm" variant="ghost" onClick={() => restore(t.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => restore(t.id)}
+                  >
                     Restore
                   </Button>
                 )}
@@ -440,7 +558,10 @@ export default function ReconciliationTab() {
         </details>
       )}
 
-      <Dialog open={matchTarget !== null} onOpenChange={(open) => !open && setMatchTarget(null)}>
+      <Dialog
+        open={matchTarget !== null}
+        onOpenChange={(open) => !open && setMatchTarget(null)}
+      >
         <DialogContent className="max-w-lg!">
           <DialogHeader>
             <DialogTitle>Match bank line</DialogTitle>
@@ -448,8 +569,11 @@ export default function ReconciliationTab() {
               {matchTarget && (
                 <>
                   {matchTarget.description} —{" "}
-                  {formatExactCurrency(matchTarget.amount, matchTarget.currency)} on{" "}
-                  {formatDate(matchTarget.statement_date)}
+                  {formatExactCurrency(
+                    matchTarget.amount,
+                    matchTarget.currency,
+                  )}{" "}
+                  on {formatDate(matchTarget.statement_date)}
                 </>
               )}
             </DialogDescription>
@@ -457,24 +581,34 @@ export default function ReconciliationTab() {
 
           {extractedPayerName && (
             <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Sparkles className="size-3 text-primary" /> Manasik Copilot read the narration as from &ldquo;{extractedPayerName}&rdquo;
-              — used only to score candidates below, never to decide a match.
+              <Sparkles className="size-3 text-primary" /> Manasik Copilot read
+              the narration as from &ldquo;{extractedPayerName}&rdquo; — used
+              only to score candidates below, never to decide a match.
             </p>
           )}
-          {aiNote && <p className="text-[11px] text-muted-foreground">{aiNote}</p>}
+          {aiNote && (
+            <p className="text-[11px] text-muted-foreground">{aiNote}</p>
+          )}
 
           {loadingCandidates ? (
-            <p className="text-sm text-muted-foreground py-4">Looking for candidates…</p>
+            <p className="text-sm text-muted-foreground py-4">
+              Looking for candidates…
+            </p>
           ) : !candidates || candidates.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">
-              No {matchTarget && matchTarget.amount > 0 ? "payment" : "supplier payment"} of a matching
-              amount was found within 10 days. Record or verify the payment first, then try again.
+              No{" "}
+              {matchTarget && matchTarget.amount > 0
+                ? "payment"
+                : "supplier payment"}{" "}
+              of a matching amount was found within 10 days. Record or verify
+              the payment first, then try again.
             </p>
           ) : (
             <>
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground">
-                  {candidates.length} candidate{candidates.length === 1 ? "" : "s"}, ranked by confidence.
+                  {candidates.length} candidate
+                  {candidates.length === 1 ? "" : "s"}, ranked by confidence.
                 </span>
                 {candidates.length > 1 && (
                   <button
@@ -490,37 +624,73 @@ export default function ReconciliationTab() {
                 {candidates.map((c) => {
                   const key = `${c.type}:${c.id}`;
                   return (
-                    <div key={key} className="flex items-center justify-between gap-3 py-2">
+                    <div
+                      key={key}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
                       {splitMode && (
-                        <Checkbox checked={selectedIds.has(key)} onCheckedChange={() => toggleSelected(c)} />
+                        <Checkbox
+                          checked={selectedIds.has(key)}
+                          onCheckedChange={() => toggleSelected(c)}
+                        />
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-foreground truncate">{c.label}</p>
+                        <p className="text-sm text-foreground truncate">
+                          {c.label}
+                        </p>
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-[11px] text-muted-foreground">{formatDate(c.date)}</p>
-                          <ToneBadge tone={CONFIDENCE_TONE[c.confidence]} label={c.confidence} />
-                          {prefilledCandidateKey === key && <ToneBadge tone="info" label="Prefilled for review" />}
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatDate(c.date)}
+                          </p>
+                          <ToneBadge
+                            tone={CONFIDENCE_TONE[c.confidence]}
+                            label={c.confidence}
+                          />
+                          {prefilledCandidateKey === key && (
+                            <ToneBadge
+                              tone="info"
+                              label="Prefilled for review"
+                            />
+                          )}
                         </div>
                         {c.rationale.length > 0 && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">{c.rationale.join(" · ")}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {c.rationale.join(" · ")}
+                          </p>
                         )}
-                        <ReconciliationCandidateEvidence candidate={c} currency={matchTarget?.currency ?? "LKR"} />
+                        <ReconciliationCandidateEvidence
+                          candidate={c}
+                          currency={matchTarget?.currency ?? "LKR"}
+                        />
                       </div>
                       {splitMode && selectedIds.has(key) ? (
                         <Input
                           type="number"
                           value={selectedAmounts[key] ?? ""}
-                          onChange={(e) => setSelectedAmounts((amounts) => ({ ...amounts, [key]: e.target.value }))}
-                          className="w-28 shrink-0 font-number"
+                          onChange={(e) =>
+                            setSelectedAmounts((amounts) => ({
+                              ...amounts,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          className="w-28 shrink-0 tabular-nums"
                         />
                       ) : (
                         <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-sm font-number text-foreground">
+                          <span className="text-sm tabular-nums text-foreground">
                             {formatExactCurrency(c.amount, "LKR")}
                           </span>
                           {!splitMode && (
-                            <Button size="sm" disabled={confirming === c.id} onClick={() => confirmCandidate(c)}>
-                              {confirming === c.id ? <Loader2 className="animate-spin" /> : "Confirm"}
+                            <Button
+                              size="sm"
+                              disabled={confirming === c.id}
+                              onClick={() => confirmCandidate(c)}
+                            >
+                              {confirming === c.id ? (
+                                <Loader2 className="animate-spin" />
+                              ) : (
+                                "Confirm"
+                              )}
                             </Button>
                           )}
                         </div>
@@ -533,22 +703,31 @@ export default function ReconciliationTab() {
               {splitMode && selectedIds.size > 0 && (
                 <div className="flex flex-col gap-2 rounded-md bg-muted/40 p-3">
                   <p className="text-xs text-foreground">
-                    Selected total: {formatExactCurrency(selectedTotal)} · Bank line:{" "}
-                    {matchTarget && formatExactCurrency(Math.abs(matchTarget.amount))}
+                    Selected total: {formatExactCurrency(selectedTotal)} · Bank
+                    line:{" "}
+                    {matchTarget &&
+                      formatExactCurrency(Math.abs(matchTarget.amount))}
                   </p>
                   {residualAmount !== 0 && (
                     <>
                       <p className="text-xs text-muted-foreground">
-                        Residual {formatExactCurrency(residualAmount)} needs a type and reason before confirming.
+                        Residual {formatExactCurrency(residualAmount)} needs a
+                        type and reason before confirming.
                       </p>
                       <div className="flex gap-2">
                         <select
                           className="text-xs border rounded-md px-2 py-1.5 bg-background"
                           value={residualType}
-                          onChange={(e) => setResidualType(e.target.value as typeof residualType)}
+                          onChange={(e) =>
+                            setResidualType(
+                              e.target.value as typeof residualType,
+                            )
+                          }
                         >
                           <option value="">Residual type…</option>
-                          <option value="UNALLOCATED_CREDIT">Unallocated credit</option>
+                          <option value="UNALLOCATED_CREDIT">
+                            Unallocated credit
+                          </option>
                           <option value="BANK_CHARGE">Bank charge</option>
                         </select>
                         <Input
@@ -565,7 +744,10 @@ export default function ReconciliationTab() {
             </>
           )}
           <DialogFooter>
-            <Button variant="outline_without_border" onClick={() => setMatchTarget(null)}>
+            <Button
+              variant="outline_without_border"
+              onClick={() => setMatchTarget(null)}
+            >
               Close
             </Button>
             {splitMode && (
@@ -574,10 +756,15 @@ export default function ReconciliationTab() {
                 disabled={
                   submittingSplit ||
                   selectedIds.size === 0 ||
-                  (residualAmount !== 0 && (!residualType || !residualReason.trim()))
+                  (residualAmount !== 0 &&
+                    (!residualType || !residualReason.trim()))
                 }
               >
-                {submittingSplit ? <Loader2 className="animate-spin" /> : `Confirm split (${selectedIds.size})`}
+                {submittingSplit ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  `Confirm split (${selectedIds.size})`
+                )}
               </Button>
             )}
           </DialogFooter>

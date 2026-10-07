@@ -17,7 +17,12 @@ interface GroupBoardProps {
  *  see at a glance which group needs immediate attention. */
 const GroupBoard = ({ boards, onOpenGroup }: GroupBoardProps) => {
   if (boards.length === 0) {
-    return <EmptyState title="No active groups" description="No departure groups have outstanding document requirements." />;
+    return (
+      <EmptyState
+        title="No active groups"
+        description="No departure groups have outstanding document requirements."
+      />
+    );
   }
 
   return (
@@ -26,21 +31,34 @@ const GroupBoard = ({ boards, onOpenGroup }: GroupBoardProps) => {
         <Card key={board.groupId} className="gap-3">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-semibold text-foreground">{board.groupName}</p>
+              <p className="text-sm font-semibold text-foreground">
+                {board.groupName}
+              </p>
               <p className="text-xs text-muted-foreground">
-                {board.pilgrimCount} pilgrims · {daysRemainingLabel(board.daysToDeparture)}
+                {board.pilgrimCount} pilgrims ·{" "}
+                {daysRemainingLabel(board.daysToDeparture)}
               </p>
             </div>
-            <span className="text-lg font-bold font-number text-foreground">{board.readinessPercent}%</span>
+            <span className="text-lg font-bold tabular-nums text-foreground">
+              {board.readinessPercent}%
+            </span>
           </div>
 
-          <ProgressBar percent={board.readinessPercent} tone={percentTone(board.readinessPercent)} />
+          <ProgressBar
+            percent={board.readinessPercent}
+            tone={percentTone(board.readinessPercent)}
+          />
 
           <div className="flex flex-col gap-1.5 mt-1">
             {board.byType.map((t) => (
-              <div key={t.documentType} className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{documentTypeLabel(t.documentType)}</span>
-                <span className="font-number text-foreground">
+              <div
+                key={t.documentType}
+                className="flex items-center justify-between text-xs"
+              >
+                <span className="text-muted-foreground">
+                  {documentTypeLabel(t.documentType)}
+                </span>
+                <span className="tabular-nums text-foreground">
                   {t.verified} / {t.total}
                 </span>
               </div>
@@ -57,7 +75,11 @@ const GroupBoard = ({ boards, onOpenGroup }: GroupBoardProps) => {
             </div>
           )}
 
-          <Button variant="outline_without_border" size="sm" onClick={() => onOpenGroup(board.groupId)}>
+          <Button
+            variant="outline_without_border"
+            size="sm"
+            onClick={() => onOpenGroup(board.groupId)}
+          >
             Open Group Document Queue
           </Button>
         </Card>

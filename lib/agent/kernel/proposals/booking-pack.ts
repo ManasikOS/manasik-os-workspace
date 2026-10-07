@@ -116,7 +116,7 @@ export async function loadBookingPack(subjectId: string, _agencyId: string, db: 
       type: "BOOKING",
       id: subjectId,
       label: `${bookingRow.booking_reference} (${bookingRow.primary_contact_name})`,
-      href: `/departure-groups/${bookingRow.departure_group_id}/bookings/${subjectId}`,
+      href: `/bookings?booking=${subjectId}`,
     },
     facts,
     fingerprint: hashObject(facts),

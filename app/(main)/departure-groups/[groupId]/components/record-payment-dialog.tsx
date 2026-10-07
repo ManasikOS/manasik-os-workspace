@@ -156,7 +156,7 @@ const RecordPaymentDialog = ({
           <span className="text-muted-foreground">Outstanding balance</span>
           <span
             className={cn(
-              "font-number  font-semibold",
+              "tabular-nums  font-semibold",
               outstanding > 0 ? "text-destructive" : TONE_TEXT.success,
             )}
           >
@@ -192,7 +192,7 @@ const RecordPaymentDialog = ({
                         setError(null);
                       }}
                       placeholder={String(outstanding)}
-                      className="font-number flex-6"
+                      className="tabular-nums flex-6"
                       autoFocus
                     />
                   </ButtonGroup>
@@ -253,11 +253,14 @@ const RecordPaymentDialog = ({
               />
             </InputGroup>
 
-            <Card className="flex-row px-3 py-3 rounded-sm flex items-center justify-between text-sm">
+            <Card
+              variant="md-shadow"
+              className="flex-row px-3 py-3 rounded-sm flex items-center justify-between text-sm"
+            >
               <span className="text-muted-foreground">
                 Balance after this payment
               </span>
-              <span className="font-number font-semibold text-foreground">
+              <span className="tabular-nums font-semibold text-foreground">
                 {formatExactCurrency(balanceAfter, currency)}
               </span>
             </Card>

@@ -17,9 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 import { capabilitiesForVault } from "@/lib/access/vault-access";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import {
   Archive,
   Ban,
@@ -124,11 +122,20 @@ const DepartureGroupDetailView = ({
   const handleCreateBrochure = useCallback(async () => {
     setIsGeneratingBrochure(true);
     try {
-      const result = await createDepartureGroupBrochureAction({ departureGroupId: group.id });
+      const result = await createDepartureGroupBrochureAction({
+        departureGroupId: group.id,
+      });
       if (result.ok) {
-        toast.add({ title: "Brochure generated", description: "Saved to the Document Vault, under Brochure — ready to send." });
+        toast.add({
+          title: "Brochure generated",
+          description:
+            "Saved to the Document Vault, under Brochure — ready to send.",
+        });
       } else {
-        toast.add({ title: "Could not generate the brochure", description: result.error });
+        toast.add({
+          title: "Could not generate the brochure",
+          description: result.error,
+        });
       }
     } finally {
       setIsGeneratingBrochure(false);
@@ -241,7 +248,10 @@ const DepartureGroupDetailView = ({
             onNavigate={goToTab}
             agentState={
               agentPanel.state
-                ? { lastRunAt: agentPanel.state.lastRunAt, nextRunAt: agentPanel.state.nextRunAt }
+                ? {
+                    lastRunAt: agentPanel.state.lastRunAt,
+                    nextRunAt: agentPanel.state.nextRunAt,
+                  }
                 : null
             }
           />
@@ -444,7 +454,10 @@ const DepartureGroupDetailView = ({
                         disabled={isGeneratingBrochure}
                         onClick={handleCreateBrochure}
                       >
-                        <FileText /> {isGeneratingBrochure ? "Generating Brochure…" : "Create Brochure (PDF)"}
+                        <FileText />{" "}
+                        {isGeneratingBrochure
+                          ? "Generating Brochure…"
+                          : "Create Brochure (PDF)"}
                       </DropdownMenuItem>
                     )}
                     {can.editGroupDetails && !isCancelled && (
@@ -574,20 +587,21 @@ const DepartureGroupDetailView = ({
               </span>
               <span className="flex items-center gap-1.5">
                 <Users className="size-3.5" />
-                <strong className="font-number text-foreground">
+                <strong className="tabular-nums text-foreground">
                   {group.bookedSeats}
                 </strong>{" "}
                 booked
                 {group.heldSeats > 0 && (
                   <>
                     {" "}
-                    · <span className="font-number">{group.heldSeats}</span> on
+                    · <span className="tabular-nums">{group.heldSeats}</span> on
                     hold
                   </>
                 )}{" "}
-                / <span className="font-number">{group.capacity}</span> capacity
+                / <span className="tabular-nums">{group.capacity}</span>{" "}
+                capacity
               </span>
-              <span className="font-number">
+              <span className="tabular-nums">
                 {group.availableSeats} seats available
               </span>
             </div>

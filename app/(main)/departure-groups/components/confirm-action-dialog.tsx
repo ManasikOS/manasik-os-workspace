@@ -167,7 +167,7 @@ const ConfirmActionDialogBody = ({
           <p className="font-medium text-foreground">
             {pending.group.groupName}
           </p>
-          <p className="text-muted-foreground font-number mt-0.5">
+          <p className="text-muted-foreground tabular-nums mt-0.5">
             {pending.group.groupCode} · {pending.group.bookedSeats} booked ·{" "}
             {pending.group.availableSeats} seats available
           </p>
@@ -197,7 +197,7 @@ const ConfirmActionDialogBody = ({
               className="text-xs font-medium text-foreground"
             >
               Type{" "}
-              <span className="font-number">{pending.group.groupCode}</span> to
+              <span className="tabular-nums">{pending.group.groupCode}</span> to
               confirm
             </label>
             <Input

@@ -115,7 +115,7 @@ export function buildLeadColumns(
               <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                 <Badge
                   variant="outline"
-                  className="text-muted-foreground text-[10px] font-number"
+                  className="text-muted-foreground text-[10px] tabular-nums"
                 >
                   {lead.reference}
                 </Badge>
@@ -287,7 +287,7 @@ export function buildLeadColumns(
           tone="success"
           icon={<TrendingUp className="size-3" />}
           label={formatCurrencyLKR(row.original.estimatedValueLkr)}
-          className="font-number"
+          className="tabular-nums"
         />
       ),
     },

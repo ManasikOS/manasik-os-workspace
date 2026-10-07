@@ -2,6 +2,11 @@
 
 import SectionHeading from "@/components/section-heading";
 import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/animate/tabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,9 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
@@ -409,7 +412,7 @@ const DocumentsVisaTab = ({
                     {booking.primaryContactPhone}
                   </p>
                 </div>
-                <span className="text-xs font-number text-muted-foreground shrink-0">
+                <span className="text-xs tabular-nums text-muted-foreground shrink-0">
                   {outstanding} outstanding
                 </span>
               </button>
@@ -424,7 +427,7 @@ const DocumentsVisaTab = ({
           act={
             <div className="flex flex-wrap items-center gap-2">
               {can.sendGroupCommunications && (
-                <Button variant="secondary" size="sm" onClick={openReminder}>
+                <Button variant="secondary" onClick={openReminder}>
                   <MegaphoneIcon /> Send Document Reminder
                 </Button>
               )}
@@ -432,14 +435,12 @@ const DocumentsVisaTab = ({
                 <>
                   <Button
                     variant="outline_without_border"
-                    size="sm"
                     onClick={() => setSubmittedDialogOpen(true)}
                   >
                     <Send /> Mark Application Submitted
                   </Button>
                   <Button
                     variant="outline_without_border"
-                    size="sm"
                     onClick={() => setUploadVisaOpen(true)}
                   >
                     <Upload /> Upload Visa
@@ -447,7 +448,7 @@ const DocumentsVisaTab = ({
                 </>
               )}
               {can.exportReports && (
-                <Button variant="ghost" size="sm" onClick={exportVisaBatch}>
+                <Button variant="ghost" onClick={exportVisaBatch}>
                   <Download /> Export Visa Batch
                 </Button>
               )}
@@ -460,7 +461,7 @@ const DocumentsVisaTab = ({
             <span className="text-xs text-muted-foreground">
               Documents complete
             </span>
-            <span className="text-sm font-number text-foreground">
+            <span className="text-sm tabular-nums text-foreground">
               {documentsComplete} / {manifest.length} pilgrims
             </span>
             <ProgressBar
@@ -473,7 +474,7 @@ const DocumentsVisaTab = ({
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-muted-foreground">Visas issued</span>
-            <span className="text-sm font-number text-foreground">
+            <span className="text-sm tabular-nums text-foreground">
               {visasApproved} / {manifest.length}
             </span>
             <ProgressBar
@@ -488,7 +489,7 @@ const DocumentsVisaTab = ({
             <span className="text-xs text-muted-foreground">
               Snapshot requirements
             </span>
-            <span className="text-sm font-number text-foreground">
+            <span className="text-sm tabular-nums text-foreground">
               {manifest.length === 0
                 ? "No pilgrims yet"
                 : mixedRequirements
@@ -503,25 +504,23 @@ const DocumentsVisaTab = ({
           </div>
         </div>
 
-        {/* Subtabs */}
-        <div
-          role="group"
-          aria-label="Filter document and visa requirements"
-          className="max-w-full overflow-x-auto no-scrollbar"
-        >
-        <Card className="flex w-max flex-row items-center px-1 py-1">
-          {SUBTABS.map((entry) => (
-            <Button
-              key={entry}
-              variant={subtab === entry ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setSubtab(entry)}
-              className={cn(subtab !== entry && "text-muted-foreground")}
+        <div className="max-w-full py-1 px-1 overflow-x-auto no-scrollbar">
+          <Tabs
+            value={subtab}
+            className=""
+            onValueChange={(next) => setSubtab(next as Subtab)}
+          >
+            <TabsList
+              aria-label="Filter document and visa requirements"
+              className="h-auto shadow-sm! w-max flex-nowrap justify-start"
             >
-              {entry}
-            </Button>
-          ))}
-        </Card>
+              {SUBTABS.map((entry) => (
+                <TabsTrigger key={entry} value={entry}>
+                  {entry}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
 
         {rows.length === 0 ? (
@@ -564,12 +563,12 @@ const DocumentsVisaTab = ({
                     <TableCell className="px-3 py-2.5 text-sm text-foreground">
                       {row.fullName}
                     </TableCell>
-                    <TableCell className="px-3 py-2.5 text-xs font-number text-muted-foreground">
+                    <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
                       {row.passportNumber ?? "Restricted"}
                     </TableCell>
                     <TableCell className="px-3 py-2.5">
                       <div className="flex flex-col gap-1 min-w-24">
-                        <span className="text-xs font-number text-foreground">
+                        <span className="text-xs tabular-nums text-foreground">
                           {row.documentsCompleted} / {row.documentsRequired}
                         </span>
                         <ProgressBar percent={row.documentCompletionPercent} />
@@ -581,10 +580,15 @@ const DocumentsVisaTab = ({
                     <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">
                       {formatDate(row.visaSubmittedAt)}
                     </TableCell>
-                    <TableCell className="px-3 py-2.5 text-xs font-number text-muted-foreground">
+                    <TableCell className="px-3 py-2.5 text-xs tabular-nums text-muted-foreground">
                       {row.visaId ?? "—"}
                     </TableCell>
-                    <TableCell className={cn("px-3 py-2.5 text-xs max-w-55 truncate", TONE_TEXT.warning)}>
+                    <TableCell
+                      className={cn(
+                        "px-3 py-2.5 text-xs max-w-55 truncate",
+                        TONE_TEXT.warning,
+                      )}
+                    >
                       {row.visaIssueNote ?? "—"}
                     </TableCell>
                     <TableCell className="px-3 py-2.5">
@@ -611,7 +615,9 @@ const DocumentsVisaTab = ({
                           (row.visaAiIssues?.length ?? 0) > 0 && (
                             <Badge
                               className={cn(TONE_CLASS.warning, "text-[10px]")}
-                              title={row.visaAiIssues!.map((i) => i.message).join(" · ")}
+                              title={row
+                                .visaAiIssues!.map((i) => i.message)
+                                .join(" · ")}
                             >
                               <AlertTriangle className="size-3" />{" "}
                               {row.visaAiIssues!.length}

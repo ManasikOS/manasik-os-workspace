@@ -14,7 +14,10 @@ import { useOperations } from "../../operations-store";
 import type { FlightRiskState, OperationsFlightItem } from "../../types";
 import { daysRemainingLabel, formatDateTime } from "../../utils";
 
-const RISK_TONE: Record<FlightRiskState, "success" | "warning" | "danger" | "info"> = {
+const RISK_TONE: Record<
+  FlightRiskState,
+  "success" | "warning" | "danger" | "info"
+> = {
   OK: "success",
   AT_RISK: "warning",
   OVERDUE: "danger",
@@ -62,7 +65,10 @@ const FlightsTab = () => {
   const search = useDeferredValue(searchInput);
 
   const filtered = useMemo(() => {
-    const byView = view === "ALL" ? snapshot.flights : snapshot.flights.filter((f) => f.riskState === view);
+    const byView =
+      view === "ALL"
+        ? snapshot.flights
+        : snapshot.flights.filter((f) => f.riskState === view);
     if (!search.trim()) return byView;
     const q = search.trim().toLowerCase();
     return byView.filter(
@@ -74,7 +80,11 @@ const FlightsTab = () => {
     );
   }, [snapshot.flights, view, search]);
 
-  const sorted = useMemo(() => [...filtered].sort((a, b) => a.daysUntilDeparture - b.daysUntilDeparture), [filtered]);
+  const sorted = useMemo(
+    () =>
+      [...filtered].sort((a, b) => a.daysUntilDeparture - b.daysUntilDeparture),
+    [filtered],
+  );
 
   const columns: ColumnDef<OperationsFlightItem>[] = [
     {
@@ -82,8 +92,12 @@ const FlightsTab = () => {
       header: header("Departure Group"),
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm font-medium text-foreground">{row.original.groupName}</span>
-          <span className="text-[11px] text-muted-foreground">{daysRemainingLabel(row.original.daysUntilDeparture)}</span>
+          <span className="text-sm font-medium text-foreground">
+            {row.original.groupName}
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            {daysRemainingLabel(row.original.daysUntilDeparture)}
+          </span>
         </div>
       ),
     },
@@ -91,8 +105,9 @@ const FlightsTab = () => {
       id: "route",
       header: header("Route"),
       cell: ({ row }) => (
-        <span className="text-sm text-foreground font-number">
-          {row.original.originAirportCode} → {row.original.destinationAirportCode}
+        <span className="text-sm text-foreground tabular-nums">
+          {row.original.originAirportCode} →{" "}
+          {row.original.destinationAirportCode}
         </span>
       ),
     },
@@ -101,21 +116,29 @@ const FlightsTab = () => {
       header: header("Airline"),
       cell: ({ row }) => (
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm text-foreground">{row.original.airline}</span>
-          <span className="text-[11px] text-muted-foreground font-number">{row.original.flightNumber ?? "—"}</span>
+          <span className="text-sm text-foreground">
+            {row.original.airline}
+          </span>
+          <span className="text-[11px] text-muted-foreground tabular-nums">
+            {row.original.flightNumber ?? "—"}
+          </span>
         </div>
       ),
     },
     {
       id: "pnr",
       header: header("PNR"),
-      cell: ({ row }) => <span className="text-sm text-foreground font-number">{row.original.pnr ?? "—"}</span>,
+      cell: ({ row }) => (
+        <span className="text-sm text-foreground tabular-nums">
+          {row.original.pnr ?? "—"}
+        </span>
+      ),
     },
     {
       id: "seats",
       header: header("Seats Held / Ticketed"),
       cell: ({ row }) => (
-        <span className="text-sm text-foreground font-number">
+        <span className="text-sm text-foreground tabular-nums">
           {row.original.seatsHeld} held / {row.original.seatsTicketed} ticketed
         </span>
       ),
@@ -123,27 +146,56 @@ const FlightsTab = () => {
     {
       id: "deadline",
       header: header("Ticketing Deadline"),
-      cell: ({ row }) => <span className="text-sm text-foreground">{formatDateTime(row.original.ticketingDeadline)}</span>,
+      cell: ({ row }) => (
+        <span className="text-sm text-foreground">
+          {formatDateTime(row.original.ticketingDeadline)}
+        </span>
+      ),
     },
     {
       id: "status",
       header: header("Status"),
-      cell: ({ row }) => <ToneBadge tone={RISK_TONE[row.original.riskState]} label={RISK_LABEL[row.original.riskState]} />,
+      cell: ({ row }) => (
+        <ToneBadge
+          tone={RISK_TONE[row.original.riskState]}
+          label={RISK_LABEL[row.original.riskState]}
+        />
+      ),
     },
     {
       id: "issue",
       header: header("Issue"),
-      cell: ({ row }) => <span className="text-xs text-muted-foreground max-w-56 block">{row.original.issueLabel ?? "—"}</span>,
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground max-w-56 block">
+          {row.original.issueLabel ?? "—"}
+        </span>
+      ),
     },
     {
       id: "actions",
       header: header(""),
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/flights-tickets/${row.original.id}`); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/flights-tickets/${row.original.id}`);
+            }}
+          >
             Manifest
           </Button>
-          <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); router.push(`/departure-groups/${row.original.groupId}?tab=flights`); }}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(
+                `/departure-groups/${row.original.groupId}?tab=flights`,
+              );
+            }}
+          >
             Open Flight
           </Button>
         </div>
@@ -154,7 +206,11 @@ const FlightsTab = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <SavedViewBar views={VIEW_LABELS} active={viewLabel} onChange={setViewLabel} />
+      <SavedViewBar
+        views={VIEW_LABELS}
+        active={viewLabel}
+        onChange={setViewLabel}
+      />
       <DataTable
         columns={columns}
         data={sorted}

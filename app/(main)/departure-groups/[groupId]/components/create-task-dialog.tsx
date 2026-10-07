@@ -219,7 +219,7 @@ const CreateTaskDialog = ({
                 type="datetime-local"
                 value={dueAt}
                 onChange={(event) => setDueAt(event.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </div>
           </div>

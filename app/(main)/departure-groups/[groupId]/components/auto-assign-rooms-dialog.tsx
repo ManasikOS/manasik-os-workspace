@@ -71,7 +71,8 @@ const AutoAssignRoomsDialog = ({
       !row.roomAssignments.some((a) => a.accommodationId === accommodation?.id),
   );
   const freeCapacity = (accommodation?.rooms ?? []).reduce(
-    (sum, room) => sum + Math.max(room.occupancyCapacity - room.assignedPilgrimCount, 0),
+    (sum, room) =>
+      sum + Math.max(room.occupancyCapacity - room.assignedPilgrimCount, 0),
     0,
   );
   const cityLabel = accommodation
@@ -128,17 +129,18 @@ const AutoAssignRoomsDialog = ({
 
         {unassigned.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Every pilgrim already has a room in {cityLabel || "this accommodation"}.
+            Every pilgrim already has a room in{" "}
+            {cityLabel || "this accommodation"}.
           </p>
         ) : (
           <div className="flex flex-col gap-3">
             <ul className="flex flex-col gap-1.5 text-[11px] text-muted-foreground">
               <li>
-                <strong className="font-number text-foreground">
+                <strong className="tabular-nums text-foreground">
                   {unassigned.length}
                 </strong>{" "}
                 pilgrim{unassigned.length === 1 ? "" : "s"} need a room here ·{" "}
-                <strong className="font-number text-foreground">
+                <strong className="tabular-nums text-foreground">
                   {freeCapacity}
                 </strong>{" "}
                 bed{freeCapacity === 1 ? "" : "s"} free.

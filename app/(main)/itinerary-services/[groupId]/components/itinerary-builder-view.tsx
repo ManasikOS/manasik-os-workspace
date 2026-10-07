@@ -109,7 +109,8 @@ export default function ItineraryBuilderView({
   const [dayDialogOpen, setDayDialogOpen] = useState(false);
   const [eventDialogDayId, setEventDialogDayId] = useState<string | null>(null);
   const [deleteDayId, setDeleteDayId] = useState<string | null>(null);
-  const [attendanceEvent, setAttendanceEvent] = useState<ItineraryEventRow | null>(null);
+  const [attendanceEvent, setAttendanceEvent] =
+    useState<ItineraryEventRow | null>(null);
 
   const eventsByDay = new Map<string, ItineraryEventRow[]>();
   for (const e of events) {
@@ -144,12 +145,22 @@ export default function ItineraryBuilderView({
         ]}
         subTitle={
           <span className="flex flex-wrap items-center gap-2">
-            <span>{group.groupCode} · Departs {formatDate(group.departureDate)}</span>
-            {itinerary && <ToneBadge tone={STATUS_TONE[itinerary.status]} label={itinerary.status} />}
+            <span>
+              {group.groupCode} · Departs {formatDate(group.departureDate)}
+            </span>
+            {itinerary && (
+              <ToneBadge
+                tone={STATUS_TONE[itinerary.status]}
+                label={itinerary.status}
+              />
+            )}
           </span>
         }
         action={
-          canManage && itinerary && itinerary.status === "DRAFT" && days.length > 0 ? (
+          canManage &&
+          itinerary &&
+          itinerary.status === "DRAFT" &&
+          days.length > 0 ? (
             <Button onClick={publish} disabled={isPending}>
               <UploadCloud /> Publish Itinerary
             </Button>
@@ -171,18 +182,33 @@ export default function ItineraryBuilderView({
                 <div>
                   <p className="text-sm font-medium text-foreground">
                     Day {day.dayNumber} · {CITY_LABELS[day.city]}
-                    {day.title && <span className="text-muted-foreground"> — {day.title}</span>}
+                    {day.title && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        — {day.title}
+                      </span>
+                    )}
                   </p>
                   {day.date && (
-                    <p className="text-[11px] text-muted-foreground font-number">{formatDate(day.date)}</p>
+                    <p className="text-[11px] text-muted-foreground tabular-nums">
+                      {formatDate(day.date)}
+                    </p>
                   )}
                 </div>
                 {canManage && (
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="ghost" onClick={() => setEventDialogDayId(day.id)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setEventDialogDayId(day.id)}
+                    >
                       <Plus /> Add Event
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setDeleteDayId(day.id)}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeleteDayId(day.id)}
+                    >
                       <Trash2 className="text-destructive" />
                     </Button>
                   </div>
@@ -191,22 +217,40 @@ export default function ItineraryBuilderView({
 
               <div className="flex flex-col divide-y divide-border/20">
                 {(eventsByDay.get(day.id) ?? []).map((event) => (
-                  <div key={event.id} className="flex items-start justify-between gap-3 py-2.5">
+                  <div
+                    key={event.id}
+                    className="flex items-start justify-between gap-3 py-2.5"
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm text-foreground">{event.title}</span>
-                        <Badge variant="secondary">{EVENT_TYPE_LABELS[event.eventType]}</Badge>
-                        {event.visibleToPilgrims && <Badge variant="outline">Pilgrim-visible</Badge>}
+                        <span className="text-sm text-foreground">
+                          {event.title}
+                        </span>
+                        <Badge variant="secondary">
+                          {EVENT_TYPE_LABELS[event.eventType]}
+                        </Badge>
+                        {event.visibleToPilgrims && (
+                          <Badge variant="outline">Pilgrim-visible</Badge>
+                        )}
                       </div>
                       <p className="text-[11px] text-muted-foreground">
-                        {[event.startTime, event.location, event.guideName, event.supplierName]
+                        {[
+                          event.startTime,
+                          event.location,
+                          event.guideName,
+                          event.supplierName,
+                        ]
                           .filter(Boolean)
                           .join(" · ") || "No details yet"}
                       </p>
                     </div>
                     {canManage && (
                       <div className="flex items-center gap-2 shrink-0">
-                        <Button size="sm" variant="ghost" onClick={() => setAttendanceEvent(event)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setAttendanceEvent(event)}
+                        >
                           Attendance
                         </Button>
                         <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -214,9 +258,16 @@ export default function ItineraryBuilderView({
                             checked={event.confirmed}
                             onCheckedChange={(checked) =>
                               startTransition(async () => {
-                                const result = await toggleEventConfirmedAction(group.id, event.id, checked);
+                                const result = await toggleEventConfirmedAction(
+                                  group.id,
+                                  event.id,
+                                  checked,
+                                );
                                 if (!result.ok)
-                                  toast.add({ title: "Could not update", description: result.error });
+                                  toast.add({
+                                    title: "Could not update",
+                                    description: result.error,
+                                  });
                                 else refresh();
                               })
                             }
@@ -228,8 +279,15 @@ export default function ItineraryBuilderView({
                           variant="ghost"
                           onClick={() =>
                             startTransition(async () => {
-                              const result = await removeItineraryEventAction(group.id, event.id);
-                              if (!result.ok) toast.add({ title: "Could not remove", description: result.error });
+                              const result = await removeItineraryEventAction(
+                                group.id,
+                                event.id,
+                              );
+                              if (!result.ok)
+                                toast.add({
+                                  title: "Could not remove",
+                                  description: result.error,
+                                });
                               else refresh();
                             })
                           }
@@ -241,20 +299,28 @@ export default function ItineraryBuilderView({
                   </div>
                 ))}
                 {(eventsByDay.get(day.id) ?? []).length === 0 && (
-                  <p className="text-xs text-muted-foreground py-2">No events yet.</p>
+                  <p className="text-xs text-muted-foreground py-2">
+                    No events yet.
+                  </p>
                 )}
               </div>
             </Card>
           ))}
 
           {canManage && (
-            <Button variant="outline_without_border" onClick={() => setDayDialogOpen(true)} className="self-start">
+            <Button
+              variant="outline_without_border"
+              onClick={() => setDayDialogOpen(true)}
+              className="self-start"
+            >
               <Plus /> Add Day
             </Button>
           )}
 
           {days.length === 0 && !canManage && (
-            <Card className="p-6 text-sm text-muted-foreground">No days have been added yet.</Card>
+            <Card className="p-6 text-sm text-muted-foreground">
+              No days have been added yet.
+            </Card>
           )}
         </div>
       )}
@@ -271,16 +337,25 @@ export default function ItineraryBuilderView({
       <AddEventDialog
         dayId={eventDialogDayId}
         departureGroupId={group.id}
-        nextSortOrder={(eventDialogDayId && (eventsByDay.get(eventDialogDayId)?.length ?? 0)) || 0}
+        nextSortOrder={
+          (eventDialogDayId &&
+            (eventsByDay.get(eventDialogDayId)?.length ?? 0)) ||
+          0
+        }
         onClose={() => setEventDialogDayId(null)}
         onDone={refresh}
       />
 
-      <Dialog open={deleteDayId !== null} onOpenChange={(next) => !next && setDeleteDayId(null)}>
+      <Dialog
+        open={deleteDayId !== null}
+        onOpenChange={(next) => !next && setDeleteDayId(null)}
+      >
         <DialogContent className="max-w-sm!">
           <DialogHeader>
             <DialogTitle>Delete this day?</DialogTitle>
-            <DialogDescription>All of its events are removed too. This cannot be undone.</DialogDescription>
+            <DialogDescription>
+              All of its events are removed too. This cannot be undone.
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteDayId(null)}>
@@ -291,9 +366,16 @@ export default function ItineraryBuilderView({
               onClick={() =>
                 startTransition(async () => {
                   if (!deleteDayId) return;
-                  const result = await removeItineraryDayAction(group.id, deleteDayId);
+                  const result = await removeItineraryDayAction(
+                    group.id,
+                    deleteDayId,
+                  );
                   setDeleteDayId(null);
-                  if (!result.ok) toast.add({ title: "Could not delete", description: result.error });
+                  if (!result.ok)
+                    toast.add({
+                      title: "Could not delete",
+                      description: result.error,
+                    });
                   else refresh();
                 })
               }
@@ -324,18 +406,22 @@ function AttendanceDialog({
   event: ItineraryEventRow;
   onClose: () => void;
 }) {
-  const [attendance, setAttendanceRows] = useState<AttendanceWithPilgrim[] | null>(null);
+  const [attendance, setAttendanceRows] = useState<
+    AttendanceWithPilgrim[] | null
+  >(null);
   const [vouchers, setVouchers] = useState<VoucherWithPilgrim[] | null>(null);
-  const [voucherTarget, setVoucherTarget] = useState<AttendanceWithPilgrim | null>(null);
+  const [voucherTarget, setVoucherTarget] =
+    useState<AttendanceWithPilgrim | null>(null);
   const loading = attendance === null;
 
   const load = () => {
-    Promise.all([getEventAttendanceAction(departureGroupId, event.id), getEventVouchersAction(event.id)]).then(
-      ([attendanceResult, vouchersResult]) => {
-        setAttendanceRows(attendanceResult.attendance ?? []);
-        setVouchers(vouchersResult.vouchers ?? []);
-      },
-    );
+    Promise.all([
+      getEventAttendanceAction(departureGroupId, event.id),
+      getEventVouchersAction(event.id),
+    ]).then(([attendanceResult, vouchersResult]) => {
+      setAttendanceRows(attendanceResult.attendance ?? []);
+      setVouchers(vouchersResult.vouchers ?? []);
+    });
   };
 
   useEffect(() => {
@@ -343,7 +429,9 @@ function AttendanceDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event.id]);
 
-  const voucherByPilgrim = new Map((vouchers ?? []).map((v) => [v.departureGroupPilgrimId, v]));
+  const voucherByPilgrim = new Map(
+    (vouchers ?? []).map((v) => [v.departureGroupPilgrimId, v]),
+  );
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
@@ -351,23 +439,32 @@ function AttendanceDialog({
         <DialogHeader>
           <DialogTitle>Attendance — {event.title}</DialogTitle>
           <DialogDescription>
-            {event.capacity ? `Capacity: ${event.capacity}` : "No capacity limit set for this event."}
+            {event.capacity
+              ? `Capacity: ${event.capacity}`
+              : "No capacity limit set for this event."}
           </DialogDescription>
         </DialogHeader>
         {loading || !attendance ? (
           <p className="text-sm text-muted-foreground py-4">Loading…</p>
         ) : attendance.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4">No travellers in this group yet.</p>
+          <p className="text-sm text-muted-foreground py-4">
+            No travellers in this group yet.
+          </p>
         ) : (
           <div className="flex flex-col gap-2 py-2">
             {attendance.map((row) => {
               const voucher = voucherByPilgrim.get(row.departureGroupPilgrimId);
               return (
-                <div key={row.departureGroupPilgrimId} className="flex items-center justify-between gap-2 py-1.5 border-b border-border/20 last:border-none">
+                <div
+                  key={row.departureGroupPilgrimId}
+                  className="flex items-center justify-between gap-2 py-1.5 border-b border-border/20 last:border-none"
+                >
                   <div className="min-w-0">
-                    <p className="text-sm text-foreground truncate">{row.fullName}</p>
+                    <p className="text-sm text-foreground truncate">
+                      {row.fullName}
+                    </p>
                     {voucher && (
-                      <p className="text-[11px] text-muted-foreground font-number">
+                      <p className="text-[11px] text-muted-foreground tabular-nums">
                         {voucher.voucherCode} · {voucher.status}
                       </p>
                     )}
@@ -377,15 +474,25 @@ function AttendanceDialog({
                       value={row.status}
                       onValueChange={async (v) => {
                         const status = v as AttendanceStatus;
-                        const result = await setAttendanceAction(departureGroupId, event.id, row.departureGroupPilgrimId, status);
+                        const result = await setAttendanceAction(
+                          departureGroupId,
+                          event.id,
+                          row.departureGroupPilgrimId,
+                          status,
+                        );
                         if (!result.ok) {
-                          toast.add({ title: "Could not update attendance", description: result.error });
+                          toast.add({
+                            title: "Could not update attendance",
+                            description: result.error,
+                          });
                           return;
                         }
                         load();
                       }}
                     >
-                      <SelectTrigger className="h-8 text-xs w-[120px]"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-xs w-[120px]">
+                        <SelectValue />
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="REGISTERED">Registered</SelectItem>
                         <SelectItem value="ATTENDED">Attended</SelectItem>
@@ -399,8 +506,16 @@ function AttendanceDialog({
                           size="sm"
                           variant="ghost"
                           onClick={async () => {
-                            const result = await updateVoucherStatusAction(departureGroupId, voucher.id, "REDEEMED");
-                            if (!result.ok) return toast.add({ title: "Could not redeem", description: result.error });
+                            const result = await updateVoucherStatusAction(
+                              departureGroupId,
+                              voucher.id,
+                              "REDEEMED",
+                            );
+                            if (!result.ok)
+                              return toast.add({
+                                title: "Could not redeem",
+                                description: result.error,
+                              });
                             load();
                           }}
                         >
@@ -408,7 +523,11 @@ function AttendanceDialog({
                         </Button>
                       )
                     ) : (
-                      <Button size="sm" variant="outline" onClick={() => setVoucherTarget(row)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setVoucherTarget(row)}
+                      >
                         Voucher
                       </Button>
                     )}
@@ -419,7 +538,9 @@ function AttendanceDialog({
           </div>
         )}
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Close</Button>
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
         </DialogFooter>
       </DialogContent>
 
@@ -486,15 +607,27 @@ function IssueVoucherDialog({
           <DialogTitle>Issue voucher — {pilgrim.fullName}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3 py-2">
-          <InputGroupField label="Service" value={serviceName} onChange={(e) => setServiceName(e.target.value)} />
+          <InputGroupField
+            label="Service"
+            value={serviceName}
+            onChange={(e) => setServiceName(e.target.value)}
+          />
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Notes (optional)</label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            <label className="text-xs font-medium text-muted-foreground">
+              Notes (optional)
+            </label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+            />
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
           <Button onClick={submit} disabled={submitting || !serviceName.trim()}>
             {submitting ? "Issuing…" : "Issue voucher"}
           </Button>
@@ -553,13 +686,20 @@ function AddDayDialog({
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">City</label>
-            <Select value={city} onValueChange={(v) => setCity(v as ItineraryCity)}>
+            <label className="text-xs font-medium text-muted-foreground">
+              City
+            </label>
+            <Select
+              value={city}
+              onValueChange={(v) => setCity(v as ItineraryCity)}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(["MAKKAH", "MADINAH", "MINA", "ARAFAT", "OTHER"] as const).map((c) => (
+                {(
+                  ["MAKKAH", "MADINAH", "MINA", "ARAFAT", "OTHER"] as const
+                ).map((c) => (
                   <SelectItem key={c} value={c}>
                     {CITY_LABELS[c]}
                   </SelectItem>
@@ -567,8 +707,18 @@ function AddDayDialog({
               </SelectContent>
             </Select>
           </div>
-          <InputGroupField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Arrival & Umrah" />
-          <InputGroupField label="Date (optional)" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <InputGroupField
+            label="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Arrival & Umrah"
+          />
+          <InputGroupField
+            label="Date (optional)"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
@@ -653,39 +803,79 @@ function AddEventDialog({
         <div className="flex flex-col gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Type</label>
-              <Select value={eventType} onValueChange={(v) => setEventType(v as ItineraryEventType)}>
+              <label className="text-xs font-medium text-muted-foreground">
+                Type
+              </label>
+              <Select
+                value={eventType}
+                onValueChange={(v) => setEventType(v as ItineraryEventType)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(EVENT_TYPE_LABELS) as ItineraryEventType[]).map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {EVENT_TYPE_LABELS[t]}
-                    </SelectItem>
-                  ))}
+                  {(Object.keys(EVENT_TYPE_LABELS) as ItineraryEventType[]).map(
+                    (t) => (
+                      <SelectItem key={t} value={t}>
+                        {EVENT_TYPE_LABELS[t]}
+                      </SelectItem>
+                    ),
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            <InputGroupField label="Start time (optional)" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            <InputGroupField
+              label="Start time (optional)"
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+            />
           </div>
-          <InputGroupField label="Title *" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Ziyarah to Jabal Uhud" />
+          <InputGroupField
+            label="Title *"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. Ziyarah to Jabal Uhud"
+          />
           <div className="grid grid-cols-2 gap-3">
-            <InputGroupField label="Location" value={location} onChange={(e) => setLocation(e.target.value)} />
-            <InputGroupField label="Guide" value={guideName} onChange={(e) => setGuideName(e.target.value)} />
+            <InputGroupField
+              label="Location"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            />
+            <InputGroupField
+              label="Guide"
+              value={guideName}
+              onChange={(e) => setGuideName(e.target.value)}
+            />
           </div>
-          <InputGroupField label="Supplier" value={supplierName} onChange={(e) => setSupplierName(e.target.value)} />
+          <InputGroupField
+            label="Supplier"
+            value={supplierName}
+            onChange={(e) => setSupplierName(e.target.value)}
+          />
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Internal notes (staff only)</label>
-            <Textarea value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} rows={2} />
+            <label className="text-xs font-medium text-muted-foreground">
+              Internal notes (staff only)
+            </label>
+            <Textarea
+              value={internalNotes}
+              onChange={(e) => setInternalNotes(e.target.value)}
+              rows={2}
+            />
           </div>
           <label className="flex items-center gap-2 text-xs text-foreground">
-            <Switch checked={visibleToPilgrims} onCheckedChange={setVisibleToPilgrims} />
+            <Switch
+              checked={visibleToPilgrims}
+              onCheckedChange={setVisibleToPilgrims}
+            />
             Visible to pilgrims (once the itinerary is published)
           </label>
           {visibleToPilgrims && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Pilgrim-facing wording *</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                Pilgrim-facing wording *
+              </label>
               <Textarea
                 value={pilgrimFacingNotes}
                 onChange={(e) => setPilgrimFacingNotes(e.target.value)}

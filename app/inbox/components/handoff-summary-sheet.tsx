@@ -135,7 +135,7 @@ export function HandoffSummarySheet({
                 <p className="text-sm font-semibold">Customer and booking</p>
                 <p className="text-sm">
                   {customer?.name ?? "Customer"} ·{" "}
-                  <span className="font-number">
+                  <span className="tabular-nums">
                     {booking?.reference ?? "Booking"}
                   </span>
                 </p>

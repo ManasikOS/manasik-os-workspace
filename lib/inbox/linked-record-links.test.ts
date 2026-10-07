@@ -19,7 +19,7 @@ describe("linkedRecordLinks", () => {
   it("links the lead, the booking and the departure group with the shortcuts that open them", () => {
     expect(linkedRecordLinks(full)).toEqual([
       { id: "OPEN_LEAD", label: "Open lead", href: `/leads?open=${LEAD}`, shortcutKey: "e" },
-      { id: "OPEN_BOOKING", label: "Open booking", href: `/departure-groups/${GROUP}/bookings/${BOOKING}`, shortcutKey: "b" },
+      { id: "OPEN_BOOKING", label: "Open booking", href: `/bookings?booking=${BOOKING}`, shortcutKey: "b" },
       { id: "OPEN_DEPARTURE_GROUP", label: "Open departure group", href: `/departure-groups/${GROUP}`, shortcutKey: "g then d" },
     ]);
   });
@@ -35,9 +35,9 @@ describe("linkedRecordLinks", () => {
     expect(links[1].href).toBe(`/departure-groups/${OTHER_GROUP}`);
   });
 
-  it("opens a booking through its own page when its departure is not known", () => {
+  it("opens a booking in the booking dialog even when its departure is not known", () => {
     const booking = linkedRecordLinks({ ...full, bookingDepartureGroupId: null }).find((link) => link.id === "OPEN_BOOKING");
-    expect(booking?.href).toBe(`/bookings/${BOOKING}`);
+    expect(booking?.href).toBe(`/bookings?booking=${BOOKING}`);
   });
 
   it("offers nothing the person's role cannot open", () => {

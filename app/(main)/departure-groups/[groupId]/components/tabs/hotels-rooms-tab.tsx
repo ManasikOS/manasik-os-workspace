@@ -13,9 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import {
   Tabs,
   TabsList,
@@ -98,7 +96,7 @@ function Detail({
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className={`text-sm text-foreground ${mono ? "font-number" : ""}`}>
+      <span className={`text-sm text-foreground ${mono ? "tabular-nums" : ""}`}>
         {value}
       </span>
     </div>
@@ -157,7 +155,10 @@ function exportRoomingList(
   // is still "unassigned" there even though they already have a Makkah bed.
   for (const accommodation of accommodations) {
     const unassigned = manifest.filter(
-      (row) => !row.roomAssignments.some((a) => a.accommodationId === accommodation.id),
+      (row) =>
+        !row.roomAssignments.some(
+          (a) => a.accommodationId === accommodation.id,
+        ),
     );
     if (unassigned.length === 0) continue;
     rows.push(
@@ -216,7 +217,9 @@ const HotelsRoomsTab = ({
   // room in Makkah and a separate one in Madinah at once, so a group-wide
   // count would double-count them and hide who still needs a room here.
   const assignedHere = manifest.filter((row) =>
-    row.roomAssignments.some((a) => a.accommodationId === activeAccommodation?.id),
+    row.roomAssignments.some(
+      (a) => a.accommodationId === activeAccommodation?.id,
+    ),
   ).length;
 
   const markConfirmed = (accommodation: DepartureGroupAccommodation) => {
@@ -301,21 +304,6 @@ const HotelsRoomsTab = ({
         onClose={() => setAutoAssignOpen(false)}
       />
 
-      <SectionHeading
-        title="Accommodation"
-        act={
-          can.manageAccommodation && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setAddAccommodationOpen(true)}
-            >
-              <Plus /> Add Hotel
-            </Button>
-          )
-        }
-      />
-
       {accommodations.length === 0 ? (
         <Card>
           <EmptyState
@@ -326,7 +314,6 @@ const HotelsRoomsTab = ({
               can.manageAccommodation && (
                 <Button
                   variant="secondary"
-                  size="sm"
                   onClick={() => setAddAccommodationOpen(true)}
                 >
                   <Plus /> Add Hotel
@@ -358,7 +345,6 @@ const HotelsRoomsTab = ({
                   <>
                     <Button
                       variant="ghost"
-                      size="sm"
                       onClick={() => {
                         setEditAccommodation(accommodation);
                       }}
@@ -367,22 +353,21 @@ const HotelsRoomsTab = ({
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
                       onClick={() => setVoucherAccommodation(accommodation)}
                     >
                       <Upload /> Voucher
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
                       onClick={() => setReferenceAccommodation(accommodation)}
                     >
                       <Hash /> Reference
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
-                      onClick={() => setGenerateRoomsAccommodation(accommodation)}
+                      onClick={() =>
+                        setGenerateRoomsAccommodation(accommodation)
+                      }
                     >
                       <Plus /> Generate Rooms
                     </Button>
@@ -390,7 +375,6 @@ const HotelsRoomsTab = ({
                       accommodation.status !== "CANCELLED" && (
                         <Button
                           variant="secondary"
-                          size="sm"
                           disabled={
                             isConfirming && confirmingId === accommodation.id
                           }
@@ -470,12 +454,25 @@ const HotelsRoomsTab = ({
             </div>
 
             {accommodation.notes && (
-              <p className={cn("text-xs rounded-sm px-3 py-2", TONE_CLASS.warning)}>
+              <p
+                className={cn(
+                  "text-xs rounded-sm px-3 py-2",
+                  TONE_CLASS.warning,
+                )}
+              >
                 {accommodation.notes}
               </p>
             )}
           </Card>
         ))
+      )}
+      {can.manageAccommodation && (
+        <Button
+          variant="secondary"
+          onClick={() => setAddAccommodationOpen(true)}
+        >
+          <Plus /> Add Hotel
+        </Button>
       )}
 
       {/* Rooming allocation */}
@@ -487,7 +484,6 @@ const HotelsRoomsTab = ({
               {can.manageRooming && (
                 <Button
                   variant="secondary"
-                  size="sm"
                   onClick={() => setAutoAssignOpen(true)}
                 >
                   <Sparkles /> Auto Assign Rooms
@@ -497,18 +493,13 @@ const HotelsRoomsTab = ({
                 </Button>
               )}
               {can.manageRooming && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAssignOpen(true)}
-                >
+                <Button variant="outline" onClick={() => setAssignOpen(true)}>
                   <UserPlus /> Assign Manually
                 </Button>
               )}
               {can.exportReports && (
                 <Button
                   variant="ghost"
-                  size="sm"
                   disabled={rooms.length === 0}
                   onClick={() =>
                     exportRoomingList(accommodations, manifest, groupCode)
@@ -524,12 +515,13 @@ const HotelsRoomsTab = ({
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex flex-col gap-1 min-w-48">
             <span className="text-xs text-muted-foreground">
-              <strong className="font-number text-foreground">
+              <strong className="tabular-nums text-foreground">
                 {assignedHere}
               </strong>{" "}
               of {manifest.length} pilgrims assigned in{" "}
               {activeAccommodation
-                ? (CITY_LABELS[activeAccommodation.city] ?? activeAccommodation.city)
+                ? (CITY_LABELS[activeAccommodation.city] ??
+                  activeAccommodation.city)
                 : "this hotel"}
             </span>
             <ProgressBar
@@ -541,7 +533,7 @@ const HotelsRoomsTab = ({
             />
           </div>
           <span className="text-xs text-muted-foreground">
-            <strong className="font-number text-foreground">
+            <strong className="tabular-nums text-foreground">
               {rooms.length}
             </strong>{" "}
             rooms across {accommodations.length} hotel
@@ -565,7 +557,7 @@ const HotelsRoomsTab = ({
                 {accommodations.map((accommodation) => (
                   <TabsTrigger key={accommodation.id} value={accommodation.id}>
                     {CITY_LABELS[accommodation.city] ?? accommodation.city}
-                    <span className="ml-1.5 text-muted-foreground font-number">
+                    <span className="ml-1.5 text-muted-foreground tabular-nums">
                       ({accommodation.rooms.length})
                     </span>
                   </TabsTrigger>
@@ -579,8 +571,8 @@ const HotelsRoomsTab = ({
                 title="No rooms created yet for this hotel"
                 description={`Use Generate Rooms on the ${
                   activeAccommodation
-                    ? CITY_LABELS[activeAccommodation.city] ??
-                      activeAccommodation.city
+                    ? (CITY_LABELS[activeAccommodation.city] ??
+                      activeAccommodation.city)
                     : ""
                 } accommodation block above to create its room inventory.`}
               />
@@ -609,16 +601,16 @@ const HotelsRoomsTab = ({
                   <TableBody className="divide-y divide-border/20">
                     {activeRooms.map((room) => (
                       <TableRow key={room.id} className="hover:bg-muted/50">
-                        <TableCell className="px-3 py-2.5 text-sm font-number text-foreground">
+                        <TableCell className="px-3 py-2.5 text-sm tabular-nums text-foreground">
                           {room.roomNumber ?? "—"}
                         </TableCell>
                         <TableCell className="px-3 py-2.5 text-xs text-foreground">
                           {ROOM_TYPE_LABELS[room.roomType]}
                         </TableCell>
-                        <TableCell className="px-3 py-2.5 text-xs font-number text-foreground">
+                        <TableCell className="px-3 py-2.5 text-xs tabular-nums text-foreground">
                           {room.occupancyCapacity}
                         </TableCell>
-                        <TableCell className="px-3 py-2.5 text-xs font-number text-foreground">
+                        <TableCell className="px-3 py-2.5 text-xs tabular-nums text-foreground">
                           {room.assignedPilgrimCount} / {room.occupancyCapacity}
                           {room.status === "PARTIAL" && (
                             <span className="ml-2 text-muted-foreground font-sans">
@@ -712,7 +704,9 @@ const HotelsRoomsTab = ({
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {deviation.blocksDeparture && (
-                      <AlertTriangle className={cn("size-3.5", TONE_TEXT.warning)} />
+                      <AlertTriangle
+                        className={cn("size-3.5", TONE_TEXT.warning)}
+                      />
                     )}
                     <DeviationStatusBadge
                       value={deviation.status}

@@ -17,12 +17,15 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { TONE_STAT_CARD, TONE_TEXT, type Tone } from "@/lib/ui/tone";
 
-const STAT_PILLS: { label: string; tone: Tone; key: "thisMonth" | "due7Days" | "overdue" }[] = [
+const STAT_PILLS: {
+  label: string;
+  tone: Tone;
+  key: "thisMonth" | "due7Days" | "overdue";
+}[] = [
   { label: "Collected Month", tone: "success", key: "thisMonth" },
   { label: "Due in 7 Days", tone: "info", key: "due7Days" },
   { label: "Overdue", tone: "danger", key: "overdue" },
 ];
-
 
 interface CollectionsAttentionProps {
   collections: {
@@ -76,22 +79,50 @@ export default function CollectionsAttention({
           {STAT_PILLS.map((pill) => (
             <Card
               key={pill.key}
-              className={cn("p-2.5 flex flex-col gap-0.5", TONE_STAT_CARD[pill.tone])}
+              className={cn(
+                "p-2.5 flex flex-col gap-0.5",
+                TONE_STAT_CARD[pill.tone],
+              )}
             >
-              <span className={cn("text-[10px] font-medium truncate", TONE_TEXT[pill.tone])}>
+              <span
+                className={cn(
+                  "text-[10px] font-medium truncate",
+                  TONE_TEXT[pill.tone],
+                )}
+              >
                 {pill.label}
               </span>
-              <span className={cn("text-xs font-bold font-number", TONE_TEXT[pill.tone])}>
+              <span
+                className={cn(
+                  "text-xs font-bold tabular-nums",
+                  TONE_TEXT[pill.tone],
+                )}
+              >
                 {collections[pill.key]}
               </span>
             </Card>
           ))}
 
-          <Card className={cn("p-2.5 flex flex-col gap-0.5", TONE_STAT_CARD.warning)}>
-            <span className={cn("text-[10px] font-medium truncate", TONE_TEXT.warning)}>
+          <Card
+            className={cn(
+              "p-2.5 flex flex-col gap-0.5",
+              TONE_STAT_CARD.warning,
+            )}
+          >
+            <span
+              className={cn(
+                "text-[10px] font-medium truncate",
+                TONE_TEXT.warning,
+              )}
+            >
               Refunds Pending
             </span>
-            <span className={cn("text-xs font-bold font-number", TONE_TEXT.warning)}>
+            <span
+              className={cn(
+                "text-xs font-bold tabular-nums",
+                TONE_TEXT.warning,
+              )}
+            >
               {collections.pendingRefundsCount} requests
             </span>
           </Card>
@@ -118,7 +149,7 @@ export default function CollectionsAttention({
                 </div>
 
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="font-medium font-number text-foreground">
+                  <span className="font-medium tabular-nums text-foreground">
                     {rec.amount}
                   </span>
                   <span

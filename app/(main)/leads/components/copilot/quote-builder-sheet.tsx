@@ -15,17 +15,34 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
 import { ToneBadge } from "@/components/ui/tone-badge";
-import { OCCUPANCY_LABELS, formatDateRange, formatLongDate, travellersLabel } from "@/lib/copilot/sales/format";
+import {
+  OCCUPANCY_LABELS,
+  formatDateRange,
+  formatLongDate,
+  travellersLabel,
+} from "@/lib/copilot/sales/format";
 import { formatMoney } from "@/lib/copilot/sales/money";
-import { calculateQuote, type QuoteCalculation } from "@/lib/copilot/sales/quote-calculator";
+import {
+  calculateQuote,
+  type QuoteCalculation,
+} from "@/lib/copilot/sales/quote-calculator";
 import type { OccupancyType, QuoteStatus } from "@/lib/copilot/sales/types";
 import { TONE_TEXT } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 
-import { prepareQuoteAction, saveQuoteDraftAction, type QuoteBuilderSeed } from "../../copilot-actions";
+import {
+  prepareQuoteAction,
+  saveQuoteDraftAction,
+  type QuoteBuilderSeed,
+} from "../../copilot-actions";
 import { useLeads } from "../../leads-store";
 import type { LeadListItem } from "../../types";
 import {
@@ -47,7 +64,12 @@ interface QuoteBuilderSheetProps {
   onSaved: () => void;
 }
 
-export default function QuoteBuilderSheet({ lead, offerId, onClose, onSaved }: QuoteBuilderSheetProps) {
+export default function QuoteBuilderSheet({
+  lead,
+  offerId,
+  onClose,
+  onSaved,
+}: QuoteBuilderSheetProps) {
   const [seed, setSeed] = useState<QuoteBuilderSeed | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +97,8 @@ export default function QuoteBuilderSheet({ lead, offerId, onClose, onSaved }: Q
         <div className="flex flex-col gap-4 px-4 pb-6 overflow-y-auto custom-scroll">
           {!seed && !error && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="size-4 animate-spin" /> Loading live group pricing…
+              <Loader2 className="size-4 animate-spin" /> Loading live group
+              pricing…
             </p>
           )}
           {error && <p className={cn("text-sm", TONE_TEXT.danger)}>{error}</p>}
@@ -98,7 +121,13 @@ function clampCount(value: string, min: number): number {
   return Number.isFinite(parsed) ? Math.min(Math.max(parsed, min), 60) : min;
 }
 
-function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => void }) {
+function QuoteForm({
+  seed,
+  onSaved,
+}: {
+  seed: QuoteBuilderSeed;
+  onSaved: () => void;
+}) {
   const { can, nowIso } = useLeads();
   const readOnly = !can.createQuoteDraft;
   const rooms = (Object.keys(seed.occupancyPrices) as OccupancyType[]).filter(
@@ -106,7 +135,9 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
   );
 
   const [occupancy, setOccupancy] = useState<OccupancyType>(
-    rooms.includes(seed.defaultOccupancy) ? seed.defaultOccupancy : (rooms[0] ?? seed.defaultOccupancy),
+    rooms.includes(seed.defaultOccupancy)
+      ? seed.defaultOccupancy
+      : (rooms[0] ?? seed.defaultOccupancy),
   );
   const [adults, setAdults] = useState(seed.adults);
   const [children, setChildren] = useState(seed.children);
@@ -119,7 +150,10 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
   const [showPreview, setShowPreview] = useState(false);
   const [showStrategy, setShowStrategy] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState<{ reference: string; status: QuoteStatus } | null>(null);
+  const [saved, setSaved] = useState<{
+    reference: string;
+    status: QuoteStatus;
+  } | null>(null);
 
   const unitPrice = seed.occupancyPrices[occupancy] ?? 0;
   const calculation = useMemo(
@@ -144,9 +178,18 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
   const travellers = adults + children + infants;
   const overCapacity = travellers > seed.availableSeats;
   const needsApproval = discount > 0 && !seed.canDiscountFreely;
-  const expiresAt = new Date(Date.parse(nowIso) + Number(expiry) * 86_400_000).toISOString();
+  const expiresAt = new Date(
+    Date.parse(nowIso) + Number(expiry) * 86_400_000,
+  ).toISOString();
   const money = (value: number) => formatMoney(value, seed.currency);
-  const summary = quoteSummary(seed, calculation, { occupancy, adults, children, infants, expiresAt, status: saved?.status ?? (needsApproval ? "PENDING_APPROVAL" : "DRAFT") });
+  const summary = quoteSummary(seed, calculation, {
+    occupancy,
+    adults,
+    children,
+    infants,
+    expiresAt,
+    status: saved?.status ?? (needsApproval ? "PENDING_APPROVAL" : "DRAFT"),
+  });
 
   const save = async () => {
     setSaving(true);
@@ -171,7 +214,10 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
     setSaved({ reference: result.reference, status: result.quote.status });
     toast.add({
       title: `Quote draft ${result.reference} saved`,
-      description: result.quote.status === "PENDING_APPROVAL" ? "Discount awaits Admin approval." : "No booking or seat hold was created.",
+      description:
+        result.quote.status === "PENDING_APPROVAL"
+          ? "Discount awaits Admin approval."
+          : "No booking or seat hold was created.",
     });
     onSaved();
   };
@@ -181,19 +227,28 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
       await navigator.clipboard.writeText(summary);
       toast.add({ title: "Quote summary copied" });
     } catch {
-      toast.add({ title: "Could not copy", description: "Your browser blocked clipboard access." });
+      toast.add({
+        title: "Could not copy",
+        description: "Your browser blocked clipboard access.",
+      });
     }
   };
 
-  const toggleLine = (list: string[], setList: (next: string[]) => void, line: string, on: boolean) =>
-    setList(on ? [...list, line] : list.filter((entry) => entry !== line));
+  const toggleLine = (
+    list: string[],
+    setList: (next: string[]) => void,
+    line: string,
+    on: boolean,
+  ) => setList(on ? [...list, line] : list.filter((entry) => entry !== line));
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <DetailLine label="Departure group">
           {seed.groupName}
-          <span className="block text-xs text-muted-foreground">{formatDateRange(seed.departureDate, seed.returnDate)}</span>
+          <span className="block text-xs text-muted-foreground">
+            {formatDateRange(seed.departureDate, seed.returnDate)}
+          </span>
         </DetailLine>
         <DetailLine label="Package">{seed.packageName}</DetailLine>
         <DetailLine label="Seats available">{seed.availableSeats}</DetailLine>
@@ -234,10 +289,18 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
         ))}
         <div className="flex flex-col gap-1">
           <FieldLabel htmlFor="quote-expiry">Quote expiry</FieldLabel>
-          <ChoiceSelect id="quote-expiry" value={expiry} choices={EXPIRY_CHOICES} onChange={setExpiry} disabled={readOnly || saved !== null} />
+          <ChoiceSelect
+            id="quote-expiry"
+            value={expiry}
+            choices={EXPIRY_CHOICES}
+            onChange={setExpiry}
+            disabled={readOnly || saved !== null}
+          />
         </div>
         <div className="flex flex-col gap-1">
-          <FieldLabel htmlFor="quote-discount">Discount ({seed.currency})</FieldLabel>
+          <FieldLabel htmlFor="quote-discount">
+            Discount ({seed.currency})
+          </FieldLabel>
           <Input
             id="quote-discount"
             type="number"
@@ -245,12 +308,16 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
             value={discount || ""}
             placeholder="0"
             disabled={readOnly || saved !== null}
-            onChange={(event) => setDiscount(Math.max(Number(event.target.value) || 0, 0))}
+            onChange={(event) =>
+              setDiscount(Math.max(Number(event.target.value) || 0, 0))
+            }
           />
         </div>
         {discount > 0 && (
           <div className="flex flex-col gap-1">
-            <FieldLabel htmlFor="quote-discount-reason">Discount reason</FieldLabel>
+            <FieldLabel htmlFor="quote-discount-reason">
+              Discount reason
+            </FieldLabel>
             <Input
               id="quote-discount-reason"
               value={discountReason}
@@ -263,40 +330,54 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
       </div>
       {needsApproval && (
         <p className={cn("text-xs", TONE_TEXT.warning)}>
-          Your role cannot apply discounts directly — this quote will be saved as Pending approval for an Admin.
+          Your role cannot apply discounts directly — this quote will be saved
+          as Pending approval for an Admin.
         </p>
       )}
       {overCapacity && (
         <p className={cn("text-xs", TONE_TEXT.danger)}>
-          {travellers} travellers exceed the {seed.availableSeats} seats available on this group.
+          {travellers} travellers exceed the {seed.availableSeats} seats
+          available on this group.
         </p>
       )}
 
       <div className="flex flex-col gap-1.5 rounded-md border border-border/60 p-3">
         <SectionLabel>Price</SectionLabel>
         {calculation.lines.map((line) => (
-          <DetailLine key={line.label} label={`${line.label} · ${money(line.unitPrice)} × ${line.quantity}`}>
-            <span className="font-number">{money(line.amount)}</span>
+          <DetailLine
+            key={line.label}
+            label={`${line.label} · ${money(line.unitPrice)} × ${line.quantity}`}
+          >
+            <span className="tabular-nums">{money(line.amount)}</span>
           </DetailLine>
         ))}
         {calculation.discount > 0 && (
           <DetailLine label="Discount">
-            <span className="font-number">− {money(calculation.discount)}</span>
+            <span className="tabular-nums">
+              − {money(calculation.discount)}
+            </span>
           </DetailLine>
         )}
         <DetailLine label="Total">
-          <span className="font-semibold font-number">{money(calculation.total)}</span>
+          <span className="font-semibold tabular-nums">
+            {money(calculation.total)}
+          </span>
         </DetailLine>
         <DetailLine label="Deposit">
-          <span className="font-number">{money(calculation.deposit)}</span>
+          <span className="tabular-nums">{money(calculation.deposit)}</span>
         </DetailLine>
         <DetailLine label="Remaining balance">
-          <span className="font-number">{money(calculation.remainingBalance)}</span>
+          <span className="tabular-nums">
+            {money(calculation.remainingBalance)}
+          </span>
         </DetailLine>
         <BulletList
           title="Payment plan"
           className="pt-1"
-          items={calculation.milestones.map((milestone) => `${milestone.label}: ${money(milestone.amount)} · ${milestone.dueLabel}`)}
+          items={calculation.milestones.map(
+            (milestone) =>
+              `${milestone.label}: ${money(milestone.amount)} · ${milestone.dueLabel}`,
+          )}
         />
       </div>
 
@@ -318,38 +399,57 @@ function QuoteForm({ seed, onSaved }: { seed: QuoteBuilderSeed; onSaved: () => v
       {saved && (
         <div className="flex items-center gap-2 text-sm">
           <span className="font-medium text-foreground">{saved.reference}</span>
-          <ToneBadge tone={QUOTE_STATUS_TONE[saved.status]} label={QUOTE_STATUS_LABEL[saved.status]} />
+          <ToneBadge
+            tone={QUOTE_STATUS_TONE[saved.status]}
+            label={QUOTE_STATUS_LABEL[saved.status]}
+          />
         </div>
       )}
 
       <div className="flex flex-wrap gap-2">
         {!readOnly && !saved && (
-          <Button onClick={save} disabled={saving || overCapacity || (discount > 0 && !discountReason.trim())}>
+          <Button
+            onClick={save}
+            disabled={
+              saving || overCapacity || (discount > 0 && !discountReason.trim())
+            }
+          >
             {saving && <Loader2 className="animate-spin" />}
             Save Quote Draft
           </Button>
         )}
-        <Button variant="outline" onClick={() => setShowPreview((value) => !value)}>
+        <Button
+          variant="outline"
+          onClick={() => setShowPreview((value) => !value)}
+        >
           {showPreview ? "Hide Preview" : "Preview"}
         </Button>
         <Button variant="outline" onClick={copy}>
           <Copy /> Copy Summary
         </Button>
         {seed.strategy && (
-          <Button variant="ghost" onClick={() => setShowStrategy((value) => !value)}>
+          <Button
+            variant="ghost"
+            onClick={() => setShowStrategy((value) => !value)}
+          >
             {showStrategy ? "Hide Sales Strategy" : "View Sales Strategy"}
           </Button>
         )}
       </div>
 
       {showPreview && (
-        <pre className="whitespace-pre-wrap rounded-md border border-border/60 p-3 text-sm text-foreground font-sans">{summary}</pre>
+        <pre className="whitespace-pre-wrap rounded-md border border-border/60 p-3 text-sm text-foreground font-sans">
+          {summary}
+        </pre>
       )}
-      {showStrategy && seed.strategy && <StrategyBlock strategy={seed.strategy} />}
+      {showStrategy && seed.strategy && (
+        <StrategyBlock strategy={seed.strategy} />
+      )}
 
       <p className="text-[11px] text-muted-foreground">
-        A quote draft does not create a booking, reserve seats, or change the lead stage. Move the lead to Proposal
-        Sent and create the booking explicitly when the customer agrees.
+        A quote draft does not create a booking, reserve seats, or change the
+        lead stage. Move the lead to Proposal Sent and create the booking
+        explicitly when the customer agrees.
       </p>
     </div>
   );
@@ -376,7 +476,10 @@ function LineChecklist({
       </summary>
       <div className="mt-1.5 flex flex-col gap-1">
         {all.map((line) => (
-          <label key={line} className="flex items-start gap-2 text-sm text-foreground">
+          <label
+            key={line}
+            className="flex items-start gap-2 text-sm text-foreground"
+          >
             <Checkbox
               className="mt-0.5"
               checked={chosen.includes(line)}
@@ -394,7 +497,14 @@ function LineChecklist({
 function quoteSummary(
   seed: QuoteBuilderSeed,
   calculation: QuoteCalculation,
-  form: { occupancy: OccupancyType; adults: number; children: number; infants: number; expiresAt: string; status: QuoteStatus },
+  form: {
+    occupancy: OccupancyType;
+    adults: number;
+    children: number;
+    infants: number;
+    expiresAt: string;
+    status: QuoteStatus;
+  },
 ): string {
   const money = (value: number) => formatMoney(value, seed.currency);
   const payers = form.adults + form.children;
@@ -403,19 +513,35 @@ function quoteSummary(
     formatDateRange(seed.departureDate, seed.returnDate),
     "",
     `${travellersLabel(form.adults, form.children, form.infants)} · ${OCCUPANCY_LABELS[form.occupancy]}`,
-    ...calculation.lines.map((line) => `${line.label}: ${money(line.unitPrice)} × ${line.quantity} = ${money(line.amount)}`),
+    ...calculation.lines.map(
+      (line) =>
+        `${line.label}: ${money(line.unitPrice)} × ${line.quantity} = ${money(line.amount)}`,
+    ),
   ];
-  if (calculation.discount > 0) lines.push(`Discount: − ${money(calculation.discount)}`);
+  if (calculation.discount > 0)
+    lines.push(`Discount: − ${money(calculation.discount)}`);
   lines.push(`Total: ${money(calculation.total)}`, "", "Deposit:");
   lines.push(
     seed.depositPerPerson !== null
       ? `${money(seed.depositPerPerson)} × ${payers} = ${money(calculation.deposit)}`
       : money(calculation.deposit),
   );
-  lines.push("", "Remaining balance:", money(calculation.remainingBalance), "", "Payment plan:");
+  lines.push(
+    "",
+    "Remaining balance:",
+    money(calculation.remainingBalance),
+    "",
+    "Payment plan:",
+  );
   for (const milestone of calculation.milestones) {
-    lines.push(`- ${milestone.label}: ${money(milestone.amount)} (${milestone.dueLabel.toLowerCase()})`);
+    lines.push(
+      `- ${milestone.label}: ${money(milestone.amount)} (${milestone.dueLabel.toLowerCase()})`,
+    );
   }
-  lines.push("", `Valid until: ${formatLongDate(form.expiresAt)}`, `Quote status: ${form.status}`);
+  lines.push(
+    "",
+    `Valid until: ${formatLongDate(form.expiresAt)}`,
+    `Quote status: ${form.status}`,
+  );
   return lines.join("\n");
 }

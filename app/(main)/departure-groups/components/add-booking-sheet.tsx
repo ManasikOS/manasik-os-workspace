@@ -18,9 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import {
   groupBookingSchema,
@@ -435,7 +433,7 @@ const AddBookingSheet = ({
           </SheetDescription>
           <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
             <Users className="size-3.5" />
-            <span className="font-number text-foreground">
+            <span className="tabular-nums text-foreground">
               {group.availableSeats}
             </span>{" "}
             of {group.capacity} seats available
@@ -498,7 +496,7 @@ const AddBookingSheet = ({
                   setField("primaryContactPassportNumber", e.target.value)
                 }
                 placeholder="N1234567"
-                className="font-number"
+                className="tabular-nums"
               />
             </Field>
 
@@ -530,7 +528,7 @@ const AddBookingSheet = ({
                 value={form.travellerCount}
                 onChange={(e) => setTravellerCount(e.target.value)}
                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                className="font-number"
+                className="tabular-nums"
               />
             </Field>
 
@@ -585,7 +583,7 @@ const AddBookingSheet = ({
                     setField("packagePricePerPerson", String(val))
                   }
                   disabled={!can.overrideCapacityAndPrice}
-                  className="font-number flex-6"
+                  className="tabular-nums flex-6"
                 />
               </ButtonGroup>
             </Field>
@@ -598,11 +596,11 @@ const AddBookingSheet = ({
                 !can.recordPayments
                   ? "Finance records payments. Create the booking without one."
                   : pricing.advanceDeposit
-                  ? `Advance deposit: ${formatExactCurrency(
-                      pricing.advanceDeposit,
-                      pricing.currency,
-                    )}`
-                  : undefined
+                    ? `Advance deposit: ${formatExactCurrency(
+                        pricing.advanceDeposit,
+                        pricing.currency,
+                      )}`
+                    : undefined
               }
             >
               <ButtonGroup className="w-full items-center">
@@ -617,7 +615,7 @@ const AddBookingSheet = ({
                   value={parseInt(form.amountPaid)}
                   onValueChange={(val) => setField("amountPaid", String(val))}
                   disabled={!can.recordPayments}
-                  className="font-number flex-6"
+                  className="tabular-nums flex-6"
                 />
               </ButtonGroup>
             </Field>
@@ -675,7 +673,7 @@ const AddBookingSheet = ({
                             )
                           }
                           placeholder="N1234567"
-                          className="font-number"
+                          className="tabular-nums"
                         />
                       </Field>
                       <Field label="Phone">
@@ -746,7 +744,12 @@ const AddBookingSheet = ({
           </Card>
 
           {exceedsCapacity && (
-            <div className={cn("flex items-start gap-2 rounded-sm px-3 py-2 text-xs", TONE_CLASS.warning)}>
+            <div
+              className={cn(
+                "flex items-start gap-2 rounded-sm px-3 py-2 text-xs",
+                TONE_CLASS.warning,
+              )}
+            >
               <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
               <span>
                 This party is larger than the {group.availableSeats} seat
@@ -892,7 +895,7 @@ function SummaryRow({
       <span
         className={cn(
           "text-foreground text-[15px]",
-          mono && "font-number",
+          mono && "tabular-nums",
           tone,
         )}
       >

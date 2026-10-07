@@ -788,7 +788,7 @@ const CreateDepartureGroupDialog = ({
                               {template.status}
                             </Badge>
                             {!template.isOpenForSale && (
-                              <span className="text-[10px] font-number text-muted-foreground">
+                              <span className="text-[10px] tabular-nums text-muted-foreground">
                                 {template.completeness}% complete
                               </span>
                             )}
@@ -894,7 +894,7 @@ const CreateDepartureGroupDialog = ({
                     <InputGroupInput
                       value={isGeneratingCode ? "Generating…" : form.groupCode}
                       readOnly
-                      className="font-number cursor-not-allowed text-muted-foreground"
+                      className="tabular-nums cursor-not-allowed text-muted-foreground"
                     />
                   </Field>
 
@@ -1006,7 +1006,7 @@ const CreateDepartureGroupDialog = ({
                       min={1}
                       value={form.capacity}
                       onChange={(e) => setField("capacity", e.target.value)}
-                      className="font-number"
+                      className="tabular-nums"
                     />
                   </Field>
 
@@ -1022,7 +1022,7 @@ const CreateDepartureGroupDialog = ({
                       onChange={(e) =>
                         setField("minimumGroupSize", e.target.value)
                       }
-                      className="font-number"
+                      className="tabular-nums"
                     />
                   </Field>
 
@@ -1188,7 +1188,7 @@ const CreateDepartureGroupDialog = ({
                           <ButtonGroup>
                             <InputGroupInput
                               value={pricing.currency}
-                              className="font-number flex-1"
+                              className="tabular-nums flex-1"
                               readOnly
                             />
                             <CurrencyInput
@@ -1199,7 +1199,7 @@ const CreateDepartureGroupDialog = ({
                                   [key]: val,
                                 }))
                               }
-                              className="font-number flex-6"
+                              className="tabular-nums flex-6"
                             />
                           </ButtonGroup>
                         </Field>
@@ -1242,7 +1242,7 @@ const CreateDepartureGroupDialog = ({
                             <InputGroupInput
                               value={pricing.currency}
                               readOnly
-                              className="font-number"
+                              className="tabular-nums"
                             />
                             <CurrencyInput
                               value={costEstimate[key] as number | ""}
@@ -1252,7 +1252,7 @@ const CreateDepartureGroupDialog = ({
                                   [key]: val,
                                 }))
                               }
-                              className="font-number flex-6"
+                              className="tabular-nums flex-6"
                             />
                           </ButtonGroup>
                         </Field>
@@ -1265,7 +1265,7 @@ const CreateDepartureGroupDialog = ({
                           <InputGroupInput
                             value={pricing.currency}
                             readOnly
-                            className="flex-1 font-number"
+                            className="flex-1 tabular-nums"
                           />
                           <CurrencyInput
                             value={parseInt(costEstimate.fixedCostPerDeparture)}
@@ -1275,7 +1275,7 @@ const CreateDepartureGroupDialog = ({
                                 fixedCostPerDeparture: String(val ?? ""),
                               }));
                             }}
-                            className="font-number flex-6"
+                            className="tabular-nums flex-6"
                           />
                         </ButtonGroup>
                       </Field>
@@ -1301,7 +1301,7 @@ const CreateDepartureGroupDialog = ({
                         <p className="text-[11px] text-muted-foreground">
                           Cost / pilgrim
                         </p>
-                        <p className="text-sm font-semibold text-foreground font-number">
+                        <p className="text-sm font-semibold text-foreground tabular-nums">
                           {formatExactCurrency(costPerPax, pricing.currency)}
                         </p>
                       </Card>
@@ -1311,7 +1311,7 @@ const CreateDepartureGroupDialog = ({
                         </p>
                         <p
                           className={cn(
-                            "text-sm font-semibold font-number",
+                            "text-sm font-semibold tabular-nums",
                             marginPerPax === null
                               ? "text-muted-foreground"
                               : marginPerPax >= 0
@@ -1328,7 +1328,7 @@ const CreateDepartureGroupDialog = ({
                         <p className="text-[11px] text-muted-foreground">
                           Break-even seats
                         </p>
-                        <p className="text-sm font-semibold text-foreground font-number">
+                        <p className="text-sm font-semibold text-foreground tabular-nums">
                           {breakEvenHeadcount === null
                             ? "—"
                             : `${breakEvenHeadcount} of ${capacityValue || "?"}`}

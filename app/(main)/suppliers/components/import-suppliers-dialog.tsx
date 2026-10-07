@@ -41,7 +41,10 @@ import {
 } from "lucide-react";
 import React, { useMemo, useRef, useState, useTransition } from "react";
 
-import { importSuppliersAction, type SupplierImportRowResult } from "../actions";
+import {
+  importSuppliersAction,
+  type SupplierImportRowResult,
+} from "../actions";
 import {
   buildSupplierImportCandidates,
   downloadBinaryFile,
@@ -83,7 +86,9 @@ const ImportSuppliersDialog = ({
   const [fileName, setFileName] = useState<string | null>(null);
   const [headerError, setHeaderError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<SupplierImportCandidate[]>([]);
-  const [results, setResults] = useState<SupplierImportRowResult[] | null>(null);
+  const [results, setResults] = useState<SupplierImportRowResult[] | null>(
+    null,
+  );
 
   const existingCodeSet = useMemo(
     () => new Set(existingCodes.map((code) => code.toUpperCase())),
@@ -216,15 +221,20 @@ const ImportSuppliersDialog = ({
           <DialogTitle>Import Suppliers</DialogTitle>
           <DialogDescription>
             Upload an Excel (.xlsx) or CSV file to add several suppliers to the
-            directory at once. Each row is created exactly like the Add
-            Supplier form.
+            directory at once. Each row is created exactly like the Add Supplier
+            form.
           </DialogDescription>
         </DialogHeader>
 
         {/* Phase 3: results */}
         {results ? (
           <div className="flex flex-col gap-3">
-            <div className={cn("flex items-center gap-2 rounded-sm px-3 py-2.5 text-sm", TONE_CLASS.success)}>
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-sm px-3 py-2.5 text-sm",
+                TONE_CLASS.success,
+              )}
+            >
               <CheckCircle2 className="size-4" />
               {createdCount} supplier{createdCount === 1 ? "" : "s"} created.
             </div>
@@ -248,10 +258,10 @@ const ImportSuppliersDialog = ({
                       .filter((r) => !r.ok)
                       .map((row) => (
                         <TableRow key={row.rowNumber}>
-                          <TableCell className="px-3 py-2 text-xs font-number text-muted-foreground">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-muted-foreground">
                             {row.rowNumber}
                           </TableCell>
-                          <TableCell className="px-3 py-2 text-xs font-number text-foreground">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-foreground">
                             {row.supplierCode}
                           </TableCell>
                           <TableCell className="px-3 py-2 text-xs text-destructive">
@@ -314,11 +324,10 @@ const ImportSuppliersDialog = ({
                   Upload an Excel or CSV file to preview it here
                 </p>
                 <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-                  Required columns:{" "}
-                  <span className="font-number">name</span>,{" "}
-                  <span className="font-number">supplier_code</span>,{" "}
-                  <span className="font-number">supplier_type</span>,{" "}
-                  <span className="font-number">whatsapp</span>. The template
+                  Required columns: <span className="tabular-nums">name</span>,{" "}
+                  <span className="tabular-nums">supplier_code</span>,{" "}
+                  <span className="tabular-nums">supplier_type</span>,{" "}
+                  <span className="tabular-nums">whatsapp</span>. The template
                   includes every optional column and one worked example row.
                 </p>
               </div>
@@ -335,7 +344,12 @@ const ImportSuppliersDialog = ({
             {previewRows.length > 0 && (
               <>
                 <div className="flex items-center gap-3 text-xs">
-                  <span className={cn("inline-flex items-center gap-1.5", TONE_TEXT.success)}>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5",
+                      TONE_TEXT.success,
+                    )}
+                  >
                     <CheckCircle2 className="size-3.5" />
                     {validRows.length} ready
                   </span>
@@ -367,7 +381,7 @@ const ImportSuppliersDialog = ({
                           key={row.candidate.rowNumber}
                           className={cn(!row.valid && "bg-destructive/5")}
                         >
-                          <TableCell className="px-3 py-2 text-xs font-number text-muted-foreground align-top">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-muted-foreground align-top">
                             {row.candidate.rowNumber}
                           </TableCell>
                           <TableCell className="px-3 py-2 align-top">
@@ -375,12 +389,17 @@ const ImportSuppliersDialog = ({
                               {row.candidate.name}
                             </p>
                           </TableCell>
-                          <TableCell className="px-3 py-2 text-xs font-number text-muted-foreground align-top">
+                          <TableCell className="px-3 py-2 text-xs tabular-nums text-muted-foreground align-top">
                             {row.candidate.supplierCode}
                           </TableCell>
                           <TableCell className="px-3 py-2 align-top">
                             {row.valid ? (
-                              <Badge className={cn(TONE_CLASS.success, "border-none rounded-sm text-[10px]")}>
+                              <Badge
+                                className={cn(
+                                  TONE_CLASS.success,
+                                  "border-none rounded-sm text-[10px]",
+                                )}
+                              >
                                 Ready
                               </Badge>
                             ) : (

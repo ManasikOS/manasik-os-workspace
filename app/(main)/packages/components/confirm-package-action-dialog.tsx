@@ -86,7 +86,7 @@ const ConfirmPackageActionDialog = ({
 
         <Card className="rounded-sm  px-3 gap-1 py-2 ">
           <p className="font-medium text-foreground">{pending.pkg.title}</p>
-          <p className="text-muted-foreground font-number mt-0.5">
+          <p className="text-muted-foreground tabular-nums mt-0.5">
             {pending.pkg.code}
           </p>
         </Card>

@@ -26,9 +26,7 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { useResetOnOpen } from "@/hooks/use-reset-on-open";
 import { Info, Loader2, TriangleAlert } from "lucide-react";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
@@ -147,9 +145,7 @@ const EditGroupDetailsSheet = ({
   const [nusukProgramRef, setNusukProgramRef] = useState(
     group.nusukProgramRef ?? "",
   );
-  const [nusukGroupRef, setNusukGroupRef] = useState(
-    group.nusukGroupRef ?? "",
-  );
+  const [nusukGroupRef, setNusukGroupRef] = useState(group.nusukGroupRef ?? "");
   const [visaBatchRef, setVisaBatchRef] = useState(group.visaBatchRef ?? "");
   const [visaInvoiceRef, setVisaInvoiceRef] = useState(
     group.visaInvoiceRef ?? "",
@@ -371,7 +367,7 @@ const EditGroupDetailsSheet = ({
                 onChange={(event) =>
                   setGroupCode(event.target.value.toUpperCase())
                 }
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
 
@@ -413,7 +409,9 @@ const EditGroupDetailsSheet = ({
           </div>
 
           {dateMoved && (
-            <div className={`flex items-start gap-2 rounded-sm px-3 py-2 text-[11px] ${TONE_CLASS.warning}`}>
+            <div
+              className={`flex items-start gap-2 rounded-sm px-3 py-2 text-[11px] ${TONE_CLASS.warning}`}
+            >
               <Info className="size-3.5 mt-0.5 shrink-0" />
               <span>
                 Moving the departure date also moves every readiness item that
@@ -434,7 +432,7 @@ const EditGroupDetailsSheet = ({
                 min={0}
                 value={capacity}
                 onChange={(event) => setCapacity(event.target.value)}
-                className="font-number"
+                className="tabular-nums"
                 disabled={!can.overrideCapacityAndPrice}
               />
             </InputGroup>
@@ -448,7 +446,7 @@ const EditGroupDetailsSheet = ({
                 min={0}
                 value={minimumGroupSize}
                 onChange={(event) => setMinimumGroupSize(event.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
           </div>
@@ -494,7 +492,7 @@ const EditGroupDetailsSheet = ({
                       min={0}
                       value={quadPrice === "" ? 0 : parseInt(quadPrice)}
                       onValueChange={(val) => setQuadPrice(String(val))}
-                      className="font-number flex-6"
+                      className="tabular-nums flex-6"
                     />
                   </ButtonGroup>
                 </div>
@@ -513,7 +511,7 @@ const EditGroupDetailsSheet = ({
                       min={0}
                       value={triplePrice === "" ? 0 : parseInt(triplePrice)}
                       onValueChange={(val) => setTriplePrice(String(val))}
-                      className="font-number flex-6"
+                      className="tabular-nums flex-6"
                     />
                   </ButtonGroup>
                 </div>
@@ -532,7 +530,7 @@ const EditGroupDetailsSheet = ({
                       min={0}
                       value={doublePrice === "" ? 0 : parseInt(doublePrice)}
                       onValueChange={(val) => setDoublePrice(String(val))}
-                      className="font-number flex-6"
+                      className="tabular-nums flex-6"
                     />
                   </ButtonGroup>
                 </div>
@@ -551,7 +549,7 @@ const EditGroupDetailsSheet = ({
                       min={0}
                       value={singlePrice === "" ? 0 : parseInt(singlePrice)}
                       onValueChange={(val) => setSinglePrice(String(val))}
-                      className="font-number flex-6"
+                      className="tabular-nums flex-6"
                     />
                   </ButtonGroup>
                 </div>
@@ -571,7 +569,7 @@ const EditGroupDetailsSheet = ({
                     min={0}
                     value={advanceDeposit === "" ? 0 : parseInt(advanceDeposit)}
                     onValueChange={(val) => setAdvanceDeposit(String(val))}
-                    className="font-number flex-6"
+                    className="tabular-nums flex-6"
                   />
                 </ButtonGroup>
               </div>
@@ -585,8 +583,8 @@ const EditGroupDetailsSheet = ({
               <Separator />
               <SectionHeading title="Departure costs" />
               <p className="text-[11px] text-muted-foreground -mt-2">
-                Costs that do not shrink when the group is smaller — a coach,
-                a guide&apos;s fee, ground handling. This is on top of the
+                Costs that do not shrink when the group is smaller — a coach, a
+                guide&apos;s fee, ground handling. This is on top of the
                 per-pilgrim cost estimate copied from the package template.
               </p>
               <div className="flex flex-col gap-1.5">
@@ -610,7 +608,7 @@ const EditGroupDetailsSheet = ({
                     onValueChange={(val) =>
                       setFixedCostPerDeparture(String(val))
                     }
-                    className="font-number flex-6"
+                    className="tabular-nums flex-6"
                   />
                 </ButtonGroup>
               </div>
@@ -667,7 +665,7 @@ const EditGroupDetailsSheet = ({
                 min={1}
                 value={seatHoldExpiryHours}
                 onChange={(event) => setSeatHoldExpiryHours(event.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
           </div>
@@ -751,7 +749,7 @@ const EditGroupDetailsSheet = ({
                 onChange={(event) =>
                   setLocalCoordinatorPhone(event.target.value)
                 }
-                className="font-number"
+                className="tabular-nums"
                 placeholder="—"
               />
             </InputGroup>
@@ -773,7 +771,9 @@ const EditGroupDetailsSheet = ({
                   </InputGroupAddon>
                   <InputGroupInput
                     value={umrahCompanyName}
-                    onChange={(event) => setUmrahCompanyName(event.target.value)}
+                    onChange={(event) =>
+                      setUmrahCompanyName(event.target.value)
+                    }
                     placeholder="Not contracted"
                   />
                 </InputGroup>
@@ -784,7 +784,7 @@ const EditGroupDetailsSheet = ({
                   <InputGroupInput
                     value={nusukProgramRef}
                     onChange={(event) => setNusukProgramRef(event.target.value)}
-                    className="font-number"
+                    className="tabular-nums"
                     placeholder="—"
                   />
                 </InputGroup>
@@ -795,7 +795,7 @@ const EditGroupDetailsSheet = ({
                   <InputGroupInput
                     value={nusukGroupRef}
                     onChange={(event) => setNusukGroupRef(event.target.value)}
-                    className="font-number"
+                    className="tabular-nums"
                     placeholder="—"
                   />
                 </InputGroup>
@@ -806,7 +806,7 @@ const EditGroupDetailsSheet = ({
                   <InputGroupInput
                     value={visaBatchRef}
                     onChange={(event) => setVisaBatchRef(event.target.value)}
-                    className="font-number"
+                    className="tabular-nums"
                     placeholder="—"
                   />
                 </InputGroup>
@@ -817,7 +817,7 @@ const EditGroupDetailsSheet = ({
                   <InputGroupInput
                     value={visaInvoiceRef}
                     onChange={(event) => setVisaInvoiceRef(event.target.value)}
-                    className="font-number"
+                    className="tabular-nums"
                     placeholder="—"
                   />
                 </InputGroup>

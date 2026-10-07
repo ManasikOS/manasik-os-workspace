@@ -451,7 +451,7 @@ export default function ConversationList({
                       : lastMessagePreview}
                   </p>
                   {unreadCount > 0 && (
-                    <Badge className="rounded-full px-1.5 font-number tabular-nums">
+                    <Badge className="rounded-full px-1.5 tabular-nums tabular-nums">
                       {unreadCount}
                       <span className="sr-only"> unread</span>
                     </Badge>

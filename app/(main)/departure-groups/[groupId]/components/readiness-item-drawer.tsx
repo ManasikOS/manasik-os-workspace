@@ -256,7 +256,7 @@ const ReadinessItemDrawer = ({
               <Row
                 label="Linked template requirement"
                 value={
-                  <span className="font-number text-xs text-muted-foreground">
+                  <span className="tabular-nums text-xs text-muted-foreground">
                     {item.sourceTemplateRequirementId ?? "Added manually"}
                   </span>
                 }

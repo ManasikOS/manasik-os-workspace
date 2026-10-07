@@ -24,7 +24,10 @@ import {
   issueInvoiceAction,
   sendInvoiceAction,
 } from "../../../finance/payments/actions";
-import { getInvoiceLetterheadAction, type InvoiceLetterhead } from "../../actions";
+import {
+  getInvoiceLetterheadAction,
+  type InvoiceLetterhead,
+} from "../../actions";
 import {
   buildInvoiceLineItems,
   invoiceLineItemsTotal,
@@ -103,7 +106,10 @@ const InvoicePreviewDialog = ({
   const can = capabilitiesForFinance(role);
   const [isPending, startTransition] = useTransition();
   const [letterhead, setLetterhead] = useState<InvoiceLetterhead | null>(null);
-  const [generated, setGenerated] = useState<{ id: string; number: string } | null>(null);
+  const [generated, setGenerated] = useState<{
+    id: string;
+    number: string;
+  } | null>(null);
 
   useResetOnOpen(open, booking?.id ?? "", () => {
     setGenerated(null);
@@ -123,7 +129,13 @@ const InvoicePreviewDialog = ({
   }, [open, letterhead]);
 
   const context = useMemo(
-    () => ({ accommodations, flights, transports, addons: serviceAddons, itinerary }),
+    () => ({
+      accommodations,
+      flights,
+      transports,
+      addons: serviceAddons,
+      itinerary,
+    }),
     [accommodations, flights, transports, serviceAddons, itinerary],
   );
 
@@ -144,8 +156,15 @@ const InvoicePreviewDialog = ({
         dueAt: booking.nextDueAt ?? undefined,
         lineItems: toInvoiceLineItemInputs(lineItems),
       });
-      if (!createResult.ok || !createResult.invoiceId || !createResult.invoiceNumber) {
-        toast.add({ title: "Could not create invoice", description: createResult.error });
+      if (
+        !createResult.ok ||
+        !createResult.invoiceId ||
+        !createResult.invoiceNumber
+      ) {
+        toast.add({
+          title: "Could not create invoice",
+          description: createResult.error,
+        });
         return;
       }
 
@@ -177,7 +196,10 @@ const InvoicePreviewDialog = ({
           lineItems,
           amountPaid: booking.amountPaid,
         });
-        downloadBlob(pdfBlob, timestampedFilename(createResult.invoiceNumber, "pdf"));
+        downloadBlob(
+          pdfBlob,
+          timestampedFilename(createResult.invoiceNumber, "pdf"),
+        );
       } catch {
         toast.add({
           title: "Invoice saved, but the PDF failed to build",
@@ -189,7 +211,10 @@ const InvoicePreviewDialog = ({
         title: "Invoice generated",
         description: `${createResult.invoiceNumber} · ${formatExactCurrency(subtotal, currency)}`,
       });
-      setGenerated({ id: createResult.invoiceId, number: createResult.invoiceNumber });
+      setGenerated({
+        id: createResult.invoiceId,
+        number: createResult.invoiceNumber,
+      });
       router.refresh();
     });
   };
@@ -198,16 +223,26 @@ const InvoicePreviewDialog = ({
     if (!booking || !generated) return;
     const digits = whatsappDigits(booking.primaryContactPhone);
     startTransition(async () => {
-      const result = await sendInvoiceAction({ invoiceId: generated.id, channel: "WHATSAPP" });
+      const result = await sendInvoiceAction({
+        invoiceId: generated.id,
+        channel: "WHATSAPP",
+      });
       if (!result.ok) {
-        toast.add({ title: "Could not record as sent", description: result.error });
+        toast.add({
+          title: "Could not record as sent",
+          description: result.error,
+        });
         return;
       }
       if (digits) {
         const text = encodeURIComponent(
           `Invoice ${generated.number} for ${group.groupName} — ${formatExactCurrency(subtotal, currency)}. The PDF is attached separately.`,
         );
-        window.open(`https://wa.me/${digits}?text=${text}`, "_blank", "noopener,noreferrer");
+        window.open(
+          `https://wa.me/${digits}?text=${text}`,
+          "_blank",
+          "noopener,noreferrer",
+        );
       }
       toast.add({ title: "Marked as sent via WhatsApp" });
     });
@@ -217,7 +252,7 @@ const InvoicePreviewDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="sm:max-w-2xl! max-h-[85vh] overflow-y-auto custom-scroll">
+      <DialogContent className="sm:max-w-xl! max-h-[85vh] overflow-y-auto custom-scroll">
         <DialogHeader>
           <DialogTitle>Generate Invoice</DialogTitle>
           <DialogDescription>
@@ -227,17 +262,27 @@ const InvoicePreviewDialog = ({
 
         {lineItems.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nothing to invoice yet — every charge on this booking is either voided or still
-            awaiting approval.
+            Nothing to invoice yet — every charge on this booking is either
+            voided or still awaiting approval.
           </p>
         ) : (
           <div className="flex flex-col gap-3">
-            <Card className="p-3 min-h-fit flex flex-col divide-y divide-border/20">
+            <Card
+              variant="md-shadow"
+              className="px-3 py-1 min-h-fit flex flex-col divide-y divide-border/20"
+            >
               {lineItems.map((item, i) => (
-                <div key={i} className="flex items-start justify-between gap-3 py-2">
+                <div
+                  key={i}
+                  className="flex items-start justify-between gap-3 py-2"
+                >
                   <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{item.travellerName}</p>
-                    <p className="text-sm text-foreground truncate">{item.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.travellerName}
+                    </p>
+                    <p className="text-sm text-foreground truncate">
+                      {item.title}
+                    </p>
                     {item.details.map((line, j) => (
                       <p key={j} className="text-[11px] text-muted-foreground">
                         {line}
@@ -246,21 +291,26 @@ const InvoicePreviewDialog = ({
                   </div>
                   <span
                     className={cn(
-                      "text-sm font-number shrink-0",
+                      "text-sm tabular-nums shrink-0",
                       item.unitAmount < 0
                         ? TONE_TEXT.success
                         : "text-foreground",
                     )}
                   >
-                    {formatExactCurrency(item.quantity * item.unitAmount, currency)}
+                    {formatExactCurrency(
+                      item.quantity * item.unitAmount,
+                      currency,
+                    )}
                   </span>
                 </div>
               ))}
             </Card>
 
             <div className="flex items-center justify-between px-1">
-              <span className="text-sm font-medium text-foreground">Subtotal</span>
-              <span className="text-base font-semibold text-foreground font-number">
+              <span className="text-sm font-medium text-foreground">
+                Subtotal
+              </span>
+              <span className="text-base font-semibold text-foreground tabular-nums">
                 {formatExactCurrency(subtotal, currency)}
               </span>
             </div>
@@ -283,7 +333,11 @@ const InvoicePreviewDialog = ({
               disabled={isPending}
               onClick={sendWhatsapp}
             >
-              {isPending ? <Loader2 className="animate-spin" /> : <MessageSquare />}
+              {isPending ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <MessageSquare />
+              )}
               Send via WhatsApp
             </Button>
           ) : (
@@ -292,7 +346,7 @@ const InvoicePreviewDialog = ({
                 disabled={isPending || !letterhead || lineItems.length === 0}
                 onClick={generate}
               >
-                {isPending ? <Loader2 className="animate-spin" /> : <FileText />}
+                {isPending && <Loader2 className="animate-spin" />}
                 Generate &amp; Download
               </Button>
             )

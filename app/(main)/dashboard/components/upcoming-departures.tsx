@@ -110,11 +110,16 @@ export default function UpcomingDepartures({
                     {/* eslint-enable no-restricted-syntax */}
                     <Badge
                       variant={"outline"}
-                      className="font-number text-muted-foreground"
+                      className="tabular-nums text-muted-foreground"
                     >
                       {group.code}
                     </Badge>
-                    <Badge className={cn("px-2 py-0.5 border font-medium", badgeStyle)}>
+                    <Badge
+                      className={cn(
+                        "px-2 py-0.5 border font-medium",
+                        badgeStyle,
+                      )}
+                    >
                       {group.readinessState}
                     </Badge>
                     <Badge
@@ -136,10 +141,11 @@ export default function UpcomingDepartures({
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1">
                     <Users className="size-3.5" />
-                    <strong className="font-number text-foreground">
+                    <strong className="tabular-nums text-foreground">
                       {group.pilgrimCount}
                     </strong>{" "}
-                    / <span className="font-number">{group.totalCapacity}</span>{" "}
+                    /{" "}
+                    <span className="tabular-nums">{group.totalCapacity}</span>{" "}
                     pilgrims
                   </span>
                   <span className="text-foreground/80 font-medium">
@@ -161,7 +167,7 @@ export default function UpcomingDepartures({
                   <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
                     <FileCheck className="size-4 text-sky-500" /> Docs
                   </span>
-                  <span className="font-number text-lg font-semibold text-foreground">
+                  <span className="tabular-nums text-lg font-semibold text-foreground">
                     {group.readiness.documents.completed} /{" "}
                     {group.readiness.documents.total}
                   </span>
@@ -171,7 +177,7 @@ export default function UpcomingDepartures({
                   <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
                     <ShieldCheck className="size-4 text-emerald-500" /> Visa
                   </span>
-                  <span className="font-number text-lg font-semibold text-foreground">
+                  <span className="tabular-nums text-lg font-semibold text-foreground">
                     {group.readiness.visas.completed} /{" "}
                     {group.readiness.visas.total}
                   </span>
@@ -181,7 +187,7 @@ export default function UpcomingDepartures({
                   <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
                     <CreditCard className="size-4 text-amber-500" /> Payments
                   </span>
-                  <span className="font-number text-lg font-semibold text-foreground">
+                  <span className="tabular-nums text-lg font-semibold text-foreground">
                     {group.readiness.payments.completed} /{" "}
                     {group.readiness.payments.total}
                   </span>
@@ -205,7 +211,9 @@ export default function UpcomingDepartures({
                     {group.readinessState === "At Risk" ? (
                       <AlertTriangle className="size-3.5 text-destructive" />
                     ) : (
-                      <CheckCircle2 className={cn("size-3.5", TONE_TEXT.success)} />
+                      <CheckCircle2
+                        className={cn("size-3.5", TONE_TEXT.success)}
+                      />
                     )}
                     <span className="font-semibold text-foreground">
                       {group.progressPercentage}% · {group.readinessState}
@@ -239,10 +247,19 @@ export default function UpcomingDepartures({
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-xs text-muted-foreground">
                   <span>
-                    Seats filled: <strong className="font-number text-foreground">{group.pilgrimCount}</strong> / {group.totalCapacity}
+                    Seats filled:{" "}
+                    <strong className="tabular-nums text-foreground">
+                      {group.pilgrimCount}
+                    </strong>{" "}
+                    / {group.totalCapacity}
                   </span>
-                  <span className="font-number">
-                    {group.totalCapacity > 0 ? Math.round((group.pilgrimCount / group.totalCapacity) * 100) : 0}%
+                  <span className="tabular-nums">
+                    {group.totalCapacity > 0
+                      ? Math.round(
+                          (group.pilgrimCount / group.totalCapacity) * 100,
+                        )
+                      : 0}
+                    %
                   </span>
                 </div>
                 <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden">

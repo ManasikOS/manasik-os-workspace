@@ -37,7 +37,11 @@ const DEPOSIT_RATE = 0.2;
  * copying to `createGroupBooking` via the `convertLeadToBookingAction` Server
  * Action; this dialog just confirms the numbers and shows the outcome.
  */
-const ConvertToBookingDialog = ({ lead, onClose, onConverted }: ConvertToBookingDialogProps) => {
+const ConvertToBookingDialog = ({
+  lead,
+  onClose,
+  onConverted,
+}: ConvertToBookingDialogProps) => {
   const { store } = useLeads();
   if (!lead || !lead.selectedDepartureGroupId) return null;
   return (
@@ -64,10 +68,16 @@ function ConvertForm({
 }) {
   const [converting, setConverting] = useState(false);
 
-  const pricePerHead = pricePerPerson({ packages }, lead.packageId, lead.journeyType, lead.roomPreference);
+  const pricePerHead = pricePerPerson(
+    { packages },
+    lead.packageId,
+    lead.journeyType,
+    lead.roomPreference,
+  );
   const total = pricePerHead * lead.partySize;
   const deposit = Math.round(pricePerHead * DEPOSIT_RATE) * lead.partySize;
-  const roomType = lead.roomPreference === "UNDECIDED" ? "TRIPLE" : lead.roomPreference;
+  const roomType =
+    lead.roomPreference === "UNDECIDED" ? "TRIPLE" : lead.roomPreference;
 
   const confirm = async () => {
     setConverting(true);
@@ -85,7 +95,10 @@ function ConvertForm({
     setConverting(false);
 
     if (!result.ok) {
-      toast.add({ title: "Could not create booking", description: result.error });
+      toast.add({
+        title: "Could not create booking",
+        description: result.error,
+      });
       return;
     }
 
@@ -101,7 +114,8 @@ function ConvertForm({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <PackageCheck className="size-4 text-primary" /> Ready to create booking
+            <PackageCheck className="size-4 text-primary" /> Ready to create
+            booking
           </DialogTitle>
           <DialogDescription>
             {lead.name} · {lead.reference}
@@ -111,29 +125,56 @@ function ConvertForm({
         <Card className="p-3 gap-2">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Traveller count</span>
-            <span className="font-medium text-foreground">{lead.partySize}</span>
+            <span className="font-medium text-foreground">
+              {lead.partySize}
+            </span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Room preference</span>
-            <span className="font-medium text-foreground">{ROOM_PREFERENCE_LABELS[lead.roomPreference]}</span>
+            <span className="font-medium text-foreground">
+              {ROOM_PREFERENCE_LABELS[lead.roomPreference]}
+            </span>
           </div>
           <div className="flex items-center justify-between text-sm pt-2 border-t border-border/40">
             <span className="text-muted-foreground">Total</span>
-            <span className="font-bold text-foreground font-number">{formatExactLKR(total)}</span>
+            <span className="font-bold text-foreground tabular-nums">
+              {formatExactLKR(total)}
+            </span>
           </div>
-          <div className={cn("flex items-center justify-between text-sm", TONE_TEXT.success)}>
+          <div
+            className={cn(
+              "flex items-center justify-between text-sm",
+              TONE_TEXT.success,
+            )}
+          >
             <span>Deposit due</span>
-            <span className="font-semibold font-number">{formatExactLKR(deposit)}</span>
+            <span className="font-semibold tabular-nums">
+              {formatExactLKR(deposit)}
+            </span>
           </div>
         </Card>
 
         <DialogFooter className="gap-2 border-t pt-3 border-border/40">
-          <Button variant="outline" onClick={onClose} className="text-xs font-semibold" disabled={converting}>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            className="text-xs font-semibold"
+            disabled={converting}
+          >
             Cancel
           </Button>
-          <Button onClick={confirm} disabled={converting} className="text-xs font-semibold">
-            {converting ? <Loader2 className="animate-spin" /> : <CheckCircle2 />}
-            Create Booking &amp; Hold {lead.partySize} Seat{lead.partySize === 1 ? "" : "s"}
+          <Button
+            onClick={confirm}
+            disabled={converting}
+            className="text-xs font-semibold"
+          >
+            {converting ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <CheckCircle2 />
+            )}
+            Create Booking &amp; Hold {lead.partySize} Seat
+            {lead.partySize === 1 ? "" : "s"}
           </Button>
         </DialogFooter>
       </DialogContent>

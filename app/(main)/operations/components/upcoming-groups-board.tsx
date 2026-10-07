@@ -82,7 +82,7 @@ const UpcomingGroupsBoard = ({
                 {GROUP_STATUS_LABELS[g.groupStatus] ?? g.groupStatus}
               </Badge>
               <span className="text-xs text-muted-foreground">Readiness</span>
-              <span className="text-xs font-medium font-number text-foreground">
+              <span className="text-xs font-medium tabular-nums text-foreground">
                 {g.readinessScore}%
               </span>
             </div>

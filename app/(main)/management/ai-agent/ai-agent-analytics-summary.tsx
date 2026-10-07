@@ -3,10 +3,27 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Card } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState, ToneBadge } from "@/components/ui/tone-badge";
-import { CHANNEL_LABEL, type AgentActivitySummary, type AgentChannelSummary, type AgentToolReliability } from "@/lib/agent/whatsapp/analytics";
+import {
+  CHANNEL_LABEL,
+  type AgentActivitySummary,
+  type AgentChannelSummary,
+  type AgentToolReliability,
+} from "@/lib/agent/whatsapp/analytics";
 import { TONE_BADGE_BORDER, TONE_CLASS, type Tone } from "@/lib/ui/tone";
 
 const REPLIES_CHART_CONFIG = {
@@ -53,7 +70,9 @@ function formatUsd(value: number): string {
 
 function formatDuration(milliseconds: number | null): string {
   if (milliseconds === null) return "—";
-  return milliseconds >= 1000 ? `${(milliseconds / 1000).toFixed(1)} s` : `${Math.round(milliseconds)} ms`;
+  return milliseconds >= 1000
+    ? `${(milliseconds / 1000).toFixed(1)} s`
+    : `${Math.round(milliseconds)} ms`;
 }
 
 function formatPercent(value: number | null): string {
@@ -65,10 +84,26 @@ function formatPercent(value: number | null): string {
  * rule, so its cell says so instead of showing a figure that would read as a pass or a fail.
  */
 function responseLimitCell(row: AgentChannelSummary) {
-  if (row.channel === "WHATSAPP") return <span className="text-muted-foreground">Not required</span>;
-  if (row.overResponseLimitPercent === null) return <span className="text-muted-foreground">—</span>;
-  const tone: Tone = row.overResponseLimitPercent === 0 ? "success" : row.overResponseLimitPercent >= 5 ? "danger" : "warning";
-  return <ToneBadge tone={tone} label={row.overResponseLimitPercent === 0 ? "None over 30 s" : `${Math.round(row.overResponseLimitPercent)}% over 30 s`} />;
+  if (row.channel === "WHATSAPP")
+    return <span className="text-muted-foreground">Not required</span>;
+  if (row.overResponseLimitPercent === null)
+    return <span className="text-muted-foreground">—</span>;
+  const tone: Tone =
+    row.overResponseLimitPercent === 0
+      ? "success"
+      : row.overResponseLimitPercent >= 5
+        ? "danger"
+        : "warning";
+  return (
+    <ToneBadge
+      tone={tone}
+      label={
+        row.overResponseLimitPercent === 0
+          ? "None over 30 s"
+          : `${Math.round(row.overResponseLimitPercent)}% over 30 s`
+      }
+    />
+  );
 }
 
 /** The three channels side by side — always across every channel, so it stays a comparison whichever one is filtered above. */
@@ -78,8 +113,10 @@ function AiAgentChannelBreakdown({ rows }: { rows: AgentChannelSummary[] }) {
       <div>
         <p className="text-sm font-medium">How each channel is doing</p>
         <p className="text-xs text-muted-foreground">
-          The same assistant, measured on each channel. Messenger and Instagram must answer within 30 seconds to keep Meta&apos;s automated-assistant
-          status; this counts the assistant&apos;s own thinking time, so allow a little more for delivery.
+          The same assistant, measured on each channel. Messenger and Instagram
+          must answer within 30 seconds to keep Meta&apos;s automated-assistant
+          status; this counts the assistant&apos;s own thinking time, so allow a
+          little more for delivery.
         </p>
       </div>
       <Table>
@@ -88,7 +125,9 @@ function AiAgentChannelBreakdown({ rows }: { rows: AgentChannelSummary[] }) {
             <TableHead>Channel</TableHead>
             <TableHead className="text-right">Conversations</TableHead>
             <TableHead className="text-right">Replies</TableHead>
-            <TableHead className="text-right">Handled without a person</TableHead>
+            <TableHead className="text-right">
+              Handled without a person
+            </TableHead>
             <TableHead className="text-right">Typical reply time</TableHead>
             <TableHead className="text-right">Slowest 1 in 20</TableHead>
             <TableHead>Meta&apos;s 30-second rule</TableHead>
@@ -97,12 +136,24 @@ function AiAgentChannelBreakdown({ rows }: { rows: AgentChannelSummary[] }) {
         <TableBody>
           {rows.map((row) => (
             <TableRow key={row.channel}>
-              <TableCell className="font-medium">{CHANNEL_LABEL[row.channel]}</TableCell>
-              <TableCell className="text-right font-number">{row.conversationCount}</TableCell>
-              <TableCell className="text-right font-number">{row.replyCount}</TableCell>
-              <TableCell className="text-right font-number">{formatPercent(row.handledWithoutPersonPercent)}</TableCell>
-              <TableCell className="text-right font-number">{formatDuration(row.typicalLatencyMs)}</TableCell>
-              <TableCell className="text-right font-number">{formatDuration(row.slowestTwentiethLatencyMs)}</TableCell>
+              <TableCell className="font-medium">
+                {CHANNEL_LABEL[row.channel]}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {row.conversationCount}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {row.replyCount}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {formatPercent(row.handledWithoutPersonPercent)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {formatDuration(row.typicalLatencyMs)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {formatDuration(row.slowestTwentiethLatencyMs)}
+              </TableCell>
               <TableCell>{responseLimitCell(row)}</TableCell>
             </TableRow>
           ))}
@@ -117,11 +168,21 @@ function toolFailureTone(tool: AgentToolReliability): Tone {
   return tool.failurePercent >= 25 ? "danger" : "warning";
 }
 
-function AiAgentPerformanceTile({ label, value, detail }: { label: string; value: string; detail: string }) {
+function AiAgentPerformanceTile({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
   return (
     <Card className="p-4 gap-1">
       <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="text-3xl font-semibold font-number tracking-tight">{value}</p>
+      <p className="text-3xl font-semibold tabular-nums tracking-tight">
+        {value}
+      </p>
       <p className="text-xs text-muted-foreground">{detail}</p>
     </Card>
   );
@@ -146,9 +207,33 @@ function AiAgentDailyBarChart({
       <ChartContainer config={config} className="h-48 w-full">
         <BarChart data={data}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="day" tickLine={false} axisLine={false} tickFormatter={(day: string) => day.slice(5)} fontSize={11} minTickGap={24} />
-          <YAxis tickLine={false} axisLine={false} fontSize={11} width={40} allowDecimals={false} tickFormatter={valueFormatter} />
-          <ChartTooltip content={<ChartTooltipContent formatter={valueFormatter ? (value) => valueFormatter(Number(value)) : undefined} />} />
+          <XAxis
+            dataKey="day"
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(day: string) => day.slice(5)}
+            fontSize={11}
+            minTickGap={24}
+          />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            fontSize={11}
+            width={40}
+            allowDecimals={false}
+            tickFormatter={valueFormatter}
+          />
+          <ChartTooltip
+            content={
+              <ChartTooltipContent
+                formatter={
+                  valueFormatter
+                    ? (value) => valueFormatter(Number(value))
+                    : undefined
+                }
+              />
+            }
+          />
           <Bar dataKey={dataKey} fill={`var(--color-${dataKey})`} radius={4} />
         </BarChart>
       </ChartContainer>
@@ -157,15 +242,25 @@ function AiAgentDailyBarChart({
 }
 
 /** Read-only "Assistant performance" figures for Manasik Copilot — see TASK-002. */
-export function AiAgentAnalyticsSummary({ summary }: { summary: AgentActivitySummary }) {
+export function AiAgentAnalyticsSummary({
+  summary,
+}: {
+  summary: AgentActivitySummary;
+}) {
   const scope = summary.channel ? CHANNEL_LABEL[summary.channel] : null;
   if (summary.replyCount === 0) {
     return (
       <div className="flex flex-col gap-4">
-        {summary.byChannel.length > 0 && <AiAgentChannelBreakdown rows={summary.byChannel} />}
+        {summary.byChannel.length > 0 && (
+          <AiAgentChannelBreakdown rows={summary.byChannel} />
+        )}
         <Card className="p-4">
           <EmptyState
-            title={scope ? `The assistant hasn't replied on ${scope} in the last 30 days` : "The assistant hasn't replied to anyone in the last 30 days"}
+            title={
+              scope
+                ? `The assistant hasn't replied on ${scope} in the last 30 days`
+                : "The assistant hasn't replied to anyone in the last 30 days"
+            }
             description={
               scope
                 ? `Once it answers a conversation on ${scope}, its reply speed, running cost and tool reliability will show up here. Check that ${scope} is connected and its assistant switch is on under Settings → Integrations, and that the assistant is switched on above.`
@@ -177,23 +272,35 @@ export function AiAgentAnalyticsSummary({ summary }: { summary: AgentActivitySum
     );
   }
 
-  const outcomes = Object.entries(summary.statusCounts).sort((a, b) => b[1] - a[1]);
+  const outcomes = Object.entries(summary.statusCounts).sort(
+    (a, b) => b[1] - a[1],
+  );
 
   return (
     <div className="flex flex-col gap-4">
       {summary.truncated && (
-        <div className={`rounded-lg border p-3 text-xs ${TONE_CLASS.warning} ${TONE_BADGE_BORDER.warning}`}>
-          This period has more activity than can be shown at once, so the figures below are a lower estimate.
+        <div
+          className={`rounded-lg border p-3 text-xs ${TONE_CLASS.warning} ${TONE_BADGE_BORDER.warning}`}
+        >
+          This period has more activity than can be shown at once, so the
+          figures below are a lower estimate.
         </div>
       )}
       {summary.unpricedRunCount > 0 && (
-        <div className={`rounded-lg border p-3 text-xs ${TONE_CLASS.warning} ${TONE_BADGE_BORDER.warning}`}>
-          {summary.unpricedRunCount} {summary.unpricedRunCount === 1 ? "reply was" : "replies were"} made with a model that has no price
-          on file ({summary.unpricedModels.join(", ")}), so the cost below is missing {summary.unpricedRunCount === 1 ? "it" : "them"}.
+        <div
+          className={`rounded-lg border p-3 text-xs ${TONE_CLASS.warning} ${TONE_BADGE_BORDER.warning}`}
+        >
+          {summary.unpricedRunCount}{" "}
+          {summary.unpricedRunCount === 1 ? "reply was" : "replies were"} made
+          with a model that has no price on file (
+          {summary.unpricedModels.join(", ")}), so the cost below is missing{" "}
+          {summary.unpricedRunCount === 1 ? "it" : "them"}.
         </div>
       )}
 
-      {summary.byChannel.length > 0 && <AiAgentChannelBreakdown rows={summary.byChannel} />}
+      {summary.byChannel.length > 0 && (
+        <AiAgentChannelBreakdown rows={summary.byChannel} />
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <AiAgentPerformanceTile
@@ -219,7 +326,12 @@ export function AiAgentAnalyticsSummary({ summary }: { summary: AgentActivitySum
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <AiAgentDailyBarChart title="Replies per day" data={summary.daily} dataKey="replies" config={REPLIES_CHART_CONFIG} />
+        <AiAgentDailyBarChart
+          title="Replies per day"
+          data={summary.daily}
+          dataKey="replies"
+          config={REPLIES_CHART_CONFIG}
+        />
         <AiAgentDailyBarChart
           title="Assistant cost per day"
           data={summary.daily}
@@ -238,9 +350,17 @@ export function AiAgentAnalyticsSummary({ summary }: { summary: AgentActivitySum
         <AiAgentPerformanceTile
           label="Enquiries saved as leads"
           value={String(summary.leadsCaptured)}
-          detail={scope ? `New leads from ${scope} in this period` : "New leads from WhatsApp, Messenger and Instagram in this period"}
+          detail={
+            scope
+              ? `New leads from ${scope} in this period`
+              : "New leads from WhatsApp, Messenger and Instagram in this period"
+          }
         />
-        <AiAgentPerformanceTile label="Bookings held for customers" value={String(summary.bookingsHeld)} detail="Seats the assistant held after the customer confirmed" />
+        <AiAgentPerformanceTile
+          label="Bookings held for customers"
+          value={String(summary.bookingsHeld)}
+          detail="Seats the assistant held after the customer confirmed"
+        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -248,12 +368,15 @@ export function AiAgentAnalyticsSummary({ summary }: { summary: AgentActivitySum
           <div>
             <p className="text-sm font-medium">How reliable each tool is</p>
             <p className="text-xs text-muted-foreground">
-              Tools are how the assistant looks things up and saves things. A tool that often fails is the first place to look when
-              replies feel wrong. This covers every channel.
+              Tools are how the assistant looks things up and saves things. A
+              tool that often fails is the first place to look when replies feel
+              wrong. This covers every channel.
             </p>
           </div>
           {summary.tools.length === 0 ? (
-            <p className="text-sm text-muted-foreground">The assistant hasn&apos;t used any tools yet.</p>
+            <p className="text-sm text-muted-foreground">
+              The assistant hasn&apos;t used any tools yet.
+            </p>
           ) : (
             <Table>
               <TableHeader>
@@ -268,15 +391,27 @@ export function AiAgentAnalyticsSummary({ summary }: { summary: AgentActivitySum
                 {summary.tools.map((tool) => (
                   <TableRow key={tool.toolName}>
                     <TableCell>
-                      <p className="text-sm">{TOOL_LABELS[tool.toolName] ?? tool.toolName}</p>
-                      <p className="text-[11px] text-muted-foreground">{tool.toolName}</p>
+                      <p className="text-sm">
+                        {TOOL_LABELS[tool.toolName] ?? tool.toolName}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {tool.toolName}
+                      </p>
                     </TableCell>
-                    <TableCell className="text-right font-number">{tool.calls}</TableCell>
-                    <TableCell className="text-right font-number">{tool.failures}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {tool.calls}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {tool.failures}
+                    </TableCell>
                     <TableCell>
                       <ToneBadge
                         tone={toolFailureTone(tool)}
-                        label={tool.failures === 0 ? "No failures" : `${Math.round(tool.failurePercent)}% failed`}
+                        label={
+                          tool.failures === 0
+                            ? "No failures"
+                            : `${Math.round(tool.failurePercent)}% failed`
+                        }
                       />
                     </TableCell>
                   </TableRow>
@@ -290,9 +425,14 @@ export function AiAgentAnalyticsSummary({ summary }: { summary: AgentActivitySum
           <p className="text-sm font-medium">How replies ended</p>
           <div className="flex flex-col gap-2">
             {outcomes.map(([status, count]) => (
-              <div key={status} className="flex items-center justify-between text-sm">
+              <div
+                key={status}
+                className="flex items-center justify-between text-sm"
+              >
                 <span>{REPLY_OUTCOME_LABELS[status] ?? status}</span>
-                <span className="font-number text-muted-foreground">{count}</span>
+                <span className="tabular-nums text-muted-foreground">
+                  {count}
+                </span>
               </div>
             ))}
           </div>

@@ -87,7 +87,10 @@ const GenerateRoomsDialog = ({
       accommodationId: accommodation?.id ?? "",
       departureGroupId,
       roomType,
-      occupancyCapacity: Math.max(0, Math.round(Number(occupancyCapacity) || 0)),
+      occupancyCapacity: Math.max(
+        0,
+        Math.round(Number(occupancyCapacity) || 0),
+      ),
       count: Math.max(0, Math.round(Number(count) || 0)),
       startingRoomNumber: startingRoomNumber.trim() || undefined,
     };
@@ -119,18 +122,24 @@ const GenerateRoomsDialog = ({
         <DialogHeader>
           <DialogTitle>Generate Rooms</DialogTitle>
           <DialogDescription>
-            {accommodation?.hotelName || "Adds rooms an operator can assign pilgrims into."}
+            {accommodation?.hotelName ||
+              "Adds rooms an operator can assign pilgrims into."}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-foreground">Room type</span>
+              <span className="text-xs font-medium text-foreground">
+                Room type
+              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger>
                   <InputGroup>
-                    <InputGroupInput readOnly value={ROOM_TYPE_LABELS[roomType]} />
+                    <InputGroupInput
+                      readOnly
+                      value={ROOM_TYPE_LABELS[roomType]}
+                    />
                   </InputGroup>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-40">
@@ -159,7 +168,7 @@ const GenerateRoomsDialog = ({
                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 value={occupancyCapacity}
                 onChange={(e) => setOccupancyCapacity(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
           </div>
@@ -177,7 +186,7 @@ const GenerateRoomsDialog = ({
                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 value={count}
                 onChange={(e) => setCount(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
             <InputGroup>
@@ -193,8 +202,9 @@ const GenerateRoomsDialog = ({
           </div>
 
           <p className="text-[11px] text-muted-foreground">
-            Room numbers count up from the starting number ({startingRoomNumber.trim() || "e.g. 101 → 102"}).
-            Leave it blank to create unnumbered rooms you can label later.
+            Room numbers count up from the starting number (
+            {startingRoomNumber.trim() || "e.g. 101 → 102"}). Leave it blank to
+            create unnumbered rooms you can label later.
           </p>
 
           {error && (

@@ -4,7 +4,11 @@ import { useMemo, useState } from "react";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 
 import { DataTableSurface } from "@/components/data-table/data-table-surface";
-import { Tabs, TabsList, TabsTrigger } from "@/components/animate-ui/components/animate/tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/animate/tabs";
 import { ToneBadge } from "@/components/ui/tone-badge";
 import {
   Table,
@@ -18,7 +22,10 @@ import { KpiCard } from "@/components/data-table/kpi-card";
 import { CalendarClock, History } from "lucide-react";
 
 import { EmptyState } from "@/app/(main)/departure-groups/components/status-badges";
-import { formatDate, formatExactCurrency } from "@/app/(main)/finance/payments/utils";
+import {
+  formatDate,
+  formatExactCurrency,
+} from "@/app/(main)/finance/payments/utils";
 import {
   derivePlanStatus,
   isRescheduledPlan,
@@ -27,7 +34,10 @@ import {
 } from "@/lib/data/finance";
 import { computeCollectionRisk } from "@/lib/finance/collection-risk";
 import type { FinanceCapabilities } from "@/lib/access/finance-access";
-import type { FinanceMilestoneRow, PaymentPlanStatus } from "@/lib/types/finance";
+import type {
+  FinanceMilestoneRow,
+  PaymentPlanStatus,
+} from "@/lib/types/finance";
 
 import CollectionRiskBadge from "./collection-risk-badge";
 import RescheduleMilestoneDialog from "./reschedule-milestone-dialog";
@@ -64,11 +74,17 @@ interface PaymentPlansViewProps {
   nowIso: string;
 }
 
-export default function PaymentPlansView({ milestones, can, nowIso }: PaymentPlansViewProps) {
+export default function PaymentPlansView({
+  milestones,
+  can,
+  nowIso,
+}: PaymentPlansViewProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterId>("ALL");
-  const [rescheduling, setRescheduling] = useState<FinanceMilestoneRow | null>(null);
+  const [rescheduling, setRescheduling] = useState<FinanceMilestoneRow | null>(
+    null,
+  );
 
   const rows = useMemo(
     () =>
@@ -114,9 +130,15 @@ export default function PaymentPlansView({ milestones, can, nowIso }: PaymentPla
     const needle = search.trim().toLowerCase();
     return rows.filter(({ milestone, status, rescheduled }) => {
       if (filter === "EXCEPTIONS" && !rescheduled) return false;
-      if (filter !== "ALL" && filter !== "EXCEPTIONS" && status !== filter) return false;
+      if (filter !== "ALL" && filter !== "EXCEPTIONS" && status !== filter)
+        return false;
       if (!needle) return true;
-      return [milestone.booking_reference, milestone.primary_contact_name, milestone.label, milestone.group_name]
+      return [
+        milestone.booking_reference,
+        milestone.primary_contact_name,
+        milestone.label,
+        milestone.group_name,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(needle);
@@ -130,7 +152,10 @@ export default function PaymentPlansView({ milestones, can, nowIso }: PaymentPla
   const overdueAmount = can.viewReceivables
     ? rows
         .filter((r) => r.status === "OVERDUE")
-        .reduce((sum, r) => sum + (r.milestone.amount - r.milestone.paid_amount), 0)
+        .reduce(
+          (sum, r) => sum + (r.milestone.amount - r.milestone.paid_amount),
+          0,
+        )
     : 0;
   const exceptionsCount = rows.filter((r) => r.rescheduled).length;
 
@@ -140,25 +165,33 @@ export default function PaymentPlansView({ milestones, can, nowIso }: PaymentPla
         <KpiCard title="Overdue" value={String(overdueCount)} />
         <KpiCard title="Due this week" value={String(dueThisWeekCount)} />
         {can.viewReceivables && (
-          <KpiCard title="Overdue amount" value={formatExactCurrency(overdueAmount)} />
+          <KpiCard
+            title="Overdue amount"
+            value={formatExactCurrency(overdueAmount)}
+          />
         )}
         <KpiCard title="Rescheduled" value={String(exceptionsCount)} />
       </div>
 
-      <Tabs value={filter} onValueChange={(value) => setFilter(value as FilterId)}>
+      <Tabs
+        value={filter}
+        onValueChange={(value) => setFilter(value as FilterId)}
+      >
         <TabsList>
           {FILTERS.map((id) => (
-            <TabsTrigger
-              key={id}
-              value={id}
-            >
+            <TabsTrigger key={id} value={id}>
               {FILTER_LABELS[id]}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
 
-      <DataTableSurface search={search} onSearchChange={setSearch} searchPlaceholder="Search reference, contact, or group…" rowCount={filtered.length}>
+      <DataTableSurface
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search reference, contact, or group…"
+        rowCount={filtered.length}
+      >
         {filtered.length === 0 ? (
           <EmptyState
             icon={<CalendarClock className="size-8" />}
@@ -179,7 +212,10 @@ export default function PaymentPlansView({ milestones, can, nowIso }: PaymentPla
                   ...(can.viewReceivables ? ["Risk"] : []),
                   "",
                 ].map((label) => (
-                  <TableHead key={label} className="h-9 px-3 text-xs font-medium text-muted-foreground">
+                  <TableHead
+                    key={label}
+                    className="h-9 px-3 text-xs font-medium text-muted-foreground"
+                  >
                     {label}
                   </TableHead>
                 ))}
@@ -190,14 +226,25 @@ export default function PaymentPlansView({ milestones, can, nowIso }: PaymentPla
                 <TableRow
                   key={m.id}
                   className="hover:bg-muted/40 cursor-pointer"
-                  onClick={() => router.push(`/departure-groups/${m.departure_group_id}/bookings/${m.booking_id}`)}
+                  onClick={() =>
+                    router.push(
+                      `/bookings?booking=${m.booking_id}`,
+                    )
+                  }
                 >
                   <TableCell className="px-3 py-3">
-                    <p className="text-sm text-foreground">{m.booking_reference}</p>
-                    <p className="text-[11px] text-muted-foreground">{m.primary_contact_name}</p>
+                    <p className="text-sm text-foreground">
+                      {m.booking_reference}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {m.primary_contact_name}
+                    </p>
                   </TableCell>
                   <TableCell className="px-3 py-3 text-xs text-foreground">
-                    {m.group_name} <span className="text-muted-foreground">· {m.group_code}</span>
+                    {m.group_name}{" "}
+                    <span className="text-muted-foreground">
+                      · {m.group_code}
+                    </span>
                   </TableCell>
                   <TableCell className="px-3 py-3 text-sm text-foreground">
                     {m.label}
@@ -217,34 +264,48 @@ export default function PaymentPlansView({ milestones, can, nowIso }: PaymentPla
                       </TableCell>
                     </>
                   )}
-                  <TableCell className="px-3 py-3 text-xs font-number text-foreground">
+                  <TableCell className="px-3 py-3 text-xs tabular-nums text-foreground">
                     {m.due_at ? formatDate(m.due_at) : "—"}
                   </TableCell>
                   <TableCell className="px-3 py-3">
-                    <ToneBadge tone={PAYMENT_PLAN_STATUS_TONE[status]} label={PAYMENT_PLAN_STATUS_LABEL[status]} />
+                    <ToneBadge
+                      tone={PAYMENT_PLAN_STATUS_TONE[status]}
+                      label={PAYMENT_PLAN_STATUS_LABEL[status]}
+                    />
                   </TableCell>
                   {can.viewReceivables && (
-                    <TableCell className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <TableCell
+                      className="px-3 py-3"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {(() => {
                         const risk = riskByBooking.get(m.booking_id);
                         if (!risk) return null;
-                        return <CollectionRiskBadge bookingId={m.booking_id} band={risk.band} score={risk.score} />;
+                        return (
+                          <CollectionRiskBadge
+                            bookingId={m.booking_id}
+                            band={risk.band}
+                            score={risk.score}
+                          />
+                        );
                       })()}
                     </TableCell>
                   )}
                   <TableCell className="px-3 py-3">
-                    {can.changeMilestoneDueDates && status !== "COMPLETED" && status !== "CANCELLED" && (
-                      <button
-                        type="button"
-                        className="text-xs text-primary underline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRescheduling(m);
-                        }}
-                      >
-                        Change due date
-                      </button>
-                    )}
+                    {can.changeMilestoneDueDates &&
+                      status !== "COMPLETED" &&
+                      status !== "CANCELLED" && (
+                        <button
+                          type="button"
+                          className="text-xs text-primary underline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRescheduling(m);
+                          }}
+                        >
+                          Change due date
+                        </button>
+                      )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -253,7 +314,10 @@ export default function PaymentPlansView({ milestones, can, nowIso }: PaymentPla
         )}
       </DataTableSurface>
 
-      <RescheduleMilestoneDialog milestone={rescheduling} onClose={() => setRescheduling(null)} />
+      <RescheduleMilestoneDialog
+        milestone={rescheduling}
+        onClose={() => setRescheduling(null)}
+      />
     </div>
   );
 }

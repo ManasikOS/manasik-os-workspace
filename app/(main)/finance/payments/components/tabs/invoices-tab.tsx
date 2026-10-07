@@ -2,12 +2,22 @@
 
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState, ToneBadge } from "@/components/ui/tone-badge";
 import React from "react";
 
 import { INVOICE_STATUS_TONE } from "@/lib/data/finance";
-import { INVOICE_STATUS_LABELS, INVOICE_TYPE_LABELS } from "@/lib/data/finance-copy";
+import {
+  INVOICE_STATUS_LABELS,
+  INVOICE_TYPE_LABELS,
+} from "@/lib/data/finance-copy";
 
 import { useFinance } from "../../finance-store";
 import { formatDate, formatExactCurrency } from "../../utils";
@@ -36,13 +46,23 @@ export default function InvoicesTab() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent border-none!">
-              {["Invoice Number", "Customer / Supplier", "Booking / Group", "Type", "Amount", "Due Date", "Status", "Sent"].map(
-                (label) => (
-                  <TableHead key={label} className="h-11 px-4 text-xs font-medium text-muted-foreground whitespace-nowrap">
-                    {label}
-                  </TableHead>
-                ),
-              )}
+              {[
+                "Invoice Number",
+                "Customer / Supplier",
+                "Booking / Group",
+                "Type",
+                "Amount",
+                "Due Date",
+                "Status",
+                "Sent",
+              ].map((label) => (
+                <TableHead
+                  key={label}
+                  className="h-11 px-4 text-xs font-medium text-muted-foreground whitespace-nowrap"
+                >
+                  {label}
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-border/20">
@@ -52,22 +72,39 @@ export default function InvoicesTab() {
                 className="hover:bg-muted/50 cursor-pointer"
                 onClick={() => router.push(`/finance/invoices/${invoice.id}`)}
               >
-                <TableCell className="px-4 py-3 text-sm font-number text-foreground">{invoice.invoice_number}</TableCell>
-                <TableCell className="px-4 py-3 text-sm text-foreground">{invoice.party_name || "—"}</TableCell>
-                <TableCell className="px-4 py-3 text-xs text-muted-foreground">
-                  {invoice.booking_reference ?? invoice.supplier_commitment_reference ?? "—"}
-                  {invoice.group_name && <span className="block">{invoice.group_name}</span>}
+                <TableCell className="px-4 py-3 text-sm tabular-nums text-foreground">
+                  {invoice.invoice_number}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-xs text-foreground">{INVOICE_TYPE_LABELS[invoice.invoice_type]}</TableCell>
-                <TableCell className="px-4 py-3 text-sm font-number text-foreground">
+                <TableCell className="px-4 py-3 text-sm text-foreground">
+                  {invoice.party_name || "—"}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-xs text-muted-foreground">
+                  {invoice.booking_reference ??
+                    invoice.supplier_commitment_reference ??
+                    "—"}
+                  {invoice.group_name && (
+                    <span className="block">{invoice.group_name}</span>
+                  )}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-xs text-foreground">
+                  {INVOICE_TYPE_LABELS[invoice.invoice_type]}
+                </TableCell>
+                <TableCell className="px-4 py-3 text-sm tabular-nums text-foreground">
                   {formatExactCurrency(invoice.amount, invoice.currency)}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-xs text-muted-foreground">{formatDate(invoice.due_at)}</TableCell>
+                <TableCell className="px-4 py-3 text-xs text-muted-foreground">
+                  {formatDate(invoice.due_at)}
+                </TableCell>
                 <TableCell className="px-4 py-3">
-                  <ToneBadge tone={INVOICE_STATUS_TONE[invoice.status]} label={INVOICE_STATUS_LABELS[invoice.status]} />
+                  <ToneBadge
+                    tone={INVOICE_STATUS_TONE[invoice.status]}
+                    label={INVOICE_STATUS_LABELS[invoice.status]}
+                  />
                 </TableCell>
                 <TableCell className="px-4 py-3 text-xs text-muted-foreground">
-                  {invoice.sent_channel ? INVOICE_STATUS_LABELS[invoice.status] : "Not sent"}
+                  {invoice.sent_channel
+                    ? INVOICE_STATUS_LABELS[invoice.status]
+                    : "Not sent"}
                 </TableCell>
               </TableRow>
             ))}

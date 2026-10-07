@@ -230,7 +230,7 @@ const OverviewTab = ({ onNavigate }: OverviewTabProps) => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-number text-foreground">
+                      <span className="text-xs tabular-nums text-foreground">
                         {g.readinessScore}%
                       </span>
                       <ToneBadge

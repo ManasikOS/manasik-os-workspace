@@ -436,7 +436,7 @@ const DepartureGroupsList = ({
                   >
                     <Archive /> View Archived Groups
                     {archivedGroups.length > 0 && (
-                      <span className="ml-auto text-[10px] font-number px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground">
+                      <span className="ml-auto text-[10px] tabular-nums px-1.5 py-0.5 rounded-sm bg-muted text-muted-foreground">
                         {archivedGroups.length}
                       </span>
                     )}
@@ -457,7 +457,7 @@ const DepartureGroupsList = ({
             <h2 className="text-xl font-medium tracking-tight text-foreground">
               {savedView}
             </h2>
-            <span className="rounded-sm bg-primary/10 px-2 py-0.5 font-number text-[11px] font-medium text-primary">
+            <span className="rounded-sm bg-primary/10 px-2 py-0.5 tabular-nums text-[11px] font-medium text-primary">
               {sorted.length} of {groups.length}
             </span>
           </div>

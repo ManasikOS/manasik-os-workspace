@@ -12,9 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Lock } from "lucide-react";
 import React from "react";
@@ -71,9 +69,7 @@ function Line({
         <p
           className={cn(
             "text-sm truncate",
-            drifted
-              ? `${TONE_TEXT.warning} font-medium`
-              : "text-foreground",
+            drifted ? `${TONE_TEXT.warning} font-medium` : "text-foreground",
           )}
         >
           {live}
@@ -133,9 +129,9 @@ const TemplateComparisonDialog = ({
           <Lock className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
           <p className="text-[11px] text-muted-foreground">
             The snapshot on the left is what this group&apos;s pilgrims bought.
-            It never changes when the Package Template is edited, so this view is
-            a record of drift — not something to sync. Change the group itself if
-            a figure is wrong.
+            It never changes when the Package Template is edited, so this view
+            is a record of drift — not something to sync. Change the group
+            itself if a figure is wrong.
           </p>
         </Card>
 
@@ -167,12 +163,13 @@ const TemplateComparisonDialog = ({
               />
               {snapshot.packageVersionId &&
                 snapshot.livePackagePublishedVersionId &&
-                snapshot.packageVersionId !== snapshot.livePackagePublishedVersionId && (
+                snapshot.packageVersionId !==
+                  snapshot.livePackagePublishedVersionId && (
                   <p className={`text-[11px] ${TONE_TEXT.warning} py-1`}>
                     The template has been republished since this group was
                     created — its content may no longer match what this
-                    group&apos;s pilgrims actually booked. The frozen record
-                    on the left is still what governs this group.
+                    group&apos;s pilgrims actually booked. The frozen record on
+                    the left is still what governs this group.
                   </p>
                 )}
               {can.viewFinance && (
@@ -190,7 +187,10 @@ const TemplateComparisonDialog = ({
                     live={
                       pricing.quadPrice === null
                         ? "Not priced"
-                        : formatExactCurrency(pricing.quadPrice, pricing.currency)
+                        : formatExactCurrency(
+                            pricing.quadPrice,
+                            pricing.currency,
+                          )
                     }
                     drifted={pricing.priceSource === "OVERRIDDEN"}
                   />
@@ -220,8 +220,8 @@ const TemplateComparisonDialog = ({
                   {pricing.priceSource === "OVERRIDDEN" && (
                     <p className={`text-[11px] ${TONE_TEXT.warning} py-1`}>
                       This departure has been repriced since it was created —
-                      the price shown under &quot;In this group&quot; is what
-                      it sells at now, not the frozen snapshot.
+                      the price shown under &quot;In this group&quot; is what it
+                      sells at now, not the frozen snapshot.
                     </p>
                   )}
                 </>
@@ -230,7 +230,7 @@ const TemplateComparisonDialog = ({
                 <span className="text-muted-foreground">
                   Inclusions / exclusions frozen for this group
                 </span>
-                <span className="text-foreground font-number">
+                <span className="text-foreground tabular-nums">
                   {snapshot.inclusions.length} / {snapshot.exclusions.length}
                 </span>
               </div>

@@ -124,7 +124,9 @@ const PackageDetail = ({
   const [tab, setTab] = useState<PackageDetailTabId>(initialTab);
   // `?edit=1` opens the dialog from its very first render via lazy initial
   // state — same reasoning as `PackagesList`'s `createOpen`.
-  const [editOpen, setEditOpen] = useState(() => autoOpenEdit && can.editPackage);
+  const [editOpen, setEditOpen] = useState(
+    () => autoOpenEdit && can.editPackage,
+  );
 
   const lifecycleTarget = {
     id: pkg.id,
@@ -236,7 +238,9 @@ const PackageDetail = ({
               <DropdownMenuContent align="end">
                 {can.duplicatePackage && (
                   <DropdownMenuItem
-                    onClick={() => lifecycle.actions.onDuplicate(lifecycleTarget)}
+                    onClick={() =>
+                      lifecycle.actions.onDuplicate(lifecycleTarget)
+                    }
                   >
                     <Copy /> Duplicate
                   </DropdownMenuItem>
@@ -255,7 +259,9 @@ const PackageDetail = ({
                   )}
                 {can.toggleFeatured && (
                   <DropdownMenuItem
-                    onClick={() => lifecycle.actions.onToggleFeatured(lifecycleTarget)}
+                    onClick={() =>
+                      lifecycle.actions.onToggleFeatured(lifecycleTarget)
+                    }
                   >
                     <Star /> {pkg.featured ? "Unfeature" : "Feature"}
                   </DropdownMenuItem>
@@ -265,19 +271,25 @@ const PackageDetail = ({
                     <DropdownMenuSeparator />
                     {pkg.status === "Draft" ? (
                       <DropdownMenuItem
-                        onClick={() => lifecycle.actions.onPublish(lifecycleTarget)}
+                        onClick={() =>
+                          lifecycle.actions.onPublish(lifecycleTarget)
+                        }
                       >
                         <Send /> Publish
                       </DropdownMenuItem>
                     ) : pkg.status === "Open for Sale" ? (
                       <DropdownMenuItem
-                        onClick={() => lifecycle.actions.onUnpublish(lifecycleTarget)}
+                        onClick={() =>
+                          lifecycle.actions.onUnpublish(lifecycleTarget)
+                        }
                       >
                         <Send /> Unpublish
                       </DropdownMenuItem>
                     ) : pkg.status === "Sales Closed" ? (
                       <DropdownMenuItem
-                        onClick={() => lifecycle.actions.onReopen(lifecycleTarget)}
+                        onClick={() =>
+                          lifecycle.actions.onReopen(lifecycleTarget)
+                        }
                       >
                         <Send /> Reopen for Sale
                       </DropdownMenuItem>
@@ -289,13 +301,17 @@ const PackageDetail = ({
                     <DropdownMenuSeparator />
                     {pkg.status === "Archived" ? (
                       <DropdownMenuItem
-                        onClick={() => lifecycle.actions.onRestore(lifecycleTarget)}
+                        onClick={() =>
+                          lifecycle.actions.onRestore(lifecycleTarget)
+                        }
                       >
                         <ArchiveRestore /> Restore
                       </DropdownMenuItem>
                     ) : (
                       <DropdownMenuItem
-                        onClick={() => lifecycle.actions.onArchive(lifecycleTarget)}
+                        onClick={() =>
+                          lifecycle.actions.onArchive(lifecycleTarget)
+                        }
                       >
                         <Archive /> Archive
                       </DropdownMenuItem>
@@ -323,7 +339,7 @@ const PackageDetail = ({
       <div className="flex flex-wrap items-center gap-2">
         <Badge
           variant="outline"
-          className="text-xs font-number text-muted-foreground"
+          className="text-xs tabular-nums text-muted-foreground"
         >
           {pkg.internal_code}
         </Badge>

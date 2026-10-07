@@ -20,11 +20,19 @@ const ActivityTab = () => {
   const [highImpactOnly, setHighImpactOnly] = useState(true);
 
   const groupOptions = useMemo(
-    () => [...new Map(snapshot.activity.map((a) => [a.groupId, a.groupName])).entries()].map(([value, label]) => ({ value, label })),
+    () =>
+      [
+        ...new Map(
+          snapshot.activity.map((a) => [a.groupId, a.groupName]),
+        ).entries(),
+      ].map(([value, label]) => ({ value, label })),
     [snapshot.activity],
   );
   const actorOptions = useMemo(
-    () => [...new Set(snapshot.activity.map((a) => displayActorName(a.actorName)))].map((n) => ({ value: n, label: n })),
+    () =>
+      [
+        ...new Set(snapshot.activity.map((a) => displayActorName(a.actorName))),
+      ].map((n) => ({ value: n, label: n })),
     [snapshot.activity],
   );
 
@@ -42,8 +50,18 @@ const ActivityTab = () => {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <FilterSelect label="Group" value={groupId} options={groupOptions} onChange={setGroupId} />
-        <FilterSelect label="Staff Owner" value={actorName} options={actorOptions} onChange={setActorName} />
+        <FilterSelect
+          label="Group"
+          value={groupId}
+          options={groupOptions}
+          onChange={setGroupId}
+        />
+        <FilterSelect
+          label="Staff Owner"
+          value={actorName}
+          options={actorOptions}
+          onChange={setActorName}
+        />
         <Button
           variant={highImpactOnly ? "secondary" : "outline_without_border"}
           size="sm"
@@ -54,17 +72,27 @@ const ActivityTab = () => {
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState title="No activity yet" description="Nothing matches this filter." />
+        <EmptyState
+          title="No activity yet"
+          description="Nothing matches this filter."
+        />
       ) : (
         <div className="rounded-md bg-card/60 dark:bg-gray-950/10 border border-muted/50 backdrop-blur-lg shadow-lg p-4 flex flex-col gap-4">
           {filtered.map((a) => (
-            <div key={a.id} className="flex items-start gap-3 border-b border-border/20 pb-3 last:border-0 last:pb-0">
-              <span className="text-xs text-muted-foreground font-number shrink-0 w-36">{formatDateTime(a.createdAt)}</span>
+            <div
+              key={a.id}
+              className="flex items-start gap-3 border-b border-border/20 pb-3 last:border-0 last:pb-0"
+            >
+              <span className="text-xs text-muted-foreground tabular-nums shrink-0 w-36">
+                {formatDateTime(a.createdAt)}
+              </span>
               <div className="min-w-0">
                 <p className="text-sm text-foreground">
                   <ActorChip name={a.actorName} inline /> {a.message}
                 </p>
-                <p className="text-[11px] text-muted-foreground">{a.groupName}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {a.groupName}
+                </p>
               </div>
             </div>
           ))}

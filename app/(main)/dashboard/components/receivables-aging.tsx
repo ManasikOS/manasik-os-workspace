@@ -4,7 +4,11 @@ import { Cell, Pie, PieChart } from "recharts";
 
 import SectionHeading from "@/components/section-heading";
 import { Card } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { formatCurrency } from "@/app/(main)/departure-groups/utils";
 import type { BusinessHealthData } from "@/lib/types/dashboard";
 
@@ -28,7 +32,11 @@ const AGING_BUCKET_COLOR: Record<string, string> = {
  * panel, now its own always-visible donut card. Same `buildReceivablesAging()`
  * buckets as before (§5.8), just no longer hidden behind a tab.
  */
-export default function ReceivablesAgingCard({ data }: { data: BusinessHealthData }) {
+export default function ReceivablesAgingCard({
+  data,
+}: {
+  data: BusinessHealthData;
+}) {
   const isEmpty = data.receivablesAging.every((b) => b.amount === 0);
 
   return (
@@ -36,10 +44,15 @@ export default function ReceivablesAgingCard({ data }: { data: BusinessHealthDat
       <SectionHeading title="Receivables Aging" act={null} />
 
       {isEmpty ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">No outstanding receivables.</p>
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          No outstanding receivables.
+        </p>
       ) : (
         <div className="flex items-center gap-5">
-          <ChartContainer config={{}} className="bg-transparent! aspect-square h-32 w-32 shrink-0">
+          <ChartContainer
+            config={{}}
+            className="bg-transparent! aspect-square h-32 w-32 shrink-0"
+          >
             <PieChart>
               <ChartTooltip content={<ChartTooltipContent hideLabel />} />
               <Pie
@@ -51,7 +64,13 @@ export default function ReceivablesAgingCard({ data }: { data: BusinessHealthDat
                 strokeWidth={3}
               >
                 {data.receivablesAging.map((bucket) => (
-                  <Cell key={bucket.key} fill={AGING_BUCKET_COLOR[bucket.key] ?? "var(--muted-foreground)"} />
+                  <Cell
+                    key={bucket.key}
+                    fill={
+                      AGING_BUCKET_COLOR[bucket.key] ??
+                      "var(--muted-foreground)"
+                    }
+                  />
                 ))}
               </Pie>
             </PieChart>
@@ -62,10 +81,18 @@ export default function ReceivablesAgingCard({ data }: { data: BusinessHealthDat
               <div key={bucket.key} className="flex items-center gap-2 text-xs">
                 <span
                   className="size-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: AGING_BUCKET_COLOR[bucket.key] ?? "var(--muted-foreground)" }}
+                  style={{
+                    backgroundColor:
+                      AGING_BUCKET_COLOR[bucket.key] ??
+                      "var(--muted-foreground)",
+                  }}
                 />
-                <span className="flex-1 text-muted-foreground truncate">{bucket.label}</span>
-                <span className="font-number text-foreground font-medium">{formatCurrency(bucket.amount)}</span>
+                <span className="flex-1 text-muted-foreground truncate">
+                  {bucket.label}
+                </span>
+                <span className="tabular-nums text-foreground font-medium">
+                  {formatCurrency(bucket.amount)}
+                </span>
               </div>
             ))}
           </div>

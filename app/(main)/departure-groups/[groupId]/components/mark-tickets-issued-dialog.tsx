@@ -23,7 +23,10 @@ import { Loader2, TriangleAlert } from "lucide-react";
 import React, { useState, useTransition } from "react";
 
 import { markFlightTicketsIssuedAction } from "../../actions";
-import type { DepartureGroupFlight, DepartureGroupManifestRow } from "../../types";
+import type {
+  DepartureGroupFlight,
+  DepartureGroupManifestRow,
+} from "../../types";
 import { TONE_CLASS } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 
@@ -72,7 +75,8 @@ const MarkTicketsIssuedDialog = ({
     setError(null);
   });
 
-  const selected = eligible.find((f) => f.id === flightId) ?? eligible[0] ?? null;
+  const selected =
+    eligible.find((f) => f.id === flightId) ?? eligible[0] ?? null;
 
   // The travellers this run would flip to Ticketed — same PENDING/not-cancelled
   // shape `markFlightTicketsIssuedInStore` filters by, just without the booking
@@ -86,7 +90,9 @@ const MarkTicketsIssuedDialog = ({
       row.seatStatus !== "CANCELLED" &&
       row.seatStatus !== "WAITLIST",
   );
-  const withoutDocument = pendingForOutbound.filter((row) => !row.ticketFilePath);
+  const withoutDocument = pendingForOutbound.filter(
+    (row) => !row.ticketFilePath,
+  );
 
   const submit = () => {
     setError(null);
@@ -138,19 +144,26 @@ const MarkTicketsIssuedDialog = ({
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-foreground">Flight</span>
+              <span className="text-xs font-medium text-foreground">
+                Flight
+              </span>
               <DropdownMenu>
                 <DropdownMenuTrigger>
                   <InputGroup>
                     <InputGroupInput
                       readOnly
-                      value={selected ? flightLabel(selected) : "Select a flight"}
+                      value={
+                        selected ? flightLabel(selected) : "Select a flight"
+                      }
                     />
                   </InputGroup>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-64">
                   {eligible.map((f) => (
-                    <DropdownMenuItem key={f.id} onClick={() => setFlightId(f.id)}>
+                    <DropdownMenuItem
+                      key={f.id}
+                      onClick={() => setFlightId(f.id)}
+                    >
                       {flightLabel(f)}
                     </DropdownMenuItem>
                   ))}
@@ -161,7 +174,7 @@ const MarkTicketsIssuedDialog = ({
             {selected && (
               <Card className="flex-row px-3 py-2.5 flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Seats to ticket</span>
-                <span className="font-number font-semibold text-foreground">
+                <span className="tabular-nums font-semibold text-foreground">
                   {selected.seatsTicketed} → {selected.seatsHeld} of{" "}
                   {selected.seatCapacity}
                 </span>
@@ -178,7 +191,12 @@ const MarkTicketsIssuedDialog = ({
             {selected?.direction === "OUTBOUND" &&
               pendingForOutbound.length > 0 &&
               withoutDocument.length > 0 && (
-                <div className={cn("flex items-start gap-2 rounded-sm px-3 py-2 text-xs", TONE_CLASS.warning)}>
+                <div
+                  className={cn(
+                    "flex items-start gap-2 rounded-sm px-3 py-2 text-xs",
+                    TONE_CLASS.warning,
+                  )}
+                >
                   <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
                   <span>
                     {withoutDocument.length} of {pendingForOutbound.length}{" "}

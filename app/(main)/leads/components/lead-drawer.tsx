@@ -276,7 +276,7 @@ const LeadDrawer = ({
                     <SheetTitle className="text-2xl font-semibold tracking-tight">
                       {lead.name}
                     </SheetTitle>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground font-number">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
                       {lead.reference}
                       <CopyButton value={lead.reference} label="lead ID" />
                     </div>
@@ -459,7 +459,7 @@ const LeadDrawer = ({
                   <SectionHeading title="Contact" />
                   <div className="flex flex-col gap-1">
                     <DetailRow label="Mobile / WhatsApp">
-                      <span className="inline-flex items-center gap-1 font-number">
+                      <span className="inline-flex items-center gap-1 tabular-nums">
                         {lead.mobile || (
                           <span className="font-sans text-muted-foreground">
                             No phone yet
@@ -510,7 +510,9 @@ const LeadDrawer = ({
                   doNotContact={lead.doNotContact}
                   contactableChannels={lead.contactableChannels}
                   canManage
-                  onSave={(input) => updateLeadConsentAction({ leadId: lead.id, ...input })}
+                  onSave={(input) =>
+                    updateLeadConsentAction({ leadId: lead.id, ...input })
+                  }
                 />
 
                 {/* Campaign attribution */}
@@ -526,7 +528,10 @@ const LeadDrawer = ({
                           attributionType: lead.attributionType,
                         }).then((result) => {
                           if (!result.ok) {
-                            toast.add({ title: "Could not attribute lead", description: result.error });
+                            toast.add({
+                              title: "Could not attribute lead",
+                              description: result.error,
+                            });
                             return;
                           }
                           router.refresh();
@@ -552,10 +557,16 @@ const LeadDrawer = ({
                           setLeadCampaignAction({
                             leadId: lead.id,
                             campaignId: lead.campaignId,
-                            attributionType: value as "DIRECT" | "ASSISTED" | "UNKNOWN",
+                            attributionType: value as
+                              | "DIRECT"
+                              | "ASSISTED"
+                              | "UNKNOWN",
                           }).then((result) => {
                             if (!result.ok) {
-                              toast.add({ title: "Could not update attribution", description: result.error });
+                              toast.add({
+                                title: "Could not update attribution",
+                                description: result.error,
+                              });
                               return;
                             }
                             router.refresh();
@@ -566,7 +577,9 @@ const LeadDrawer = ({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="UNKNOWN">Unknown certainty</SelectItem>
+                          <SelectItem value="UNKNOWN">
+                            Unknown certainty
+                          </SelectItem>
                           <SelectItem value="DIRECT">Direct</SelectItem>
                           <SelectItem value="ASSISTED">Assisted</SelectItem>
                         </SelectContent>
@@ -600,7 +613,7 @@ const LeadDrawer = ({
                   <DetailRow label="Estimated value">
                     <span
                       className={cn(
-                        "inline-flex items-center gap-1 font-semibold font-number",
+                        "inline-flex items-center gap-1 font-semibold tabular-nums",
                         TONE_TEXT.success,
                       )}
                     >
@@ -648,7 +661,7 @@ const LeadDrawer = ({
                           className="flex items-center justify-between gap-3 text-sm"
                         >
                           <span className="flex items-center gap-2 min-w-0">
-                            <span className="font-number text-foreground">
+                            <span className="tabular-nums text-foreground">
                               {quote.reference}
                             </span>
                             <ToneBadge
@@ -657,7 +670,7 @@ const LeadDrawer = ({
                             />
                           </span>
                           <span className="text-right">
-                            <span className="block font-number text-foreground">
+                            <span className="block tabular-nums text-foreground">
                               {formatExactLKR(quote.totalLkr)}
                             </span>
                             <span className="block text-[11px] text-muted-foreground">

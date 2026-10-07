@@ -127,7 +127,7 @@ const SelectBookingDialog = ({
                     <p className="text-sm text-foreground truncate">
                       {booking.primaryContactName}
                     </p>
-                    <p className="text-[11px] text-muted-foreground font-number truncate">
+                    <p className="text-[11px] text-muted-foreground tabular-nums truncate">
                       {booking.bookingReference} · {booking.travellerCount}{" "}
                       traveller{booking.travellerCount === 1 ? "" : "s"}
                     </p>
@@ -138,7 +138,7 @@ const SelectBookingDialog = ({
                   <div className="text-right shrink-0">
                     <p
                       className={cn(
-                        "text-sm font-number font-semibold",
+                        "text-sm tabular-nums font-semibold",
                         booking.outstandingBalance > 0
                           ? "text-destructive"
                           : TONE_TEXT.success,

@@ -137,16 +137,20 @@ const PilgrimCustomisationDrawer = ({
   const [view, setView] = useState<View>("detail");
 
   const [chargeFormOpen, setChargeFormOpen] = useState(false);
-  const [chargeType, setChargeType] = useState<Exclude<ChargeType, "BASE_FARE">>("ADDON");
+  const [chargeType, setChargeType] =
+    useState<Exclude<ChargeType, "BASE_FARE">>("ADDON");
   const [chargeLabel, setChargeLabel] = useState("");
   const [chargeAmount, setChargeAmount] = useState("");
   const [chargeReason, setChargeReason] = useState("");
 
-  const [decidingDeviation, setDecidingDeviation] = useState<PilgrimDeviation | null>(null);
+  const [decidingDeviation, setDecidingDeviation] =
+    useState<PilgrimDeviation | null>(null);
   const [decisionApprove, setDecisionApprove] = useState(true);
   const [decisionNote, setDecisionNote] = useState("");
 
-  const [voidingCharge, setVoidingCharge] = useState<PilgrimCharge | null>(null);
+  const [voidingCharge, setVoidingCharge] = useState<PilgrimCharge | null>(
+    null,
+  );
   const [voidReason, setVoidReason] = useState("");
 
   useResetOnOpen(open, row?.id ?? "", () => {
@@ -202,7 +206,8 @@ const PilgrimCustomisationDrawer = ({
           groupPilgrimId: row.id,
           chargeType,
           label: chargeLabel,
-          amount: chargeType === "DISCOUNT" ? -Math.abs(amount) : Math.abs(amount),
+          amount:
+            chargeType === "DISCOUNT" ? -Math.abs(amount) : Math.abs(amount),
           reason: chargeReason || undefined,
         }),
       "Charge added",
@@ -283,15 +288,25 @@ const PilgrimCustomisationDrawer = ({
   return (
     <>
       <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-        <SheetContent side="right" className="sm:max-w-2xl! w-full" showCloseButton={view === "detail"}>
+        <SheetContent
+          side="right"
+          className="sm:max-w-2xl! w-full"
+          showCloseButton={view === "detail"}
+        >
           <SheetHeader>
             {view === "add" ? (
               <>
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon-sm" onClick={() => setView("detail")}>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setView("detail")}
+                  >
                     <ArrowLeft className="size-4" />
                   </Button>
-                  <SheetTitle className="text-lg!">Add customisation</SheetTitle>
+                  <SheetTitle className="text-lg!">
+                    Add customisation
+                  </SheetTitle>
                 </div>
                 <SheetDescription>{row.fullName}</SheetDescription>
               </>
@@ -349,27 +364,33 @@ const PilgrimCustomisationDrawer = ({
                   <Card className="min-h-fit bg-transparent flex flex-col gap-3">
                     <SectionHeading title="Room occupancy" />
                     <div className="grid grid-cols-5 gap-2">
-                      {(["QUAD", "TRIPLE", "DOUBLE", "SINGLE", "OTHER"] as RoomType[]).map(
-                        (type) => {
-                          const active = row.roomOccupancyType === type;
-                          return (
-                            <button
-                              key={type}
-                              type="button"
-                              disabled={isPending}
-                              onClick={() => changeRoomType(type)}
-                              className={cn(
-                                "rounded-md border px-2 py-1.5 text-xs transition-colors",
-                                active
-                                  ? "border-primary bg-primary/10 text-primary"
-                                  : "border-border/50 hover:bg-muted/50 text-foreground",
-                              )}
-                            >
-                              {ROOM_TYPE_LABELS[type]}
-                            </button>
-                          );
-                        },
-                      )}
+                      {(
+                        [
+                          "QUAD",
+                          "TRIPLE",
+                          "DOUBLE",
+                          "SINGLE",
+                          "OTHER",
+                        ] as RoomType[]
+                      ).map((type) => {
+                        const active = row.roomOccupancyType === type;
+                        return (
+                          <button
+                            key={type}
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => changeRoomType(type)}
+                            className={cn(
+                              "rounded-md border px-2 py-1.5 text-xs transition-colors",
+                              active
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border/50 hover:bg-muted/50 text-foreground",
+                            )}
+                          >
+                            {ROOM_TYPE_LABELS[type]}
+                          </button>
+                        );
+                      })}
                     </div>
                   </Card>
                 )}
@@ -396,7 +417,9 @@ const PilgrimCustomisationDrawer = ({
                           <Select
                             value={chargeType}
                             onValueChange={(value) =>
-                              setChargeType(value as Exclude<ChargeType, "BASE_FARE">)
+                              setChargeType(
+                                value as Exclude<ChargeType, "BASE_FARE">,
+                              )
                             }
                           >
                             <SelectTrigger className="w-full text-xs">
@@ -404,7 +427,11 @@ const PilgrimCustomisationDrawer = ({
                             </SelectTrigger>
                             <SelectContent>
                               {ADDABLE_CHARGE_TYPES.map((t) => (
-                                <SelectItem key={t} value={t} className="text-xs">
+                                <SelectItem
+                                  key={t}
+                                  value={t}
+                                  className="text-xs"
+                                >
                                   {CHARGE_TYPE_LABELS[t]}
                                 </SelectItem>
                               ))}
@@ -425,7 +452,8 @@ const PilgrimCustomisationDrawer = ({
                         <Textarea
                           rows={2}
                           placeholder={
-                            chargeType === "DISCOUNT" || chargeType === "PRICE_CORRECTION"
+                            chargeType === "DISCOUNT" ||
+                            chargeType === "PRICE_CORRECTION"
                               ? "Reason — required for approval"
                               : "Reason (optional)"
                           }
@@ -474,28 +502,34 @@ const PilgrimCustomisationDrawer = ({
                               {charge.pricedRoomType
                                 ? ` · ${ROOM_TYPE_LABELS[charge.pricedRoomType]}`
                                 : ""}
-                              {charge.requiresApproval && !charge.approvedAt && (
-                                <span className={TONE_TEXT.warning}>
-                                  {" "}
-                                  · awaiting approval
-                                </span>
-                              )}
+                              {charge.requiresApproval &&
+                                !charge.approvedAt && (
+                                  <span className={TONE_TEXT.warning}>
+                                    {" "}
+                                    · awaiting approval
+                                  </span>
+                                )}
                               {charge.approvedAt && (
-                                <span> · approved by {charge.approvedByName}</span>
+                                <span>
+                                  {" "}
+                                  · approved by {charge.approvedByName}
+                                </span>
                               )}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <span
                               className={cn(
-                                "text-sm font-number",
+                                "text-sm tabular-nums",
                                 charge.amount < 0
                                   ? TONE_TEXT.success
                                   : "text-foreground",
                               )}
                             >
                               {charge.amount < 0 ? "-" : ""}
-                              {formatExactCurrency(Math.abs(charge.amount) * charge.quantity)}
+                              {formatExactCurrency(
+                                Math.abs(charge.amount) * charge.quantity,
+                              )}
                             </span>
                             {can.approveDiscounts &&
                               charge.requiresApproval &&
@@ -546,7 +580,8 @@ const PilgrimCustomisationDrawer = ({
                         <div className="flex flex-col gap-1 mt-1">
                           {voidedCharges.map((c) => (
                             <p key={c.id} className="line-through">
-                              {c.label} — {formatExactCurrency(Math.abs(c.amount))} ·{" "}
+                              {c.label} —{" "}
+                              {formatExactCurrency(Math.abs(c.amount))} ·{" "}
                               {c.voidReason}
                             </p>
                           ))}
@@ -558,7 +593,7 @@ const PilgrimCustomisationDrawer = ({
                       <span className="text-xs font-medium text-muted-foreground">
                         Total
                       </span>
-                      <span className="text-sm font-semibold text-foreground font-number">
+                      <span className="text-sm font-semibold text-foreground tabular-nums">
                         {formatExactCurrency(row.totalPrice ?? 0)}
                       </span>
                     </div>
@@ -582,8 +617,8 @@ const PilgrimCustomisationDrawer = ({
 
                   {row.deviations.length === 0 ? (
                     <p className="text-xs text-muted-foreground">
-                      No customisations for this traveller. Everything follows the
-                      group standard.
+                      No customisations for this traveller. Everything follows
+                      the group standard.
                     </p>
                   ) : (
                     <div className="flex flex-col gap-2">
@@ -594,35 +629,52 @@ const PilgrimCustomisationDrawer = ({
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm text-foreground">{deviation.summary}</p>
+                              <p className="text-sm text-foreground">
+                                {deviation.summary}
+                              </p>
                               {deviation.blocksDeparture && (
-                                <AlertTriangle className={`size-3.5 ${TONE_TEXT.warning} shrink-0`} />
+                                <AlertTriangle
+                                  className={`size-3.5 ${TONE_TEXT.warning} shrink-0`}
+                                />
                               )}
                             </div>
                             <p className="text-[11px] text-muted-foreground">
-                              {DEVIATION_BY_TYPE[deviation.deviationType]?.label ?? deviation.deviationType} · owned by{" "}
-                              {ROLE_LABELS[deviation.responsibleRole as StaffRole] ??
-                                deviation.responsibleRole}{" "}
+                              {DEVIATION_BY_TYPE[deviation.deviationType]
+                                ?.label ?? deviation.deviationType}{" "}
+                              · owned by{" "}
+                              {ROLE_LABELS[
+                                deviation.responsibleRole as StaffRole
+                              ] ?? deviation.responsibleRole}{" "}
                               · requested by {deviation.requestedByName} on{" "}
                               {formatDate(deviation.requestedAt)}
                             </p>
                             {deviation.decisionNote && (
                               <p className="text-[11px] text-muted-foreground mt-0.5">
-                                {deviation.status === "DECLINED" ? "Declined: " : "Note: "}
+                                {deviation.status === "DECLINED"
+                                  ? "Declined: "
+                                  : "Note: "}
                                 {deviation.decisionNote}
                               </p>
                             )}
                             <DeviationDetailView deviation={deviation} />
-                            {deviation.chargeId && can.viewPilgrimPricing && (() => {
-                              const linkedCharge = row.charges.find(
-                                (c) => c.id === deviation.chargeId && !c.voidedAt,
-                              );
-                              return linkedCharge ? (
-                                <p className="text-[11px] text-muted-foreground mt-0.5">
-                                  ↳ {formatExactCurrency(Math.abs(linkedCharge.amount) * linkedCharge.quantity)} — {linkedCharge.label}
-                                </p>
-                              ) : null;
-                            })()}
+                            {deviation.chargeId &&
+                              can.viewPilgrimPricing &&
+                              (() => {
+                                const linkedCharge = row.charges.find(
+                                  (c) =>
+                                    c.id === deviation.chargeId && !c.voidedAt,
+                                );
+                                return linkedCharge ? (
+                                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                                    ↳{" "}
+                                    {formatExactCurrency(
+                                      Math.abs(linkedCharge.amount) *
+                                        linkedCharge.quantity,
+                                    )}{" "}
+                                    — {linkedCharge.label}
+                                  </p>
+                                ) : null;
+                              })()}
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             <Badge
@@ -634,7 +686,8 @@ const PilgrimCustomisationDrawer = ({
                               {deviation.status}
                             </Badge>
                             {deviation.status === "REQUESTED" &&
-                              (can.manageTravellerCustomisations || can.approveDiscounts) && (
+                              (can.manageTravellerCustomisations ||
+                                can.approveDiscounts) && (
                                 <>
                                   <Button
                                     variant="ghost"
@@ -777,14 +830,18 @@ const PilgrimCustomisationDrawer = ({
       >
         <DialogContent className="max-w-md!">
           <DialogHeader>
-            <DialogTitle>{decisionApprove ? "Approve" : "Decline"} deviation</DialogTitle>
+            <DialogTitle>
+              {decisionApprove ? "Approve" : "Decline"} deviation
+            </DialogTitle>
             <DialogDescription>{decidingDeviation?.summary}</DialogDescription>
           </DialogHeader>
           <Textarea
             value={decisionNote}
             onChange={(e) => setDecisionNote(e.target.value)}
             rows={3}
-            placeholder={decisionApprove ? "Note (optional)" : "Why is this declined?"}
+            placeholder={
+              decisionApprove ? "Note (optional)" : "Why is this declined?"
+            }
           />
           <div className="flex justify-end gap-2">
             <Button
@@ -802,7 +859,8 @@ const PilgrimCustomisationDrawer = ({
               variant={decisionApprove ? "default" : "destructive"}
               onClick={confirmDecision}
               disabled={
-                isPending || (!decisionApprove && decisionNote.trim().length < 3)
+                isPending ||
+                (!decisionApprove && decisionNote.trim().length < 3)
               }
             >
               {isPending && <Loader2 className="animate-spin" />}

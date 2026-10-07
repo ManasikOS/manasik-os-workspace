@@ -16,6 +16,7 @@ import HeaderNotificationBell, {
   HeaderNotificationBellPlaceholder,
 } from "@/components/header-notification-bell";
 import { capabilitiesForInbox } from "@/lib/access/inbox-access";
+import { listSearchablePagesForRole } from "@/lib/search/global-search-pages";
 import { needsAgencyProvisioning } from "@/lib/onboarding/onboarding-routing";
 
 /**
@@ -63,12 +64,15 @@ export default async function MainLayout({
   // The session check and the role lookup are independent, so they run
   // together. The activity touch reuses the profile facts the role lookup
   // already read, instead of selecting the row a second time.
-  const [sessionUser, { role, name, staffId, agencySuspended, memberships, activity }] =
-    await Promise.all([getSessionUser(), getCurrentStaffRole()]);
+  const [
+    sessionUser,
+    { role, name, staffId, agencySuspended, memberships, activity },
+  ] = await Promise.all([getSessionUser(), getCurrentStaffRole()]);
   if (!sessionUser) redirect("/login");
   // A confirmed signup that never reached provisioning (D1 in docs/onboarding/plan.md)
   // belongs to no agency yet: send them to /onboarding rather than an empty dashboard.
-  if (needsAgencyProvisioning({ activity, memberships })) redirect("/onboarding");
+  if (needsAgencyProvisioning({ activity, memberships }))
+    redirect("/onboarding");
   await touchSessionActivity(sessionUser.id, activity);
 
   if (agencySuspended) {
@@ -91,6 +95,7 @@ export default async function MainLayout({
           )
         }
         canViewInbox={capabilitiesForInbox(role).viewModule}
+        searchablePages={listSearchablePagesForRole(role)}
       />
       <div className="flex flex-1 min-h-0 w-full">
         <AppSidebar
@@ -113,7 +118,10 @@ export default async function MainLayout({
               </div>
             }
           >
-            <div id="layout-scroll" className="overflow-y-auto flex-1 custom-scroll bg-white dark:bg-background">
+            <div
+              id="layout-scroll"
+              className="overflow-y-auto flex-1 custom-scroll bg-white dark:bg-background"
+            >
               <div className="px-10 pb-5 pt-6 bg-linear-to-br from-[#009473]/5 dark:from-[#009473]/5 via-[#6bc1ae]/4 dark:via-[#6bc1ae]/3 to-orange-200/40 dark:to-orange-950/10 min-h-full">
                 {children}
               </div>

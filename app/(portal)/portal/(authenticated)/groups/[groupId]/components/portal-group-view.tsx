@@ -12,7 +12,11 @@ import {
 } from "@/components/animate-ui/components/animate/tabs";
 import { ChevronLeft } from "lucide-react";
 
-import type { PortalDocument, PortalItineraryEvent, PortalVoucher } from "@/lib/data/pilgrim-portal-repository";
+import type {
+  PortalDocument,
+  PortalItineraryEvent,
+  PortalVoucher,
+} from "@/lib/data/pilgrim-portal-repository";
 
 const DOCUMENT_STATUS_LABELS: Record<string, string> = {
   NOT_SUBMITTED: "Not submitted",
@@ -37,7 +41,9 @@ export default function PortalGroupView({
   documents: PortalDocument[];
   vouchers: PortalVoucher[];
 }) {
-  const [tab, setTab] = useState<TabKey>(itinerary.length > 0 ? "itinerary" : "documents");
+  const [tab, setTab] = useState<TabKey>(
+    itinerary.length > 0 ? "itinerary" : "documents",
+  );
 
   const byDay = new Map<number, PortalItineraryEvent[]>();
   for (const event of itinerary) {
@@ -46,11 +52,18 @@ export default function PortalGroupView({
     byDay.set(event.dayNumber, list);
   }
 
-  const voucherByEvent = new Map(vouchers.filter((v) => v.itineraryEventId).map((v) => [v.itineraryEventId, v]));
+  const voucherByEvent = new Map(
+    vouchers
+      .filter((v) => v.itineraryEventId)
+      .map((v) => [v.itineraryEventId, v]),
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href="/portal" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+      <Link
+        href="/portal"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+      >
         <ChevronLeft className="size-3.5" /> Back
       </Link>
 
@@ -70,36 +83,52 @@ export default function PortalGroupView({
         <div className="flex flex-col gap-4">
           {byDay.size === 0 ? (
             <Card className="p-6">
-              <p className="text-sm text-muted-foreground">Your itinerary hasn&apos;t been published yet.</p>
+              <p className="text-sm text-muted-foreground">
+                Your itinerary hasn&apos;t been published yet.
+              </p>
             </Card>
           ) : (
-            [...byDay.entries()].sort(([a], [b]) => a - b).map(([dayNumber, events]) => (
-              <Card key={dayNumber} className="p-4 flex flex-col gap-2">
-                <p className="text-sm font-medium text-foreground">
-                  Day {dayNumber}{events[0]?.dayTitle ? ` — ${events[0].dayTitle}` : ""}
-                </p>
-                <div className="flex flex-col gap-2">
-                  {events.map((event) => {
-                    const voucher = voucherByEvent.get(event.id);
-                    return (
-                      <div key={event.id} className="flex gap-3 text-xs">
-                        <span className="text-muted-foreground w-14 shrink-0">{event.startTime ?? "—"}</span>
-                        <div>
-                          <p className="text-foreground">{event.title}</p>
-                          {event.location && <p className="text-muted-foreground">{event.location}</p>}
-                          {event.pilgrimFacingNotes && <p className="text-muted-foreground mt-0.5">{event.pilgrimFacingNotes}</p>}
-                          {voucher && (
-                            <p className="text-primary mt-0.5 font-number">
-                              Voucher: {voucher.voucherCode} ({voucher.status.toLowerCase()})
-                            </p>
-                          )}
+            [...byDay.entries()]
+              .sort(([a], [b]) => a - b)
+              .map(([dayNumber, events]) => (
+                <Card key={dayNumber} className="p-4 flex flex-col gap-2">
+                  <p className="text-sm font-medium text-foreground">
+                    Day {dayNumber}
+                    {events[0]?.dayTitle ? ` — ${events[0].dayTitle}` : ""}
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {events.map((event) => {
+                      const voucher = voucherByEvent.get(event.id);
+                      return (
+                        <div key={event.id} className="flex gap-3 text-xs">
+                          <span className="text-muted-foreground w-14 shrink-0">
+                            {event.startTime ?? "—"}
+                          </span>
+                          <div>
+                            <p className="text-foreground">{event.title}</p>
+                            {event.location && (
+                              <p className="text-muted-foreground">
+                                {event.location}
+                              </p>
+                            )}
+                            {event.pilgrimFacingNotes && (
+                              <p className="text-muted-foreground mt-0.5">
+                                {event.pilgrimFacingNotes}
+                              </p>
+                            )}
+                            {voucher && (
+                              <p className="text-primary mt-0.5 tabular-nums">
+                                Voucher: {voucher.voucherCode} (
+                                {voucher.status.toLowerCase()})
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            ))
+                      );
+                    })}
+                  </div>
+                </Card>
+              ))
           )}
         </div>
       )}
@@ -108,16 +137,25 @@ export default function PortalGroupView({
         <div className="flex flex-col gap-2">
           {documents.length === 0 ? (
             <Card className="p-6">
-              <p className="text-sm text-muted-foreground">No documents are listed for this trip yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No documents are listed for this trip yet.
+              </p>
             </Card>
           ) : (
             documents.map((doc) => (
-              <Card key={doc.id} className="p-3 flex items-center justify-between gap-3">
+              <Card
+                key={doc.id}
+                className="p-3 flex items-center justify-between gap-3"
+              >
                 <div>
                   <p className="text-sm text-foreground">{doc.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{doc.category}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {doc.category}
+                  </p>
                 </div>
-                <Badge variant={doc.status === "VERIFIED" ? "default" : "secondary"}>
+                <Badge
+                  variant={doc.status === "VERIFIED" ? "default" : "secondary"}
+                >
                   {DOCUMENT_STATUS_LABELS[doc.status] ?? doc.status}
                 </Badge>
               </Card>

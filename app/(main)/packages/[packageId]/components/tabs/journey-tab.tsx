@@ -45,7 +45,7 @@ export default function JourneyTab({ pkg }: { pkg: PackageRow }) {
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"
-                      className="text-[10px] font-number"
+                      className="text-[10px] tabular-nums"
                     >
                       Day {day.dayNumber}
                     </Badge>

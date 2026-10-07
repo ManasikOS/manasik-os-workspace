@@ -41,7 +41,7 @@ export default function PricingTab({ pkg }: { pkg: PackageRow }) {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-number text-foreground">
+                  <p className="tabular-nums text-foreground">
                     {m.amountType === "Percentage"
                       ? `${m.amount}%`
                       : m.amountType === "Remaining Balance"

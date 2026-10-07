@@ -5,23 +5,15 @@ import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabili
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DataTable } from "@/components/data-table/data-table";
 import { Separator } from "@/components/ui/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import {
   AlertTriangle,
   ArrowRight,
   Compass,
   Download,
+  MoreVertical,
   PlaneLanding,
   PlaneTakeoff,
   Plus,
@@ -29,12 +21,11 @@ import {
   Upload,
   UserMinus,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 
 import {
   EmptyState,
   FlightStatusBadge,
-  PilgrimFlightStatusBadge,
   ProgressBar,
 } from "../../../components/status-badges";
 import { downloadTextFile, timestampedFilename, toCsv } from "../../../csv";
@@ -57,7 +48,13 @@ import BulkUploadTicketsDialog from "../bulk-upload-tickets-dialog";
 import FlightItineraryDialog from "../flight-itinerary-dialog";
 import FlightTicketingDialog from "../flight-ticketing-dialog";
 import MarkTicketsIssuedDialog from "../mark-tickets-issued-dialog";
-import PilgrimTicketCell from "../pilgrim-ticket-cell";
+import { buildFlightTicketingColumns } from "./flight-ticketing-columns";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FlightsTabProps {
   groupId: string;
@@ -82,7 +79,7 @@ function FlightDetailField({
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className={`text-sm text-foreground ${mono ? "font-number" : ""}`}>
+      <span className={`text-sm text-foreground ${mono ? "tabular-nums" : ""}`}>
         {value}
       </span>
     </div>
@@ -105,22 +102,22 @@ function FlightCard({
 
   return (
     <Card className="gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2.5">
           <div className="size-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
             <Icon className="size-4" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-medium text-foreground">
               {outbound ? "Outbound Flight" : "Return Flight"}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="truncate text-xs text-muted-foreground">
               {flight.airline}
               {flight.flightNumber ? ` · ${flight.flightNumber}` : ""}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
           <FlightStatusBadge value={flight.status} />
           <Button
             variant="ghost"
@@ -138,41 +135,51 @@ function FlightCard({
       </div>
 
       {/* Route line */}
-      <div className="flex flex-wrap items-center gap-4 rounded-sm bg-muted/50 px-3 py-3">
-        <div className="flex flex-col">
-          <span className="text-lg font-semibold font-number text-foreground">
+      <Card
+        variant="md-shadow"
+        className="grid  items-center grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-3 rounded-sm bg-muted/50 px-3 py-3 sm:gap-4"
+      >
+        <div className="flex min-w-0 flex-col">
+          <span className="text-lg font-semibold tabular-nums text-foreground">
             {flight.originAirportCode}
           </span>
-          <span className="text-[11px] text-muted-foreground max-w-40 truncate">
+          <span className="text-xs text-muted-foreground max-w-40 truncate">
             {flight.originAirportName}
           </span>
-          <span className="text-xs text-foreground mt-1 font-number">
+          <span className="text-xs text-foreground mt-1 tabular-nums">
             {formatDateTime(flight.departureAt)}
           </span>
         </div>
         <ArrowRight className="size-4 text-muted-foreground" />
-        <div className="flex flex-col">
-          <span className="text-lg font-semibold font-number text-foreground">
+        <div className="flex min-w-0 flex-col text-right">
+          <span className="text-lg font-semibold tabular-nums text-foreground">
             {flight.destinationAirportCode}
           </span>
           <span className="text-[11px] text-muted-foreground max-w-40 truncate">
             {flight.destinationAirportName}
           </span>
-          <span className="text-xs text-foreground mt-1 font-number">
+          <span className="text-xs text-foreground mt-1 tabular-nums">
             {formatDateTime(flight.arrivalAt)}
           </span>
         </div>
-      </div>
+      </Card>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <FlightDetailField label="PNR" value={flight.pnr ?? "Not issued"} mono />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <FlightDetailField
+          label="PNR"
+          value={flight.pnr ?? "Not issued"}
+          mono
+        />
         <FlightDetailField
           label="Booking reference"
           value={flight.bookingReference ?? "—"}
           mono
         />
         <FlightDetailField label="Cabin class" value={flight.cabinClass} />
-        <FlightDetailField label="Supplier / agent" value={flight.supplierName ?? "—"} />
+        <FlightDetailField
+          label="Supplier / agent"
+          value={flight.supplierName ?? "—"}
+        />
         <FlightDetailField label="Seats held" value={flight.seatsHeld} mono />
         <FlightDetailField
           label="Tickets issued"
@@ -183,7 +190,11 @@ function FlightCard({
           label="Ticketing deadline"
           value={formatDate(flight.ticketingDeadline)}
         />
-        <FlightDetailField label="Seat capacity" value={flight.seatCapacity} mono />
+        <FlightDetailField
+          label="Seat capacity"
+          value={flight.seatCapacity}
+          mono
+        />
       </div>
 
       {flight.notes && (
@@ -197,8 +208,10 @@ function FlightCard({
         <>
           {/* <Separator /> */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <SectionHeading title="Transit legs" />
+            <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
+              <h3 className="text-sm font-medium text-foreground">
+                Transit legs
+              </h3>
               {canManage && (
                 <Button
                   variant="ghost"
@@ -215,23 +228,23 @@ function FlightCard({
               .map((leg) => (
                 <Card
                   key={leg.id}
-                  className="flex flex-row items-center justify-between gap-3 rounded-sm px-4 py-4"
+                  className="flex flex-col items-stretch justify-between gap-3 rounded-sm px-4 py-4 sm:flex-row sm:items-center"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
                     <Badge
                       variant="outline"
-                      className="text-[10px] font-number text-muted-foreground"
+                      className="text-[10px] tabular-nums text-muted-foreground"
                     >
                       Leg {leg.legOrder}
                     </Badge>
-                    <span className="text-sm text-foreground font-number">
+                    <span className="text-sm text-foreground tabular-nums">
                       {leg.originAirportCode} → {leg.destinationAirportCode}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {leg.airline} {leg.flightNumber}
                     </span>
                   </div>
-                  <div className="flex items-center gap-4 text-[11px] text-muted-foreground font-number">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] tabular-nums text-muted-foreground sm:justify-end">
                     <span>
                       {formatTime(leg.departureAt)} →{" "}
                       {formatTime(leg.arrivalAt)}
@@ -251,7 +264,7 @@ function FlightCard({
       {flight.legs.length === 0 && canManage && (
         <>
           <Separator />
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
             <p className="text-xs text-muted-foreground">
               Direct flight — no transit legs.
             </p>
@@ -348,6 +361,28 @@ const FlightsTab = ({
   const [ticketingOpen, setTicketingOpen] = useState(false);
   const [markIssuedOpen, setMarkIssuedOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [ticketSearch, setTicketSearch] = useState("");
+  const ticketingRows = useMemo(() => {
+    const ordered = [...exceptions, ...ticketed];
+    const needle = ticketSearch.trim().toLowerCase();
+    if (!needle) return ordered;
+    return ordered.filter((pilgrim) =>
+      [
+        pilgrim.fullName,
+        pilgrim.passportNumber ?? "",
+        pilgrim.bookingReference,
+        pilgrim.seatStatus,
+        pilgrim.flightStatus,
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle),
+    );
+  }, [exceptions, ticketSearch, ticketed]);
+  const ticketingColumns = buildFlightTicketingColumns({
+    departureGroupId: groupId,
+    canManage: can.manageFlights,
+  });
 
   return (
     <div className="flex flex-col gap-5">
@@ -398,7 +433,7 @@ const FlightsTab = ({
         <SectionHeading
           title="Flight status"
           act={
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
               {can.manageFlights && (
                 <Button
                   variant="secondary"
@@ -408,49 +443,63 @@ const FlightsTab = ({
                   <Plus /> Add Flight
                 </Button>
               )}
-              {can.manageFlights && (
-                <Button
-                  variant="outline_without_border"
-                  disabled={flights.length === 0}
-                  onClick={() => setTicketingOpen(true)}
-                >
-                  <Upload /> Upload Ticket / PNR
-                </Button>
-              )}
-              {can.manageFlights && (
-                <Button
-                  variant="outline_without_border"
-                  disabled={flights.length === 0}
-                  onClick={() => setMarkIssuedOpen(true)}
-                >
-                  <TicketCheck /> Mark Tickets Issued
-                </Button>
-              )}
-              {can.exportReports && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => exportFlightManifest(flights, manifest)}
-                >
-                  <Download /> Export Flight Manifest
-                </Button>
+
+              {can.manageFlights && can.exportReports && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button variant={"outline_without_border"}>
+                        <MoreVertical />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent>
+                    {can.manageFlights && (
+                      <DropdownMenuItem
+                        disabled={flights.length === 0}
+                        onClick={() => setTicketingOpen(true)}
+                      >
+                        <Upload /> Upload Ticket / PNR
+                      </DropdownMenuItem>
+                    )}
+                    {can.manageFlights && (
+                      <DropdownMenuItem
+                        disabled={flights.length === 0}
+                        onClick={() => setMarkIssuedOpen(true)}
+                      >
+                        <TicketCheck /> Mark Tickets Issued
+                      </DropdownMenuItem>
+                    )}
+                    {can.exportReports && (
+                      <DropdownMenuItem
+                        onClick={() => exportFlightManifest(flights, manifest)}
+                      >
+                        <Download /> Export Flight Manifest
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           }
         />
 
         {outbound ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
             <FlightDetailField
               label="Flight status"
               value={<FlightStatusBadge value={outbound.status} />}
             />
-            <FlightDetailField label="Seats held" value={outbound.seatsHeld} mono />
+            <FlightDetailField
+              label="Seats held"
+              value={outbound.seatsHeld}
+              mono
+            />
             <div className="flex flex-col gap-1">
               <span className="text-[11px] text-muted-foreground">
                 Tickets issued
               </span>
-              <span className="text-sm text-foreground font-number">
+              <span className="text-sm text-foreground tabular-nums">
                 {ticketed.length} / {manifest.length}
               </span>
               <ProgressBar percent={ticketedPercent} />
@@ -468,7 +517,11 @@ const FlightsTab = ({
               label="Supplier / agent"
               value={outbound.supplierName ?? "—"}
             />
-            <FlightDetailField label="PNR" value={outbound.pnr ?? "Not issued"} mono />
+            <FlightDetailField
+              label="PNR"
+              value={outbound.pnr ?? "Not issued"}
+              mono
+            />
           </div>
         ) : (
           <EmptyState
@@ -530,7 +583,7 @@ const FlightsTab = ({
             <SectionHeading
               title="Flight deviations"
               act={
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <div className="flex w-full flex-wrap items-center gap-3 text-xs text-muted-foreground sm:w-auto sm:justify-end">
                   {excludedCount > 0 && (
                     <span className="flex items-center gap-1">
                       <UserMinus className="size-3.5" />
@@ -549,7 +602,7 @@ const FlightsTab = ({
               {flightDevs.map(({ pilgrimName, deviation }) => (
                 <div
                   key={deviation.id}
-                  className="flex items-start justify-between gap-3 py-2.5"
+                  className="flex flex-col items-start justify-between gap-2 py-2.5 sm:flex-row sm:gap-3"
                 >
                   <div className="min-w-0">
                     <p className="text-sm text-foreground">{pilgrimName}</p>
@@ -558,12 +611,17 @@ const FlightsTab = ({
                       {deviation.summary}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex shrink-0 items-center gap-1.5 sm:justify-end">
                     {deviation.blocksDeparture && (
-                      <AlertTriangle className={cn("size-3.5", TONE_TEXT.warning)} />
+                      <AlertTriangle
+                        className={cn("size-3.5", TONE_TEXT.warning)}
+                      />
                     )}
                     <Badge
-                      className={cn("text-[10px]", TONE_CLASS[deviationTone(deviation.status)])}
+                      className={cn(
+                        "text-[10px]",
+                        TONE_CLASS[deviationTone(deviation.status)],
+                      )}
                     >
                       {deviation.status}
                     </Badge>
@@ -576,83 +634,43 @@ const FlightsTab = ({
       })()}
 
       {/* Per-pilgrim flight state */}
-      <Card className="gap-4">
-        <SectionHeading
-          title="Per-pilgrim ticketing"
-          act={
-            <div className="flex flex-wrap items-center gap-2">
-              {can.manageFlights && (
-                <Button
-                  variant="outline_without_border"
-                  size="sm"
-                  onClick={() => setBulkUploadOpen(true)}
-                >
-                  <Upload /> Upload Tickets
-                </Button>
-              )}
-              <span className="text-xs text-muted-foreground">
-                {exceptions.length === 0
-                  ? "No exceptions"
-                  : `${exceptions.length} needing attention`}
-              </span>
-            </div>
+      <Card className="gap-4 overflow-hidden px-0 pb-0 *:data-[slot=card]:rounded-none *:data-[slot=card]:border-x-0 *:data-[slot=card]:border-b-0 *:data-[slot=card]:shadow-none">
+        <div className="px-6">
+          <SectionHeading
+            title="Per-pilgrim ticketing"
+            act={
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                {can.manageFlights && (
+                  <Button
+                    variant="outline_without_border"
+                    size="sm"
+                    onClick={() => setBulkUploadOpen(true)}
+                  >
+                    <Upload /> Upload Tickets
+                  </Button>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {exceptions.length === 0
+                    ? "No exceptions"
+                    : `${exceptions.length} needing attention`}
+                </span>
+              </div>
+            }
+          />
+        </div>
+        <DataTable
+          columns={ticketingColumns}
+          data={ticketingRows}
+          search={ticketSearch}
+          onSearchChange={setTicketSearch}
+          searchPlaceholder="Search pilgrim, passport, booking, or ticket status..."
+          emptyMessage={
+            manifest.length === 0
+              ? "No pilgrims to ticket yet."
+              : "No pilgrims match this search."
           }
+          getRowId={(pilgrim) => pilgrim.id}
         />
-        {manifest.length === 0 ? (
-          <EmptyState title="No pilgrims to ticket yet" />
-        ) : (
-          <div className="overflow-x-auto no-scrollbar">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent border-none!">
-                  {[
-                    "Pilgrim",
-                    "Passport",
-                    "Seat status",
-                    "Ticket status",
-                    "Ticket file",
-                  ].map(
-                    (label) => (
-                      <TableHead
-                        key={label}
-                        className="h-10 px-3 text-xs font-medium text-muted-foreground"
-                      >
-                        {label}
-                      </TableHead>
-                    ),
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-border/20">
-                {/* Exceptions first — they are the only rows that need work. */}
-                {[...exceptions, ...ticketed].map((row) => (
-                  <TableRow key={row.id} className="hover:bg-muted/50">
-                    <TableCell className="px-3 py-2.5 text-sm text-foreground">
-                      {row.fullName}
-                    </TableCell>
-                    <TableCell className="px-3 py-2.5 text-xs font-number text-muted-foreground">
-                      {row.passportNumber ?? "Restricted"}
-                    </TableCell>
-                    <TableCell className="px-3 py-2.5 text-xs text-muted-foreground">
-                      {row.seatStatus.charAt(0) +
-                        row.seatStatus.slice(1).toLowerCase()}
-                    </TableCell>
-                    <TableCell className="px-3 py-2.5">
-                      <PilgrimFlightStatusBadge value={row.flightStatus} />
-                    </TableCell>
-                    <TableCell className="px-3 py-2.5">
-                      <PilgrimTicketCell
-                        departureGroupId={groupId}
-                        row={row}
-                        canManage={can.manageFlights}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
       </Card>
     </div>
   );

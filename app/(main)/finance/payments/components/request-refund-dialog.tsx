@@ -78,7 +78,10 @@ export default function RequestRefundDialog({
     const needle = pickerSearch.trim().toLowerCase();
     const matched = needle
       ? refundableBookings.filter((b) =>
-          [b.bookingReference, b.primaryContactName].join(" ").toLowerCase().includes(needle),
+          [b.bookingReference, b.primaryContactName]
+            .join(" ")
+            .toLowerCase()
+            .includes(needle),
         )
       : refundableBookings;
     return [...matched].sort((a, b) => b.amountPaid - a.amountPaid);
@@ -91,7 +94,9 @@ export default function RequestRefundDialog({
       return;
     }
     if (amount > chosen.amountPaid) {
-      setError(`Refund exceeds the ${formatExactCurrency(chosen.amountPaid, "LKR")} collected on this booking.`);
+      setError(
+        `Refund exceeds the ${formatExactCurrency(chosen.amountPaid, "LKR")} collected on this booking.`,
+      );
       return;
     }
 
@@ -112,7 +117,9 @@ export default function RequestRefundDialog({
     }
     toast.add({
       title: "Refund requested",
-      description: result.reference ? `Reference ${result.reference}, pending approval.` : "Pending approval.",
+      description: result.reference
+        ? `Reference ${result.reference}, pending approval.`
+        : "Pending approval.",
     });
     onClose();
   };
@@ -126,8 +133,8 @@ export default function RequestRefundDialog({
           </div>
           {chosen && (
             <DialogDescription>
-              {chosen.primaryContactName} · {chosen.bookingReference} — {formatExactCurrency(chosen.amountPaid, "LKR")}{" "}
-              collected
+              {chosen.primaryContactName} · {chosen.bookingReference} —{" "}
+              {formatExactCurrency(chosen.amountPaid, "LKR")} collected
             </DialogDescription>
           )}
         </DialogHeader>
@@ -159,10 +166,14 @@ export default function RequestRefundDialog({
                     onClick={() => setChosen(b)}
                   >
                     <div className="min-w-0">
-                      <p className="text-sm text-foreground truncate">{b.primaryContactName}</p>
-                      <p className="text-[11px] text-muted-foreground font-number truncate">{b.bookingReference}</p>
+                      <p className="text-sm text-foreground truncate">
+                        {b.primaryContactName}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground tabular-nums truncate">
+                        {b.bookingReference}
+                      </p>
                     </div>
-                    <p className="text-sm font-number font-semibold text-foreground shrink-0">
+                    <p className="text-sm tabular-nums font-semibold text-foreground shrink-0">
                       {formatExactCurrency(b.amountPaid, "LKR")}
                     </p>
                   </button>
@@ -177,7 +188,7 @@ export default function RequestRefundDialog({
                 <InputGroupAddon align={"block-start"}>
                   <InputGroupText>Amount *</InputGroupText>
                 </InputGroupAddon>
-                <ButtonGroup className="w-full px-2.5 font-number">
+                <ButtonGroup className="w-full px-2.5 tabular-nums">
                   <InputGroupText>LKR</InputGroupText>
                   <CurrencyInput value={amount} onValueChange={setAmount} />
                 </ButtonGroup>

@@ -58,7 +58,9 @@ const FlightItineraryDialog = ({
   open,
   onClose,
 }: FlightItineraryDialogProps) => {
-  const legs = flight ? [...flight.legs].sort((a, b) => a.legOrder - b.legOrder) : [];
+  const legs = flight
+    ? [...flight.legs].sort((a, b) => a.legOrder - b.legOrder)
+    : [];
 
   const segments: Segment[] = !flight
     ? []
@@ -109,15 +111,19 @@ const FlightItineraryDialog = ({
 
         <div className="flex flex-wrap items-center gap-4 rounded-sm bg-muted/40 px-3 py-2.5">
           <div className="flex flex-col">
-            <span className="text-[11px] text-muted-foreground">Total duration</span>
-            <span className="text-sm font-semibold font-number text-foreground">
+            <span className="text-[11px] text-muted-foreground">
+              Total duration
+            </span>
+            <span className="text-sm font-semibold tabular-nums text-foreground">
               {formatDuration(totalMinutes)}
             </span>
           </div>
           <div className="flex flex-col">
             <span className="text-[11px] text-muted-foreground">Stops</span>
             <span className="text-sm font-semibold text-foreground">
-              {stops === 0 ? "Direct" : `${stops} stop${stops === 1 ? "" : "s"}`}
+              {stops === 0
+                ? "Direct"
+                : `${stops} stop${stops === 1 ? "" : "s"}`}
             </span>
           </div>
           <div className="flex flex-col">
@@ -136,7 +142,10 @@ const FlightItineraryDialog = ({
             );
 
             return (
-              <div key={`${segment.flightNumber}-${i}`} className="flex flex-col">
+              <div
+                key={`${segment.flightNumber}-${i}`}
+                className="flex flex-col"
+              >
                 <div className="flex gap-3">
                   <div className="flex flex-col items-center pt-1">
                     <div className="size-7 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -148,7 +157,7 @@ const FlightItineraryDialog = ({
                   </div>
                   <div className="flex-1 pb-4">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-medium text-foreground font-number">
+                      <span className="text-sm font-medium text-foreground tabular-nums">
                         {segment.originCode} → {segment.destinationCode}
                       </span>
                       <span className="text-[11px] text-muted-foreground">
@@ -158,7 +167,7 @@ const FlightItineraryDialog = ({
                     <p className="text-xs text-muted-foreground">
                       {segment.airline} {segment.flightNumber}
                     </p>
-                    <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground font-number">
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-foreground tabular-nums">
                       <span>
                         Dep {formatTime(segment.departureAt)} ·{" "}
                         {formatDate(segment.departureAt)}
@@ -177,10 +186,15 @@ const FlightItineraryDialog = ({
                       <div className="w-px h-full bg-border/60" />
                     </div>
                     <div className="flex-1 pb-4 -mt-2">
-                      <span className={`text-[11px] rounded-sm px-2 py-1 inline-block ${TONE_CLASS.warning}`}>
+                      <span
+                        className={`text-[11px] rounded-sm px-2 py-1 inline-block ${TONE_CLASS.warning}`}
+                      >
                         Layover at {segment.destinationCode} ·{" "}
                         {formatDuration(
-                          minutesBetween(segment.arrivalAt, nextSegment.departureAt),
+                          minutesBetween(
+                            segment.arrivalAt,
+                            nextSegment.departureAt,
+                          ),
                         )}
                       </span>
                     </div>

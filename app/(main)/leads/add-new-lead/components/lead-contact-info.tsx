@@ -143,7 +143,7 @@ export default function LeadContactInfo({
                 onChange={(event) => onMobileChange(event.target.value)}
                 // aria-invalid={Boolean(errors.mobile)}
                 // aria-describedby={errors.mobile ? "lead-mobile-error" : undefined}
-                className="text-sm font-number flex-6"
+                className="text-sm tabular-nums flex-6"
               />
             </ButtonGroup>
           </InputGroup>

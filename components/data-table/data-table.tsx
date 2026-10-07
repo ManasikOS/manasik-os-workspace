@@ -165,7 +165,9 @@ export function DataTable<TData>({
   const startRow = totalRows === 0 ? 0 : pageIndex * pageSize + 1;
   const endRow = Math.min((pageIndex + 1) * pageSize, totalRows);
 
-  const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id]);
+  const selectedIds = Object.keys(rowSelection).filter(
+    (id) => rowSelection[id],
+  );
   const selectedRows = getRowId
     ? data.filter((row) => selectedIds.includes(getRowId(row)))
     : [];
@@ -222,7 +224,9 @@ export function DataTable<TData>({
                 key={row.id}
                 role={onRowClick ? "button" : undefined}
                 tabIndex={onRowClick ? 0 : undefined}
-                onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                onClick={
+                  onRowClick ? () => onRowClick(row.original) : undefined
+                }
                 onKeyDown={
                   onRowClick
                     ? (event) => {
@@ -275,11 +279,12 @@ export function DataTable<TData>({
         ) : (
           <div className="px-4 py-10 text-center text-sm text-muted-foreground">
             {emptyMessage ??
-              (search ? `No results matching "${search}"` : "No results found.")}
+              (search
+                ? `No results matching "${search}"`
+                : "No results found.")}
           </div>
         )}
       </div>
-
       <div
         className="hidden md:block overflow-auto no-scrollbar w-full"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
@@ -443,7 +448,7 @@ export function DataTable<TData>({
           </DropdownMenu>
 
           <div className="flex items-center justify-between sm:justify-end gap-3 text-sm">
-            <span className="font-medium text-foreground min-w-17.5 text-right font-number">
+            <span className="font-medium text-foreground min-w-17.5 text-right tabular-nums">
               {startRow}–{endRow} of {totalRows}
             </span>
             <div className="flex items-center gap-1">

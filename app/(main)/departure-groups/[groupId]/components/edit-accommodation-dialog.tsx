@@ -25,9 +25,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { toast } from "@/components/ui/toast";
-import {
-  type StaffRole,
-} from "@/lib/access/departure-groups-access";
+import { type StaffRole } from "@/lib/access/departure-groups-access";
 import {
   createAccommodationSchema,
   updateAccommodationSchema,
@@ -180,7 +178,9 @@ const EditAccommodationSheet = ({
 
   useEffect(() => {
     if (!open) return;
-    listActiveSuppliersAction([...SUPPLIER_TYPES_BY_CONTEXT.ACCOMMODATION]).then((res) => {
+    listActiveSuppliersAction([
+      ...SUPPLIER_TYPES_BY_CONTEXT.ACCOMMODATION,
+    ]).then((res) => {
       if (res.ok) setSupplierOptions(res.suppliers);
     });
   }, [open]);
@@ -263,7 +263,7 @@ const EditAccommodationSheet = ({
           <SheetTitle>{isEdit ? "Edit Accommodation" : "Add Hotel"}</SheetTitle>
           <SheetDescription>
             {isEdit
-              ? CITY_LABELS[accommodation.city] ?? accommodation.city
+              ? (CITY_LABELS[accommodation.city] ?? accommodation.city)
               : "Add an accommodation block for this group."}
           </SheetDescription>
         </SheetHeader>
@@ -316,15 +316,15 @@ const EditAccommodationSheet = ({
                         City <span className="text-destructive">*</span>
                       </InputGroupText>
                     </InputGroupAddon>
-                    <InputGroupInput
-                      readOnly
-                      value={CITY_LABELS[city]}
-                    />
+                    <InputGroupInput readOnly value={CITY_LABELS[city]} />
                   </InputGroup>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-40">
                   {CITY_OPTIONS.map((option) => (
-                    <DropdownMenuItem key={option} onClick={() => setCity(option)}>
+                    <DropdownMenuItem
+                      key={option}
+                      onClick={() => setCity(option)}
+                    >
                       {CITY_LABELS[option]}
                     </DropdownMenuItem>
                   ))}
@@ -372,11 +372,16 @@ const EditAccommodationSheet = ({
                     <InputGroupInput
                       readOnly
                       value={supplierName || "No supplier assigned"}
-                      className={supplierName ? undefined : "text-muted-foreground"}
+                      className={
+                        supplierName ? undefined : "text-muted-foreground"
+                      }
                     />
                   </InputGroup>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-56 max-h-64 overflow-y-auto">
+                <DropdownMenuContent
+                  align="start"
+                  className="min-w-56 max-h-64 overflow-y-auto"
+                >
                   {supplierId && (
                     <DropdownMenuItem
                       onClick={() => {
@@ -463,7 +468,7 @@ const EditAccommodationSheet = ({
                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 value={roomCapacity}
                 onChange={(e) => setRoomCapacity(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
             <InputGroup>
@@ -477,7 +482,7 @@ const EditAccommodationSheet = ({
                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 value={roomsReserved}
                 onChange={(e) => setRoomsReserved(e.target.value)}
-                className="font-number"
+                className="tabular-nums"
               />
             </InputGroup>
           </div>
@@ -512,7 +517,7 @@ const EditAccommodationSheet = ({
               </InputGroupAddon>
               <ButtonGroup className="w-full items-center">
                 <InputGroupAddon>
-                  <InputGroupText className="font-number pl-1">
+                  <InputGroupText className="tabular-nums pl-1">
                     LKR
                   </InputGroupText>
                 </InputGroupAddon>
@@ -521,7 +526,7 @@ const EditAccommodationSheet = ({
                   min={0}
                   value={parseInt(internalCost)}
                   onValueChange={(e) => setInternalCost(String(e))}
-                  className="font-number"
+                  className="tabular-nums"
                 />
               </ButtonGroup>
             </InputGroup>
