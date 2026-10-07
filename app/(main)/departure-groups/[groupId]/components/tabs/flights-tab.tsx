@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Compass,
   Download,
+  MoreVertical,
   PlaneLanding,
   PlaneTakeoff,
   Plus,
@@ -48,6 +49,12 @@ import FlightItineraryDialog from "../flight-itinerary-dialog";
 import FlightTicketingDialog from "../flight-ticketing-dialog";
 import MarkTicketsIssuedDialog from "../mark-tickets-issued-dialog";
 import { buildFlightTicketingColumns } from "./flight-ticketing-columns";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FlightsTabProps {
   groupId: string;
@@ -436,32 +443,42 @@ const FlightsTab = ({
                   <Plus /> Add Flight
                 </Button>
               )}
-              {can.manageFlights && (
-                <Button
-                  variant="outline_without_border"
-                  disabled={flights.length === 0}
-                  onClick={() => setTicketingOpen(true)}
-                >
-                  <Upload /> Upload Ticket / PNR
-                </Button>
-              )}
-              {can.manageFlights && (
-                <Button
-                  variant="outline_without_border"
-                  disabled={flights.length === 0}
-                  onClick={() => setMarkIssuedOpen(true)}
-                >
-                  <TicketCheck /> Mark Tickets Issued
-                </Button>
-              )}
-              {can.exportReports && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => exportFlightManifest(flights, manifest)}
-                >
-                  <Download /> Export Flight Manifest
-                </Button>
+
+              {can.manageFlights && can.exportReports && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button variant={"outline_without_border"}>
+                        <MoreVertical />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent>
+                    {can.manageFlights && (
+                      <DropdownMenuItem
+                        disabled={flights.length === 0}
+                        onClick={() => setTicketingOpen(true)}
+                      >
+                        <Upload /> Upload Ticket / PNR
+                      </DropdownMenuItem>
+                    )}
+                    {can.manageFlights && (
+                      <DropdownMenuItem
+                        disabled={flights.length === 0}
+                        onClick={() => setMarkIssuedOpen(true)}
+                      >
+                        <TicketCheck /> Mark Tickets Issued
+                      </DropdownMenuItem>
+                    )}
+                    {can.exportReports && (
+                      <DropdownMenuItem
+                        onClick={() => exportFlightManifest(flights, manifest)}
+                      >
+                        <Download /> Export Flight Manifest
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               )}
             </div>
           }
