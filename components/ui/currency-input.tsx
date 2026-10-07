@@ -2,19 +2,17 @@
 
 import React, { useRef, useLayoutEffect, useState } from "react";
 import { InputGroupInput } from "@/components/ui/input-group";
+import { cn } from "@/lib/utils";
 
-export interface CurrencyInputProps
-  extends Omit<
-    React.ComponentProps<typeof InputGroupInput>,
-    "value" | "onChange"
-  > {
+export interface CurrencyInputProps extends Omit<
+  React.ComponentProps<typeof InputGroupInput>,
+  "value" | "onChange"
+> {
   value: number | "" | undefined | null;
   onValueChange: (val: number | "") => void;
 }
 
-export const formatCurrency = (
-  val: number | "" | undefined | null
-): string => {
+export const formatCurrency = (val: number | "" | undefined | null): string => {
   if (val === "" || val === undefined || val === null || isNaN(Number(val)))
     return "";
   return Number(val).toLocaleString("en-US");
@@ -60,7 +58,8 @@ export const CurrencyInput = React.forwardRef<
     const inputEl = e.target;
     const caret = inputEl.selectionStart ?? 0;
     const rawVal = inputEl.value;
-    const digitsBeforeCaret = (rawVal.slice(0, caret).match(/\d/g) || []).length;
+    const digitsBeforeCaret = (rawVal.slice(0, caret).match(/\d/g) || [])
+      .length;
 
     const parsed = parseCurrency(rawVal);
     const newFormatted = formatCurrency(parsed);
@@ -95,7 +94,7 @@ export const CurrencyInput = React.forwardRef<
       inputMode="numeric"
       value={displayValue}
       onChange={handleChange}
-      className={className}
+      className={cn("tabular-nums", className)}
       {...props}
     />
   );

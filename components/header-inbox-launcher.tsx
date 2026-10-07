@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { InboxArrowDown } from "reicon-react";
+import { InboxArrowDown, InboxIn } from "reicon-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -26,19 +26,19 @@ export function HeaderInboxLauncher() {
     }
 
     window.addEventListener(OPEN_INBOX_EVENT, handleOpenRequest);
-    return () => window.removeEventListener(OPEN_INBOX_EVENT, handleOpenRequest);
+    return () =>
+      window.removeEventListener(OPEN_INBOX_EVENT, handleOpenRequest);
   }, [router]);
 
   return (
     <Button
       variant="ghost"
-      size="icon-lg"
       nativeButton={false}
       render={<a href="/inbox" target="_blank" rel="noopener noreferrer" />}
       className="rounded-full text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       aria-label="Open Inbox"
     >
-      <InboxArrowDown className="size-4" />
+      <InboxIn size={23} className="size-5" />
     </Button>
   );
 }
