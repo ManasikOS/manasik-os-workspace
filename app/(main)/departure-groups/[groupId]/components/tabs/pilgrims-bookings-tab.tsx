@@ -11,8 +11,10 @@ import { DataTable } from "@/components/data-table/data-table";
 import SectionHeading from "@/components/section-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
+import { CONTEXT_MENU_SLOTS, type MenuSlots } from "../../../components/groups-table/group-action-menu-items";
+import { DROPDOWN_SLOTS } from "../../../components/groups-table/groups-columns";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import { capabilitiesForFinance } from "@/lib/access/finance-access";
@@ -116,22 +118,39 @@ const PilgrimsBookingsTab = ({ manifest, bookings, group, snapshot, pricing, mov
     toast.add({ title: "Export ready", description: `${rows.length}${rows.length === manifest.length ? "" : ` of ${manifest.length}`} pilgrim${rows.length === 1 ? "" : "s"} exported to ${format === "xlsx" ? "Excel" : "CSV"}.` });
   };
 
+  // One item list per row type, rendered by both the last-column dropdown and
+  // the row's right-click context menu so the two can never drift apart.
+  const renderPilgrimMenuItems = (pilgrim: DepartureGroupManifestRow, { MenuItem, MenuSeparator }: MenuSlots) => (
+    <>
+      <MenuItem onClick={() => openBooking(pilgrim.bookingId)}><FileText /> Open Booking</MenuItem>
+      {can.viewSensitiveTravellerData && <MenuItem onClick={() => openIdCardStudio(pilgrim.id)}><Printer /> ID Card</MenuItem>}
+      {pilgrim.hasCustomisations && (can.manageTravellerCustomisations || can.approveDiscounts) && <MenuItem onClick={() => setReviewCustomisationsId(pilgrim.id)}><Wrench /> Review Customisations</MenuItem>}
+      {can.manageTravellerCustomisations && <MenuItem onClick={() => setCustomiseTravellerId(pilgrim.id)}><Wrench /> Customise Traveller</MenuItem>}
+      {can.recordPayments && <MenuItem onClick={() => setPaymentBookingId(pilgrim.bookingId)}><Wallet /> Record Deposit</MenuItem>}
+      {can.addBookings && <MenuItem onClick={() => setEditBookingId(pilgrim.bookingId)}><Pencil /> Edit Booking</MenuItem>}
+      {can.editGroupDetails && <MenuItem onClick={() => setMoveBookingId(pilgrim.bookingId)}><ArrowRightLeft /> Move to Another Group</MenuItem>}
+      {can.eraseTravellerData && <MenuItem variant="destructive" onClick={() => setEraseTraveller({ id: pilgrim.id, fullName: pilgrim.fullName })}><Eraser /> Erase Sensitive Details</MenuItem>}
+      <MenuSeparator />
+      {can.sendGroupCommunications && <MenuItem onClick={() => setReminder({ bookingId: pilgrim.bookingId, kind: "PAYMENT" })}><MegaphoneIcon /> Send Payment Reminder</MenuItem>}
+      {can.sendGroupCommunications && <MenuItem onClick={() => setReminder({ bookingId: pilgrim.bookingId, kind: "DOCUMENT" })}><MegaphoneIcon /> Send Document Reminder</MenuItem>}
+      {can.cancelBookings && <MenuItem variant="destructive" onClick={() => setCancelBookingId(pilgrim.bookingId)}><Ban /> Cancel Booking</MenuItem>}
+    </>
+  );
+  const renderBookingMenuItems = (booking: DepartureGroupBooking, { MenuItem }: MenuSlots) => (
+    <>
+      <MenuItem onClick={() => openBooking(booking.id)}><FileText /> Open Booking</MenuItem>
+      {can.addBookings && booking.bookingStatus !== "CANCELLED" && <MenuItem onClick={() => setEditBookingId(booking.id)}><Pencil /> Edit Booking</MenuItem>}
+      {can.recordPayments && booking.bookingStatus !== "CANCELLED" && <MenuItem onClick={() => setPaymentBookingId(booking.id)}><Wallet /> Record Payment</MenuItem>}
+      {canInvoice && booking.bookingStatus !== "CANCELLED" && <MenuItem onClick={() => setInvoiceBookingId(booking.id)}><FileText /> Generate Invoice</MenuItem>}
+      {can.cancelBookings && booking.bookingStatus !== "CANCELLED" && <MenuItem variant="destructive" onClick={() => setCancelBookingId(booking.id)}><Ban /> Cancel Booking</MenuItem>}
+    </>
+  );
+
   const pilgrimActions = (pilgrim: DepartureGroupManifestRow) => (
     <DropdownMenu>
       <DropdownMenuTrigger onClick={(event) => event.stopPropagation()} render={<Button variant="ghost" size="icon" aria-label={`Actions for ${pilgrim.fullName}`}><MoreHorizontal /></Button>} />
       <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-        <DropdownMenuItem onClick={() => openBooking(pilgrim.bookingId)}><FileText /> Open Booking</DropdownMenuItem>
-        {can.viewSensitiveTravellerData && <DropdownMenuItem onClick={() => openIdCardStudio(pilgrim.id)}><Printer /> ID Card</DropdownMenuItem>}
-        {pilgrim.hasCustomisations && (can.manageTravellerCustomisations || can.approveDiscounts) && <DropdownMenuItem onClick={() => setReviewCustomisationsId(pilgrim.id)}><Wrench /> Review Customisations</DropdownMenuItem>}
-        {can.manageTravellerCustomisations && <DropdownMenuItem onClick={() => setCustomiseTravellerId(pilgrim.id)}><Wrench /> Customise Traveller</DropdownMenuItem>}
-        {can.recordPayments && <DropdownMenuItem onClick={() => setPaymentBookingId(pilgrim.bookingId)}><Wallet /> Record Deposit</DropdownMenuItem>}
-        {can.addBookings && <DropdownMenuItem onClick={() => setEditBookingId(pilgrim.bookingId)}><Pencil /> Edit Booking</DropdownMenuItem>}
-        {can.editGroupDetails && <DropdownMenuItem onClick={() => setMoveBookingId(pilgrim.bookingId)}><ArrowRightLeft /> Move to Another Group</DropdownMenuItem>}
-        {can.eraseTravellerData && <DropdownMenuItem variant="destructive" onClick={() => setEraseTraveller({ id: pilgrim.id, fullName: pilgrim.fullName })}><Eraser /> Erase Sensitive Details</DropdownMenuItem>}
-        <DropdownMenuSeparator />
-        {can.sendGroupCommunications && <DropdownMenuItem onClick={() => setReminder({ bookingId: pilgrim.bookingId, kind: "PAYMENT" })}><MegaphoneIcon /> Send Payment Reminder</DropdownMenuItem>}
-        {can.sendGroupCommunications && <DropdownMenuItem onClick={() => setReminder({ bookingId: pilgrim.bookingId, kind: "DOCUMENT" })}><MegaphoneIcon /> Send Document Reminder</DropdownMenuItem>}
-        {can.cancelBookings && <DropdownMenuItem variant="destructive" onClick={() => setCancelBookingId(pilgrim.bookingId)}><Ban /> Cancel Booking</DropdownMenuItem>}
+        {renderPilgrimMenuItems(pilgrim, DROPDOWN_SLOTS)}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -139,11 +158,7 @@ const PilgrimsBookingsTab = ({ manifest, bookings, group, snapshot, pricing, mov
     <DropdownMenu>
       <DropdownMenuTrigger onClick={(event) => event.stopPropagation()} render={<Button variant="ghost" size="icon" aria-label={`Actions for booking ${booking.bookingReference}`}><MoreHorizontal /></Button>} />
       <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-        <DropdownMenuItem onClick={() => openBooking(booking.id)}><FileText /> Open Booking</DropdownMenuItem>
-        {can.addBookings && booking.bookingStatus !== "CANCELLED" && <DropdownMenuItem onClick={() => setEditBookingId(booking.id)}><Pencil /> Edit Booking</DropdownMenuItem>}
-        {can.recordPayments && booking.bookingStatus !== "CANCELLED" && <DropdownMenuItem onClick={() => setPaymentBookingId(booking.id)}><Wallet /> Record Payment</DropdownMenuItem>}
-        {canInvoice && booking.bookingStatus !== "CANCELLED" && <DropdownMenuItem onClick={() => setInvoiceBookingId(booking.id)}><FileText /> Generate Invoice</DropdownMenuItem>}
-        {can.cancelBookings && booking.bookingStatus !== "CANCELLED" && <DropdownMenuItem variant="destructive" onClick={() => setCancelBookingId(booking.id)}><Ban /> Cancel Booking</DropdownMenuItem>}
+        {renderBookingMenuItems(booking, DROPDOWN_SLOTS)}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -163,12 +178,12 @@ const PilgrimsBookingsTab = ({ manifest, bookings, group, snapshot, pricing, mov
     <div className="flex flex-col gap-5">
       <Card className={TABLE_CARD_CLASS}>
         <div className="px-6"><SectionHeading title="Pilgrims & Bookings" act={<div className="flex flex-wrap items-center gap-2 sm:justify-end">{can.addBookings && <Button variant="outline_without_border" onClick={() => setImportOpen(true)}><Import /> Import Pilgrims</Button>}{can.exportReports && <DropdownMenu><DropdownMenuTrigger render={<Button variant="outline_without_border"><Download /> Export Manifest</Button>} /><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => exportManifest("xlsx")}>Excel (.xlsx)</DropdownMenuItem><DropdownMenuItem onClick={() => exportManifest("csv")}>CSV (.csv)</DropdownMenuItem></DropdownMenuContent></DropdownMenu>}</div>} /></div>
-        <DataTable columns={pilgrimColumns} data={rows} search={search} onSearchChange={setSearch} searchPlaceholder="Search pilgrim, booking reference, family..." toolbar={<div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-3 sm:gap-4"><span><strong className="text-foreground">{manifest.length}</strong> pilgrims</span><span><strong className="text-foreground">{bookings.length}</strong> bookings ({confirmedBookings} confirmed)</span><span><strong className="text-foreground">{manifest.filter((pilgrim) => pilgrim.roomAssignmentStatus !== "UNASSIGNED").length}</strong> rooms assigned</span></div>} emptyMessage={manifest.length ? "No pilgrims match this search." : "No pilgrims yet. Bookings added to this group will appear here."} onRowClick={(pilgrim) => openBooking(pilgrim.bookingId)} getRowId={(pilgrim) => pilgrim.id} rowsAreButtons rowAriaLabel={(pilgrim) => `Open booking ${pilgrim.bookingReference} for ${pilgrim.fullName}`} />
+        <DataTable columns={pilgrimColumns} data={rows} search={search} onSearchChange={setSearch} searchPlaceholder="Search pilgrim, booking reference, family..." toolbar={<div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-3 sm:gap-4"><span><strong className="text-foreground">{manifest.length}</strong> pilgrims</span><span><strong className="text-foreground">{bookings.length}</strong> bookings ({confirmedBookings} confirmed)</span><span><strong className="text-foreground">{manifest.filter((pilgrim) => pilgrim.roomAssignmentStatus !== "UNASSIGNED").length}</strong> rooms assigned</span></div>} emptyMessage={manifest.length ? "No pilgrims match this search." : "No pilgrims yet. Bookings added to this group will appear here."} onRowClick={(pilgrim) => openBooking(pilgrim.bookingId)} getRowId={(pilgrim) => pilgrim.id} rowsAreButtons rowAriaLabel={(pilgrim) => `Open booking ${pilgrim.bookingReference} for ${pilgrim.fullName}`} contextMenuContents={(pilgrim) => renderPilgrimMenuItems(pilgrim, CONTEXT_MENU_SLOTS)} />
       </Card>
 
       <Card className={TABLE_CARD_CLASS}>
         <div className="px-6"><SectionHeading title="Bookings" act={<div className="flex flex-wrap items-center gap-2 sm:justify-end">{can.addBookings && expiredHolds > 0 && <Button variant="outline_without_border" size="sm" disabled={isSeatPending} onClick={releaseHolds}>{isSeatPending ? <Loader2 className="animate-spin" /> : <TimerOff />} Release {expiredHolds} expired hold{expiredHolds === 1 ? "" : "s"}</Button>}{can.addBookings && waitlisted.length > 0 && <Button variant="secondary" size="sm" disabled={isSeatPending || group.availableSeats <= 0} onClick={promoteWaitlist}>{isSeatPending ? <Loader2 className="animate-spin" /> : <ArrowUpFromLine />} Promote from waitlist ({waitlisted.length})</Button>}<span className="text-xs text-muted-foreground">{bookings.length} booking{bookings.length === 1 ? "" : "s"}</span></div>} /></div>
-        <DataTable columns={bookingColumns} data={bookingRows} search={bookingSearch} onSearchChange={setBookingSearch} searchPlaceholder="Search booking reference or primary contact..." emptyMessage={bookings.length ? "No bookings match this search." : "No bookings yet."} onRowClick={(booking) => openBooking(booking.id)} getRowId={(booking) => booking.id} rowsAreButtons rowAriaLabel={(booking) => `Open booking ${booking.bookingReference}`} />
+        <DataTable columns={bookingColumns} data={bookingRows} search={bookingSearch} onSearchChange={setBookingSearch} searchPlaceholder="Search booking reference or primary contact..." emptyMessage={bookings.length ? "No bookings match this search." : "No bookings yet."} onRowClick={(booking) => openBooking(booking.id)} getRowId={(booking) => booking.id} rowsAreButtons rowAriaLabel={(booking) => `Open booking ${booking.bookingReference}`} contextMenuContents={(booking) => renderBookingMenuItems(booking, CONTEXT_MENU_SLOTS)} />
       </Card>
 
       <RecordPaymentDialog booking={bookingOf(paymentBookingId)} currency={snapshot.currency || "LKR"} open={paymentBookingId !== null} onClose={() => setPaymentBookingId(null)} />
