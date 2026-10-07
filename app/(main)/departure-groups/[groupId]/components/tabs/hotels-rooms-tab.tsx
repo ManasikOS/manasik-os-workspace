@@ -304,21 +304,6 @@ const HotelsRoomsTab = ({
         onClose={() => setAutoAssignOpen(false)}
       />
 
-      <SectionHeading
-        title="Accommodation"
-        act={
-          can.manageAccommodation && (
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setAddAccommodationOpen(true)}
-            >
-              <Plus /> Add Hotel
-            </Button>
-          )
-        }
-      />
-
       {accommodations.length === 0 ? (
         <Card>
           <EmptyState
@@ -329,7 +314,6 @@ const HotelsRoomsTab = ({
               can.manageAccommodation && (
                 <Button
                   variant="secondary"
-                  size="sm"
                   onClick={() => setAddAccommodationOpen(true)}
                 >
                   <Plus /> Add Hotel
@@ -361,7 +345,6 @@ const HotelsRoomsTab = ({
                   <>
                     <Button
                       variant="ghost"
-                      size="sm"
                       onClick={() => {
                         setEditAccommodation(accommodation);
                       }}
@@ -370,21 +353,18 @@ const HotelsRoomsTab = ({
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
                       onClick={() => setVoucherAccommodation(accommodation)}
                     >
                       <Upload /> Voucher
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
                       onClick={() => setReferenceAccommodation(accommodation)}
                     >
                       <Hash /> Reference
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
                       onClick={() =>
                         setGenerateRoomsAccommodation(accommodation)
                       }
@@ -395,7 +375,6 @@ const HotelsRoomsTab = ({
                       accommodation.status !== "CANCELLED" && (
                         <Button
                           variant="secondary"
-                          size="sm"
                           disabled={
                             isConfirming && confirmingId === accommodation.id
                           }
@@ -487,6 +466,14 @@ const HotelsRoomsTab = ({
           </Card>
         ))
       )}
+      {can.manageAccommodation && (
+        <Button
+          variant="secondary"
+          onClick={() => setAddAccommodationOpen(true)}
+        >
+          <Plus /> Add Hotel
+        </Button>
+      )}
 
       {/* Rooming allocation */}
       <Card className="gap-4">
@@ -497,7 +484,6 @@ const HotelsRoomsTab = ({
               {can.manageRooming && (
                 <Button
                   variant="secondary"
-                  size="sm"
                   onClick={() => setAutoAssignOpen(true)}
                 >
                   <Sparkles /> Auto Assign Rooms
@@ -507,18 +493,13 @@ const HotelsRoomsTab = ({
                 </Button>
               )}
               {can.manageRooming && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAssignOpen(true)}
-                >
+                <Button variant="outline" onClick={() => setAssignOpen(true)}>
                   <UserPlus /> Assign Manually
                 </Button>
               )}
               {can.exportReports && (
                 <Button
                   variant="ghost"
-                  size="sm"
                   disabled={rooms.length === 0}
                   onClick={() =>
                     exportRoomingList(accommodations, manifest, groupCode)

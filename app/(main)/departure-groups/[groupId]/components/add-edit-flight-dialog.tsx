@@ -805,7 +805,7 @@ const AddEditFlightSheet = ({
                   description="Where the whole sector starts and ends. Break it into stops below."
                 />
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-2">
-                  <Card className="flex flex-col gap-3 p-3">
+                  <Card variant="md-shadow" className="flex flex-col gap-3 p-3">
                     <div className="flex items-center gap-2">
                       <SectionHeading title="Origin" />
                     </div>
@@ -849,7 +849,7 @@ const AddEditFlightSheet = ({
                     />
                   </Card>
 
-                  <Card className="flex flex-col gap-3 p-3">
+                  <Card variant="md-shadow" className="flex flex-col gap-3 p-3">
                     <div className="flex items-center gap-2">
                       <SectionHeading title="Destination" />
                     </div>
@@ -931,7 +931,7 @@ const AddEditFlightSheet = ({
                   }
                 />
 
-                <Card className=" overflow-hidden mt-2">
+                <Card variant="md-shadow" className=" overflow-hidden mt-2">
                   {/* Journey stats */}
                   <div className="flex flex-wrap items-center gap-x-7 ">
                     <div className="flex items-center gap-1.5">
@@ -1018,7 +1018,10 @@ const AddEditFlightSheet = ({
                           <div className="w-px flex-1 bg-border" />
                         </div>
                         <div className="flex-1 pb-4 -mt-2">
-                          <div className="rounded-md border border-dashed border-border bg-background px-3 py-2.5">
+                          <Card
+                            variant="md-shadow"
+                            className="rounded-md gap-0 px-3 py-2.5"
+                          >
                             <div className="flex items-center gap-2 mb-1">
                               <Plane className="size-3.5 text-muted-foreground" />
                               <span className="text-xs font-medium text-foreground">
@@ -1026,7 +1029,7 @@ const AddEditFlightSheet = ({
                               </span>
                               {journey.inAirMinutes !== null && (
                                 <Badge
-                                  variant="secondary"
+                                  variant="outline"
                                   className="text-[10px] tabular-nums ml-auto"
                                 >
                                   {formatDuration(journey.inAirMinutes)}
@@ -1042,7 +1045,7 @@ const AddEditFlightSheet = ({
                                 "destination"}
                               .
                             </p>
-                          </div>
+                          </Card>
                         </div>
                       </div>
                     )}
