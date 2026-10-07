@@ -239,11 +239,13 @@ export function HeaderGlobalSearch({
         onClick={() => setIsOpen(true)}
         aria-label="Search everything"
         aria-keyshortcuts="Control+K Meta+K"
-        className="h-9 w-full max-w-md justify-start gap-2 rounded-sm bg-card/50 px-3 font-normal text-muted-foreground hover:text-foreground"
+        className="h-9 w-full  max-w-md justify-start gap-2 rounded-sm bg-card/50 px-3 font-normal text-muted-foreground hover:text-foreground"
       >
         <Search className="size-4 shrink-0" />
-        <span className="truncate">Search leads, pilgrims, bookings…</span>
-        <kbd className="ml-auto hidden rounded-sm border border-border/60 bg-muted/50 px-1.5 py-0.5 font-sans text-xs text-muted-foreground sm:inline">
+        <span className="truncate hidden md:block">
+          Search leads, pilgrims, bookings…
+        </span>
+        <kbd className="ml-auto hidden rounded-sm border border-border/60 bg-muted/50 px-1.5 py-0.5 font-sans text-xs text-muted-foreground md:inline">
           Ctrl K
         </kbd>
       </Button>
