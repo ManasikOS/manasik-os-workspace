@@ -8,12 +8,17 @@ import Logo from "@/public/logos/manasik-os-logo.svg";
 import DarkModeLogo from "@/public/logos/manasik-os-logo-dark.svg";
 import Image from "next/image";
 import { HeaderInboxLauncher } from "./header-inbox-launcher";
+import { HeaderGlobalSearch } from "./header-global-search";
+import type { GlobalSearchPage } from "@/lib/search/global-search-types";
 
 /* ─── Main header ────────────────────────────────────────────── */
 const HeaderBar = ({
   notificationBellSlot,
   canViewInbox = false,
+  searchablePages,
 }: {
+  /** Pages this person may open, offered by the header search. */
+  searchablePages: GlobalSearchPage[];
   /** The bell, passed in so the layout can stream it behind its own Suspense boundary. */
   notificationBellSlot: React.ReactNode;
   canViewInbox?: boolean;
@@ -43,8 +48,13 @@ const HeaderBar = ({
         />
       </div>
 
+      {/* Centre — search across the whole CRM */}
+
       {/* Right — actions */}
       <div className="flex items-center gap-1 shrink-0">
+        <div className="flex min-w-0 flex-1 justify-center">
+          <HeaderGlobalSearch searchablePages={searchablePages} />
+        </div>
         {canViewInbox && <HeaderInboxLauncher />}
         <div className="w-px h-5 bg-border/60 mx-1" />
         {notificationBellSlot}

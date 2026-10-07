@@ -16,6 +16,7 @@ import HeaderNotificationBell, {
   HeaderNotificationBellPlaceholder,
 } from "@/components/header-notification-bell";
 import { capabilitiesForInbox } from "@/lib/access/inbox-access";
+import { listSearchablePagesForRole } from "@/lib/search/global-search-pages";
 import { needsAgencyProvisioning } from "@/lib/onboarding/onboarding-routing";
 
 /**
@@ -91,6 +92,7 @@ export default async function MainLayout({
           )
         }
         canViewInbox={capabilitiesForInbox(role).viewModule}
+        searchablePages={listSearchablePagesForRole(role)}
       />
       <div className="flex flex-1 min-h-0 w-full">
         <AppSidebar
