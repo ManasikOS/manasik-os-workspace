@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { Mail } from "lucide-react";
 
@@ -63,16 +63,25 @@ export default function ComposeEmailDialog({
   const [bccInput, setBccInput] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  function refreshMailboxReadiness() {
-    startTransition(async () => {
-      try {
-        setCheckedMailboxReady(await loadEmailComposeMailboxReadinessAction());
-      } catch {
-        setCheckedMailboxReady(false);
-      }
-    });
-  }
+  // A parent that controls `open` (the new-conversation menu) never triggers the Dialog's own onOpenChange, so the
+  // server check must follow `open` itself — otherwise the stale `mailboxReady` prop decides what the staff member sees.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    loadEmailComposeMailboxReadinessAction()
+      .then((ready) => {
+        if (!cancelled) setCheckedMailboxReady(ready);
+      })
+      .catch(() => {
+        // Keep the last known answer rather than telling a configured agency to set up email again.
+        if (!cancelled) setCheckedMailboxReady((previous) => previous ?? mailboxReady);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, mailboxReady]);
 
+  const isCheckingMailbox = open && checkedMailboxReady === null;
   const isMailboxReady = checkedMailboxReady ?? mailboxReady;
 
   function reset() {
@@ -111,11 +120,7 @@ export default function ComposeEmailDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) {
-          reset();
-          return;
-        }
-        refreshMailboxReadiness();
+        if (!next) reset();
       }}
     >
       {showTrigger && (
@@ -136,13 +141,15 @@ export default function ComposeEmailDialog({
         <DialogHeader>
           <DialogTitle>Compose email</DialogTitle>
           <DialogDescription>
-            {isMailboxReady
+            {isCheckingMailbox
+              ? "Checking your connected mailbox…"
+              : isMailboxReady
               ? "Starts a new conversation with this address using your agency’s connected mailbox."
               : "Connect a mailbox with IMAP enabled in Settings → Email before composing."}
           </DialogDescription>
         </DialogHeader>
 
-        {!isMailboxReady ? (
+        {isCheckingMailbox ? null : !isMailboxReady ? (
           <div className="mt-5 grid gap-4">
             <Button render={<Link href="/management/settings/email" />}>
               Open email settings
