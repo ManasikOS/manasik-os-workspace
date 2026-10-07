@@ -2,6 +2,11 @@
 
 import SectionHeading from "@/components/section-heading";
 import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/animate/tabs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -422,7 +427,7 @@ const DocumentsVisaTab = ({
           act={
             <div className="flex flex-wrap items-center gap-2">
               {can.sendGroupCommunications && (
-                <Button variant="secondary" size="sm" onClick={openReminder}>
+                <Button variant="secondary" onClick={openReminder}>
                   <MegaphoneIcon /> Send Document Reminder
                 </Button>
               )}
@@ -430,14 +435,12 @@ const DocumentsVisaTab = ({
                 <>
                   <Button
                     variant="outline_without_border"
-                    size="sm"
                     onClick={() => setSubmittedDialogOpen(true)}
                   >
                     <Send /> Mark Application Submitted
                   </Button>
                   <Button
                     variant="outline_without_border"
-                    size="sm"
                     onClick={() => setUploadVisaOpen(true)}
                   >
                     <Upload /> Upload Visa
@@ -445,7 +448,7 @@ const DocumentsVisaTab = ({
                 </>
               )}
               {can.exportReports && (
-                <Button variant="ghost" size="sm" onClick={exportVisaBatch}>
+                <Button variant="ghost" onClick={exportVisaBatch}>
                   <Download /> Export Visa Batch
                 </Button>
               )}
@@ -501,25 +504,23 @@ const DocumentsVisaTab = ({
           </div>
         </div>
 
-        {/* Subtabs */}
-        <div
-          role="group"
-          aria-label="Filter document and visa requirements"
-          className="max-w-full overflow-x-auto no-scrollbar"
-        >
-          <Card className="flex w-max flex-row items-center px-1 py-1">
-            {SUBTABS.map((entry) => (
-              <Button
-                key={entry}
-                variant={subtab === entry ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setSubtab(entry)}
-                className={cn(subtab !== entry && "text-muted-foreground")}
-              >
-                {entry}
-              </Button>
-            ))}
-          </Card>
+        <div className="max-w-full py-1 px-1 overflow-x-auto no-scrollbar">
+          <Tabs
+            value={subtab}
+            className=""
+            onValueChange={(next) => setSubtab(next as Subtab)}
+          >
+            <TabsList
+              aria-label="Filter document and visa requirements"
+              className="h-auto shadow-sm! w-max flex-nowrap justify-start"
+            >
+              {SUBTABS.map((entry) => (
+                <TabsTrigger key={entry} value={entry}>
+                  {entry}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
 
         {rows.length === 0 ? (

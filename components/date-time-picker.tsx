@@ -117,7 +117,6 @@ export function DateTimePicker({
           />
           <div className="border-t p-3 flex items-center gap-2">
             <InputGroup>
-              <Clock className="size-4 text-muted-foreground shrink-0" />
               <InputGroupInput
                 type="time"
                 value={timeOnly}

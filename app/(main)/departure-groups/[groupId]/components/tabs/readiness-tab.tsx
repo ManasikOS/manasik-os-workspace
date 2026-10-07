@@ -2,6 +2,11 @@
 
 import SectionHeading from "@/components/section-heading";
 import { useDepartureCapabilities } from "@/app/(main)/departure-groups/capabilities-context";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/animate/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -242,28 +247,26 @@ const ReadinessTab = ({ items, summary, role }: ReadinessTabProps) => {
           }
         />
 
-        <div
-          role="group"
-          aria-label="Filter readiness requirements"
-          className="max-w-full overflow-x-auto no-scrollbar"
-        >
-          <Card className="flex w-max flex-row items-center px-1 py-1">
-            {STATUS_FILTERS.map((status) => (
-              <Button
-                key={status}
-                variant={statusFilter === status ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setStatusFilter(status)}
-                className={cn(
-                  statusFilter !== status && "text-muted-foreground",
-                )}
-              >
-                {status === "ALL"
-                  ? "All"
-                  : READINESS_ITEM_STATUS_LABELS[status]}
-              </Button>
-            ))}
-          </Card>
+        <div className="max-w-full px-1 py-1 overflow-x-auto no-scrollbar">
+          <Tabs
+            value={statusFilter}
+            onValueChange={(next) =>
+              setStatusFilter(next as ReadinessItemStatus | "ALL")
+            }
+          >
+            <TabsList
+              aria-label="Filter readiness requirements"
+              className="h-auto shadow-sm! w-max flex-nowrap justify-start"
+            >
+              {STATUS_FILTERS.map((status) => (
+                <TabsTrigger key={status} value={status}>
+                  {status === "ALL"
+                    ? "All"
+                    : READINESS_ITEM_STATUS_LABELS[status]}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
 
         {rows.length === 0 ? (
