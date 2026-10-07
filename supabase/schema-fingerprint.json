@@ -1,7 +1,7 @@
 {
   "description": "Fingerprint of the public schema of a database built from supabase/migrations (go-live gate G15). Regenerate with scripts/local/write-schema-fingerprint.sh after adding a migration.",
-  "lastMigration": "20270117090000_traveller_sensitive_data_erasure",
-  "migrationCount": 238,
+  "lastMigration": "20270118090000_departure_group_bookings_channel_nullable",
+  "migrationCount": 239,
   "objects": {
     "constraint:agencies": "fa5a6a1b32",
     "constraint:agency_email_delivery_profiles": "7542d30dd8",
