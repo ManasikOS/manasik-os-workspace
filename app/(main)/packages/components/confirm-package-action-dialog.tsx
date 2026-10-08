@@ -84,7 +84,7 @@ const ConfirmPackageActionDialog = ({
           <DialogDescription>{copy.description(pending.pkg)}</DialogDescription>
         </DialogHeader>
 
-        <Card className="rounded-sm  px-3 gap-1 py-2 ">
+        <Card variant="md-shadow" className="rounded-sm  px-3 gap-1 py-2 ">
           <p className="font-medium text-foreground">{pending.pkg.title}</p>
           <p className="text-muted-foreground tabular-nums mt-0.5">
             {pending.pkg.code}
@@ -92,7 +92,7 @@ const ConfirmPackageActionDialog = ({
         </Card>
 
         <DialogFooter>
-          <Button variant="outline_without_border" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
           <Button

@@ -123,7 +123,7 @@ const InputGroupInput = React.forwardRef<
       ref={ref}
       data-slot="input-group-control"
       className={cn(
-        "autofill-transparent autofill-transparent aria-[invalid]:bg-destructive/5 border focus:border-gray-200/70! dark:focus:border-gray-200/10! border-gray-200/30 dark:border-card/40 shadow-xs group/input-group bg-card/70 dark:bg-gray-100/3 rounded-sm flex-1 h-auto px-2 py-3 ring-0 focus-visible:ring-1 disabled:bg-transparent aria-invalid:ring-0  [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+        "autofill-transparent autofill-transparent aria-[invalid]:bg-destructive/5 border focus:border-gray-200/70! dark:focus:border-gray-200/1! border-gray-200/30 dark:border-card/40 shadow-xs group/input-group bg-card/70 dark:bg-gray-100/3 rounded-sm flex-1 h-auto px-2 py-3 ring-0 focus-visible:ring-1 disabled:bg-transparent aria-invalid:ring-0  [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
         className,
       )}
       {...props}

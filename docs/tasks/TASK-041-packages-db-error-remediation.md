@@ -309,6 +309,32 @@ In progress. Updated 2026-10-08.
   - Known side effect on staging once applied: CEO/VISA/GUIDE lose direct
     package insert/delete and GUIDE loses package reads; the app already denies
     all of these, and a clean build already behaved this way for GUIDE reads.
+- **Phase 6 done for the migration (2026-10-08).** Applied to staging
+  (`klognjpwmqwlgeibvanf`) with `npx supabase db push` after a dry run showed
+  exactly one pending migration, `20270119090000_packages_policies_agency_and_role`.
+  - History: 240 rows, max `20270119090000`, recorded under the file's own
+    version and name (no alignment needed).
+  - `policy:packages` on staging is now `37411296e1`, equal to the new baseline.
+  - Behaviour as the real staging accounts (rolled-back transaction): CEO still
+    reads packages (2 rows), CEO insert blocked (42501), CEO delete removes 0;
+    OPERATIONS and ADMIN can insert in their own agency; ADMIN insert into
+    another agency blocked (42501); ADMIN update in own agency works. The
+    transaction was forced to roll back; a direct post-test read of the
+    `packages` table was not completed (the check was denied by the session's
+    auto-mode classifier), so "nothing left behind" rests on the rollback, not
+    on a re-read. Re-check: no `packages` row with a title starting `ZZTEST`.
+  - Row count in `packages` was 2 immediately before the apply (pre-flight
+    query). Earlier today the real agency showed 4, with two extra blank-code
+    Drafts created 03:34 UTC; those were gone by the pre-flight and were not
+    removed by this work. Which two rows remain was not re-read.
+  - Still open from the plan: browser pass (needs test logins), the owner's
+    decision on the two existing packages, F3, and the snapshot-table policy.
+  - **New finding, out of scope, not changed:** the full fingerprint diff shows
+    98 differing objects on staging, and 45 policies on 26 other tables carry
+    the same `agency_id = current_agency_id() AND true` shape (21 are write
+    policies with no role check). Follow-up task started as `task_ad1bda64`.
+    Most of the rest of the diff is the documented leftovers (clean-rebuild
+    proof §D).
 - Not covered by a test: `handlePublish` publishing with a null id after a
   failed save. It lives in a React component and the suite has no jsdom
   environment; Phase 2 should extract that decision into a plain function so
