@@ -697,6 +697,47 @@ export async function checkPackageCodeAction(input: unknown): Promise<PackageCod
   return { ok: true, available: false, suggestion: `${code}-${Date.now().toString(36).toUpperCase()}` };
 }
 
+export type NextPackageCodeResult =
+  | { ok: true; code: string }
+  | { ok: false; error: string };
+
+/**
+ * Picks the next unused `PKG-<year>-NNNN` code in the caller's agency for the
+ * wizard's read-only Package Code field. Like `checkPackageCodeAction`, it is an
+ * early answer only: the unique index stays the authority if two people race.
+ */
+export async function getNextPackageCodeAction(): Promise<NextPackageCodeResult> {
+  const gate = await requirePackageCapability(
+    "createPackage",
+    (can) => can.createPackage || can.editPackage,
+  );
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const prefix = `PKG-${new Date().getFullYear()}-`;
+  const supabase = createClient(await cookies());
+  const { data, error } = await supabase
+    .from("packages")
+    .select("internal_code")
+    .ilike("internal_code", `${prefix}%`)
+    .limit(5000);
+  if (error) return { ok: false, error: describePackageWriteFailure(error).error };
+
+  const taken = new Set((data ?? []).map((row) => row.internal_code.trim().toLowerCase()));
+  let highestNumber = 0;
+  for (const usedCode of taken) {
+    const match = /^pkg-\d{4}-(\d+)$/.exec(usedCode);
+    if (match) highestNumber = Math.max(highestNumber, Number(match[1]));
+  }
+
+  let nextNumber = highestNumber + 1;
+  let candidate = `${prefix}${String(nextNumber).padStart(4, "0")}`;
+  while (taken.has(candidate.toLowerCase())) {
+    nextNumber += 1;
+    candidate = `${prefix}${String(nextNumber).padStart(4, "0")}`;
+  }
+  return { ok: true, code: candidate };
+}
+
 /** Open for Sale -> Sales Closed. */
 export async function unpublishPackageAction(
   packageId: string,

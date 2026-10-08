@@ -46,7 +46,11 @@ import {
 } from "../types";
 import { ChevronDown } from "lucide-react";
 import { ButtonGroup } from "@/components/ui/button-group";
-import { checkPackageCodeAction, type PackageCodeCheckResult } from "../../actions";
+import {
+  checkPackageCodeAction,
+  getNextPackageCodeAction,
+  type PackageCodeCheckResult,
+} from "../../actions";
 
 interface StepCommercialIdentityProps {
   formData: PackageFormData;
@@ -91,7 +95,28 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
     };
   }, []);
 
-  // Asks the server whether the typed code is free, half a second after typing stops.
+  // A new package starts with no code: fetch the next unused one for the read-only field.
+  const needsGeneratedPackageCode = !typedPackageCode;
+  useEffect(() => {
+    if (!needsGeneratedPackageCode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await getNextPackageCodeAction();
+        if (cancelled || !result.ok) return;
+        setFormData((prev) =>
+          prev.internalCode.trim() ? prev : { ...prev, internalCode: result.code },
+        );
+      } catch {
+        // Offline or a rotated action id: the save itself still reports a clash.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [needsGeneratedPackageCode, setFormData]);
+
+  // Asks the server whether the code is still free, half a second after it changes.
   useEffect(() => {
     if (!typedPackageCode) return;
     let cancelled = false;
@@ -199,9 +224,10 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
               </InputGroupText>
             </InputGroupAddon>
             <InputGroupInput
-              placeholder="e.g. RF-PKG-2026-UM01"
+              readOnly
+              placeholder="Generating package code…"
               value={formData.internalCode}
-              onChange={(e) => updateField("internalCode", e.target.value)}
+              className="cursor-not-allowed"
               aria-invalid={packageCodeSuggestion ? true : undefined}
             />
           </InputGroup>
