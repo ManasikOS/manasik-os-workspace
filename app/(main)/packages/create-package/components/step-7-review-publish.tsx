@@ -118,14 +118,6 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
     text: `${formData.groupReadinessChecklist.length} group readiness checklist items configured.`,
   });
 
-  const handleFinalPublishClick = async () => {
-    // Only celebrate once the server confirms the package was published.
-    const published = await onPublish();
-    if (published) {
-      setSuccessDialogOpen(true);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-5">
       {/* Review Cards Grid */}
