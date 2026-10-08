@@ -141,12 +141,52 @@ in the test agency; nothing is left behind.
 Also run the Supabase security and performance advisors on staging and
 include anything that names a packages object.
 
-### Phase 4 — Data model changes (only if Phase 3 proves them needed)
-- Rebuild the unique index on `(agency_id, lower(btrim(internal_code)))`, with
-  a dedupe step first, as the existing migration does.
-- Add an `agency_id` condition to the insert/update policies' `WITH CHECK`, or
-  an immutability trigger, if the RLS check fails.
-- One new migration file, RLS in the same file.
+### Phase 3 results (2026-10-08, read-only on staging)
+
+Method: catalog queries against staging, the project's own
+`gate_schema_fingerprint()` compared with `supabase/schema-fingerprint.json`
+(a clean rebuild of the repo), the Supabase advisors, and rolled-back
+transactions run as real staff users. Nothing was left behind. Correction to
+earlier notes: my first schema inventory came from the local Docker database,
+which is not staging; every finding below was re-checked on staging itself.
+
+| # | Severity | Finding | Evidence |
+| --- | --- | --- | --- |
+| F1 | **High** (production go-live) | The repo's own `staff insert packages` policy has no `agency_id` check, and `staff update packages` has none either. A database built from the migrations (which is how production will be built) lets an ADMIN/OPERATIONS user insert a package into **another agency**. Moving an existing row to another agency is refused. | Replayed the repo's policies inside a rolled-back transaction on staging, as the real ADMIN: insert with another agency's id → ALLOWED; update `agency_id` → blocked 42501. |
+| F2 | **Medium** (staging only) | Staging's `packages` policies are the old, un-hardened ones (`agency_id = current_agency_id() AND true`): no role check on read, insert or delete. A read-only role can create and delete packages straight through the API. Updates and publish are still refused, by the marketing-scope trigger and the RPC. Staging's agency check on insert/update is what currently stops F1 there, by accident. | As the real CEO in a rolled-back transaction: INSERT allowed, DELETE removed 1 row, UPDATE blocked ("Your role cannot update packages."), `publish_package` blocked. Fingerprint: `policy:packages` is `c22abdbf6f` on staging vs `f2447385b7` in the baseline. Staging has no MARKETING/FINANCE/VISA/GUIDE staff today, so live exposure is the one CEO account. The same drift exists on `departure_group_package_snapshots` (`41c1eae6d3` vs `88604cfd25`). The 2026-10-03 clean-rebuild audit reported "no always-true policy"; `AND true` slipped past that check. |
+| F3 | Medium | `publish_package()` is callable directly by any ADMIN/OPERATIONS user and checks neither content nor the code; a blank-code draft can be published that way. It also writes no `package_versions` row, and the app writes versions as a separate best-effort call, so a failure leaves an Open for Sale package with `published_version_id` null. None exist today. | Function body read. |
+| F4 | Low | Every package table grants full table privileges to `anon` and `authenticated`; RLS is the only guard. `list_packages_with_usage` is executable by `anon` (security invoker, so it returns nothing). `package_versions_create` lets ADMIN/OPERATIONS write any snapshot JSON, so version history can be forged. | ACLs; advisor `authenticated_security_definer_function_executable` lists the 6 lifecycle RPCs (role-checked inside, intended). |
+| F5 | Info (known) | Staging-only leftovers already documented in `docs/progress/2026-10-03-clean-rebuild-proof.md` §D: 40 deprecated `packages` columns (with their price/flight check constraints) and the tables `package_content`, `package_faqs`, `package_media`, `package_seo_analyses` (RLS on, no policies, no code uses them). Harmless to the app; they are why `constraint:packages`, `table:packages` and `index:packages` differ from the baseline. | Fingerprint diff. |
+| F6 | Info | Data is clean: 0 untrimmed codes, 0 Open/Closed packages with a blank code or without a version, 0 snapshot/template mismatches, 0 cross-agency links, 0 status/`archived_at` inconsistencies, 0 owners outside their agency. Enum lists match across DB, Zod and UI (`finance_role_view`, `Early Registration` included). | Probe queries. |
+| F7 | Info | Reviewed and fine: `package_versions` numbering (row lock in `package_versions_create`); `agent_package_allocations` writes use `upsert` on the unique key, so no 23505 risk; staff hard-deletion only applies to never-accepted invitees, who cannot own packages, so `owner_id ON DELETE RESTRICT` is not reachable; `duplicatePackageAction` already retries code collisions. | Code read. |
+| F8 | Low (performance) | 6 foreign keys on package tables have no covering index (e.g. `packages.published_version_id`, `package_versions.published_by`); 17 unused indexes; 3 tables with two permissive SELECT policies. Tables are tiny. | Performance advisor. |
+| F9 | Info | The real agency now holds 2 more blank-code Drafts (created 03:34 UTC today, not by this work): a result of the wizard now starting blank, which is allowed by design. | Row snapshot. |
+
+Also noted: Zod's `numberOrEmpty` accepts negative numbers, so a negative
+capacity reaches the database and fails the `>= 0` check; Phase 2's translator
+now turns that into a readable message, so no further change is required.
+
+### Phase 4 — Data model changes
+Phase 3 proved the need: F1 (and F2 for staging) are policy fixes. The unique
+index is already correct once the app trims the code (Phase 2), so it is **not**
+rebuilt.
+- One new migration re-asserting the intended `packages` policies in full:
+  select/insert/update/delete each with `agency_id = current_agency_id()` **and**
+  the role check the repo already intends (ADMIN/OPERATIONS write, MARKETING
+  limited to drafts and `featured`, ADMIN-only delete, everyone except GUIDE
+  reads). On a fresh build this adds the missing agency check; on staging it
+  also removes the `AND true` drift. Decide separately whether to do the same
+  for `departure_group_package_snapshots`.
+- F3 (RPC validation and in-transaction versioning) is a larger behaviour
+  change: raise it with the owner before including it.
+- Prerequisite: bring up a clean local stack from the migrations
+  (`scripts/local/rebuild-from-migrations.sh`; the Docker containers seen
+  earlier are stopped) so the migration and its pgTAP test are proven on a
+  fresh build as well as on staging.
+- Regenerate `supabase/schema-fingerprint.json`
+  (`scripts/local/write-schema-fingerprint.sh`): `policy:packages` will change
+  in the baseline, and after applying, staging's hash must equal it.
+- Write the rollback statements in the migration header.
 - Because there is no local dry run: (a) run the pre-flight queries to show no
   existing row violates the new rule, (b) run the whole migration inside a
   transaction that is rolled back and inspect the result, (c) only then apply
@@ -241,6 +281,34 @@ In progress. Updated 2026-10-08.
     failure warns, second close leaves; the sidebar label shows the reason.
   - Checks: `npm run typecheck` clean; `npm run test` 472 files / 5,037 tests
     pass; eslint reports no errors (warnings are existing unused imports).
+- **Phase 3 done (2026-10-08).** Findings F1–F9 above. Nothing was changed on
+  staging; every experiment ran in a rolled-back transaction. Note for Phase 5:
+  the real agency now has 4 packages (2 new blank-code Drafts from manual
+  testing), so its "unchanged" snapshot must be re-taken first.
+- **Phase 4 done in the repo (2026-10-08); NOT yet applied to staging.**
+  Scope: F1 and F2 only (not F3, not `departure_group_package_snapshots`).
+  - `supabase/migrations/20270119090000_packages_policies_agency_and_role.sql`
+    re-states all four staff policies on `packages`, each with the agency check
+    and the role check. Policy-only, idempotent.
+  - `supabase/tests/database/packages_policies_agency_and_role.test.sql`
+    (22 assertions) and `lib/security/packages-policies-migration.test.ts`
+    (13 static checks).
+  - `supabase/schema-fingerprint.json` regenerated from the clean local build:
+    exactly 3 lines changed (`lastMigration`, `migrationCount` 239 → 240,
+    `policy:packages` `f2447385b7` → `37411296e1`).
+  - Evidence. Local build first matched the old baseline with 0 differences
+    (so it is a faithful clean build). The new pgTAP test run BEFORE the
+    migration failed exactly 4 of 22 (cross-agency inserts, F1); AFTER it,
+    22 of 22 pass. On staging, in rolled-back transactions: applying the
+    migration moves `policy:packages` from `c22abdbf6f` to `37411296e1` (equal
+    to the new baseline) and changes no other object; the same pgTAP file
+    passes 22 of 22 there. Staging was re-checked afterwards: unchanged.
+  - Local clean-build database now has the migration applied (240); its
+    container was started for this and stopped again.
+  - Checks: typecheck clean; `npm run test` 473 files / 5,050 tests pass.
+  - Known side effect on staging once applied: CEO/VISA/GUIDE lose direct
+    package insert/delete and GUIDE loses package reads; the app already denies
+    all of these, and a clean build already behaved this way for GUIDE reads.
 - Not covered by a test: `handlePublish` publishing with a null id after a
   failed save. It lives in a React component and the suite has no jsdom
   environment; Phase 2 should extract that decision into a plain function so
