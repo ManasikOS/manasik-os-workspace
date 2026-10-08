@@ -434,8 +434,9 @@ export const StepJourneyTemplate: React.FC<StepJourneyTemplateProps> = ({
             return (
               <Card
                 key={item.id}
-                className={`transition-all duration-300 h-auto ${
-                  isExpanded ? "bg-card/10 p-4" : "bg-card/50 p-4 hover:bg-card"
+                variant="md-shadow"
+                className={`transition-all px-4 py-4 duration-300 h-auto ${
+                  isExpanded ? "" : "bg-card/50 hover:bg-card"
                 }`}
               >
                 {/* Collapsed Header View */}
@@ -446,7 +447,7 @@ export const StepJourneyTemplate: React.FC<StepJourneyTemplateProps> = ({
                   <div className="flex items-center gap-3">
                     <Badge
                       variant="outline"
-                      className="font-bold text-xs bg-primary/10 text-primary px-3 py-1"
+                      className=" text-xs bg-primary/10 text-primary px-3 py-1"
                     >
                       Day {item.dayNumber}
                     </Badge>
@@ -599,9 +600,7 @@ export const StepJourneyTemplate: React.FC<StepJourneyTemplateProps> = ({
                       </div>
 
                       <div className="space-y-1">
-                        <InputGroup
-                          className={cn("h-auto", TONE_STAT_CARD.warning)}
-                        >
+                        <InputGroup className={cn("h-auto")}>
                           <InputGroupAddon align="block-start">
                             <InputGroupText
                               className={cn("font-medium", TONE_TEXT.warning)}

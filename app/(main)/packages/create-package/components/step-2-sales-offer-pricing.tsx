@@ -122,18 +122,22 @@ export const StepSalesOfferPricing: React.FC<StepSalesOfferPricingProps> = ({
       </div>
 
       {/* Milestone Rows */}
-      <div className="space-y-3 px-2">
+      <div className="space-y-3">
         {formData.paymentMilestones.map((m, idx) => (
-          <Card key={m.id} className="p-4 bg-card/10 gap-6 relative group">
+          <Card
+            variant="md-shadow"
+            key={m.id}
+            className="px-4 py-4 gap-6 relative group"
+          >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Badge
                   variant="outline"
-                  className="text-xs bg-primary/10 text-primary font-semibold"
+                  className="text-xs bg-primary/10 text-primary px-2 py-1"
                 >
                   Step {idx + 1}
                 </Badge>
-                <span className="text-xs font-medium text-foreground">
+                <span className="text-sm font-medium text-foreground">
                   {m.label}
                 </span>
               </div>
@@ -361,7 +365,7 @@ export const StepSalesOfferPricing: React.FC<StepSalesOfferPricingProps> = ({
         <Plus className="size-4" /> Add Payment Milestone
       </Button>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
         <InputGroup>
           <InputGroupAddon align={"block-start"}>
             <InputGroupText> Cancellation & Refund Policy</InputGroupText>
