@@ -46,10 +46,13 @@ import {
 } from "../types";
 import { ChevronDown } from "lucide-react";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { checkPackageCodeAction, type PackageCodeCheckResult } from "../../actions";
 
 interface StepCommercialIdentityProps {
   formData: PackageFormData;
   setFormData: React.Dispatch<React.SetStateAction<PackageFormData>>;
+  /** Row id once the draft exists, so the package's own code is not reported as already used. */
+  currentPackageId?: string | null;
 }
 
 const BRANCHES = ["All Branches", "Colombo", "Kandy", "Galle", "Trincomalee"];
@@ -63,8 +66,15 @@ const CATEGORIES: PackageCategory[] = [
 export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
   formData,
   setFormData,
+  currentPackageId = null,
 }) => {
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  // Kept with the code it was checked for, so a stale answer is never shown for a newer code.
+  const [packageCodeCheck, setPackageCodeCheck] = useState<{
+    code: string;
+    result: PackageCodeCheckResult;
+  } | null>(null);
+  const typedPackageCode = formData.internalCode.trim();
   const [activeTab, setActiveTab] = useState<
     "Umrah" | "Hajj" | "Early Registration"
   >("Umrah");
@@ -80,6 +90,34 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
       if (aiTimeoutRef.current) clearTimeout(aiTimeoutRef.current);
     };
   }, []);
+
+  // Asks the server whether the typed code is free, half a second after typing stops.
+  useEffect(() => {
+    if (!typedPackageCode) return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkPackageCodeAction({
+          code: typedPackageCode,
+          packageId: currentPackageId,
+        });
+        if (!cancelled) setPackageCodeCheck({ code: typedPackageCode, result });
+      } catch {
+        // Offline or a rotated action id: the save itself still reports a clash.
+      }
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [typedPackageCode, currentPackageId]);
+
+  const shownPackageCodeCheck =
+    packageCodeCheck && packageCodeCheck.code === typedPackageCode ? packageCodeCheck.result : null;
+  const packageCodeSuggestion =
+    shownPackageCodeCheck && shownPackageCodeCheck.ok && !shownPackageCodeCheck.available
+      ? shownPackageCodeCheck.suggestion
+      : null;
 
   const updateField = <K extends keyof PackageFormData>(
     field: K,
@@ -153,18 +191,35 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
           />
         </InputGroup>
 
-        <InputGroup className="flex-1">
-          <InputGroupAddon align="block-start">
-            <InputGroupText>
-              Package Code <span className="text-destructive">*</span>
-            </InputGroupText>
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="e.g. RF-PKG-2026-UM01"
-            value={formData.internalCode}
-            onChange={(e) => updateField("internalCode", e.target.value)}
-          />
-        </InputGroup>
+        <div className="flex flex-1 flex-col gap-1.5">
+          <InputGroup>
+            <InputGroupAddon align="block-start">
+              <InputGroupText>
+                Package Code <span className="text-destructive">*</span>
+              </InputGroupText>
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="e.g. RF-PKG-2026-UM01"
+              value={formData.internalCode}
+              onChange={(e) => updateField("internalCode", e.target.value)}
+              aria-invalid={packageCodeSuggestion ? true : undefined}
+            />
+          </InputGroup>
+          {packageCodeSuggestion ? (
+            <p className="text-xs text-destructive">
+              Another package already uses this code. Each package needs its own code.{" "}
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto cursor-pointer p-0 text-xs"
+                onClick={() => updateField("internalCode", packageCodeSuggestion)}
+              >
+                Use {packageCodeSuggestion}
+              </Button>
+            </p>
+          ) : null}
+        </div>
       </div>
 
       <InputGroup className="gap-0">

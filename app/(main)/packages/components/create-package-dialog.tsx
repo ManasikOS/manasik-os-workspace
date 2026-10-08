@@ -21,6 +21,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
 } from "react";
@@ -31,6 +32,7 @@ import {
   PackageFormData,
 } from "../create-package/types";
 import { isStepValid } from "../create-package/schemas";
+import { decidePublishAfterDraftSave } from "../create-package/publish-guard";
 import { useDraftAutosave } from "../create-package/use-draft-autosave";
 import { TONE_CLASS } from "@/lib/ui/tone";
 
@@ -179,7 +181,12 @@ function CreatePackageDialogBody({
     [activeStep],
   );
 
-  const { status: saveStatus, saveNow } = useDraftAutosave({
+  const {
+    status: saveStatus,
+    errorMessage: saveErrorMessage,
+    packageId: draftPackageId,
+    saveNow,
+  } = useDraftAutosave({
     formData,
     initialPackageId,
     initialUpdatedAt,
@@ -231,12 +238,33 @@ function CreatePackageDialogBody({
   };
 
   const handleSaveDraft = async () => {
-    await saveNow();
+    const outcome = await saveNow();
+    if (!outcome.ok) {
+      toast.add({
+        title: "Could not save draft",
+        description:
+          outcome.error ?? "Your changes were not saved. Please try again.",
+      });
+      if (outcome.step) setActiveStep(outcome.step - 1);
+      return;
+    }
     toast.add({ title: "Package template saved as Draft" });
   };
 
-  const attemptClose = useCallback(() => {
-    void saveNow();
+  // The first close with unsaved changes only warns; closing again leaves
+  // anyway, so a save that keeps failing (offline, say) can never trap anyone.
+  const closeWarningShown = useRef(false);
+  const attemptClose = useCallback(async () => {
+    const outcome = await saveNow();
+    if (!outcome.ok && !closeWarningShown.current) {
+      closeWarningShown.current = true;
+      toast.add({
+        title: "Your latest changes were not saved",
+        description: `${outcome.error ?? "The draft could not be saved."} Close again to leave without saving them.`,
+      });
+      if (outcome.step) setActiveStep(outcome.step - 1);
+      return;
+    }
     onClose();
   }, [saveNow, onClose]);
 
@@ -247,12 +275,25 @@ function CreatePackageDialogBody({
         // Flush pending edits first and use the id it resolves with — if
         // this save is what created the row, `packageId` from the hook is
         // still null and publishing with it would insert a duplicate row.
-        const { packageId: currentId, updatedAt } = await saveNow();
+        const flushed = await saveNow();
+
+        // If that save failed there may be no row yet; publishing anyway would
+        // attempt a second insert and show the user a second, raw error.
+        const decision = decidePublishAfterDraftSave(flushed);
+        if (!decision.proceed) {
+          toast.add({
+            title: "Could not publish package",
+            description: decision.message,
+          });
+          if (decision.step) setActiveStep(decision.step - 1);
+          resolve(false);
+          return;
+        }
 
         const result = await publishPackageAction({
-          packageId: currentId,
+          packageId: decision.packageId,
           form: formData,
-          expectedUpdatedAt: updatedAt ?? undefined,
+          expectedUpdatedAt: decision.updatedAt ?? undefined,
         });
 
         if (!result.ok) {
@@ -282,6 +323,7 @@ function CreatePackageDialogBody({
       key="commercial"
       formData={formData}
       setFormData={setFormData}
+      currentPackageId={draftPackageId}
     />,
     <StepSalesOfferPricing
       key="pricing"
@@ -321,7 +363,9 @@ function CreatePackageDialogBody({
     saveStatus === "saving"
       ? "Saving…"
       : saveStatus === "error"
-        ? "Could not save"
+        ? saveErrorMessage
+          ? `Could not save: ${saveErrorMessage}`
+          : "Could not save"
         : saveStatus === "saved"
           ? "Draft saved"
           : "";
@@ -377,7 +421,7 @@ function CreatePackageDialogBody({
           </div>
         ) : null
       }
-      onCancel={attemptClose}
+      onCancel={() => void attemptClose()}
       onBack={() => handleStepChange(activeStep - 1)}
       onContinue={() => handleStepChange(activeStep + 1)}
       canContinue={isCurrentStepValid}

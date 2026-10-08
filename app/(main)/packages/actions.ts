@@ -11,6 +11,7 @@ import { getCurrentStaffRole } from "@/lib/data/departure-groups";
 import { createClient } from "@/utils/supabase/server";
 
 import { formDataToDraftRow, formDataToRow, rowToFormData } from "./create-package/mappers";
+import { describePackageWriteFailure } from "./package-write-errors";
 import { crossFieldIssues, isStepValid } from "./create-package/schemas";
 import {
   packageFormPatchSchema,
@@ -29,7 +30,7 @@ import {
 
 export type SaveDraftResult =
   | { ok: true; packageId: string; savedAt: string }
-  | { ok: false; error: string; code?: "STALE" };
+  | { ok: false; error: string; step?: number; code?: "STALE" };
 
 export type PublishResult =
   | { ok: true; packageId: string }
@@ -73,7 +74,7 @@ function mapLifecycleRpcError(error: { code?: string; message: string }): {
       error: error.message || "This package changed elsewhere. Reload and try again.",
     };
   }
-  return { error: error.message || "That action could not be completed." };
+  return { error: describePackageWriteFailure(error).error };
 }
 
 /**
@@ -200,7 +201,7 @@ async function requirePackageRow(
     .eq("id", packageId)
     .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: describePackageWriteFailure(error).error };
   if (!row) return { ok: false, error: "That package no longer exists." };
   if (!canRoleViewPackage(row.status, gate.role, row.owner_id, gate.user.id)) {
     return { ok: false, error: "You do not have permission to do that." };
@@ -235,7 +236,7 @@ export async function saveDraftAction(input: unknown): Promise<SaveDraftResult> 
       .select("status, owner_id")
       .eq("id", parsed.data.packageId)
       .maybeSingle();
-    if (currentError) return { ok: false, error: currentError.message };
+    if (currentError) return { ok: false, error: describePackageWriteFailure(currentError).error };
     if (!current) return { ok: false, error: "That package no longer exists." };
     if (!canRoleViewPackage(current.status, gate.role, current.owner_id, gate.user.id)) {
       return { ok: false, error: "You do not have permission to do that." };
@@ -249,7 +250,10 @@ export async function saveDraftAction(input: unknown): Promise<SaveDraftResult> 
       .maybeSingle();
 
     if (error) {
-      return { ok: false, error: error.message };
+      return {
+        ok: false,
+        ...describePackageWriteFailure(error, { internalCode: form.internalCode }),
+      };
     }
     if (!data) {
       return { ok: false, error: "That package no longer exists." };
@@ -270,7 +274,10 @@ export async function saveDraftAction(input: unknown): Promise<SaveDraftResult> 
     .single();
 
   if (error) {
-    return { ok: false, error: error.message };
+    return {
+      ok: false,
+      ...describePackageWriteFailure(error, { internalCode: form.internalCode }),
+    };
   }
 
   return { ok: true, packageId: data.id, savedAt: data.updated_at };
@@ -306,7 +313,7 @@ export async function savePackagePatchAction(
     .eq("id", parsed.data.packageId)
     .maybeSingle();
 
-  if (readError) return { ok: false, error: readError.message };
+  if (readError) return { ok: false, error: describePackageWriteFailure(readError).error };
   if (!currentRow) return { ok: false, error: "That package no longer exists." };
   if (!canRoleViewPackage(currentRow.status, gate.role, currentRow.owner_id, gate.user.id)) {
     return { ok: false, error: "You do not have permission to do that." };
@@ -356,7 +363,12 @@ export async function savePackagePatchAction(
     .select("id, updated_at")
     .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      ...describePackageWriteFailure(error, { internalCode: mergedForm.internalCode }),
+    };
+  }
   if (!data) {
     return {
       ok: false,
@@ -464,7 +476,12 @@ export async function publishPackageAction(
       .select("id")
       .maybeSingle();
 
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      return {
+        ok: false,
+        ...describePackageWriteFailure(error, { internalCode: form.internalCode }),
+      };
+    }
     if (!data) {
       return {
         ok: false,
@@ -504,7 +521,12 @@ export async function publishPackageAction(
     .select("id")
     .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    return {
+      ok: false,
+      ...describePackageWriteFailure(error, { internalCode: form.internalCode }),
+    };
+  }
 
   await createPackageVersionBestEffort(supabase, data.id, { ...row, owner_id: gate.user.id });
 
@@ -619,6 +641,62 @@ export async function getPackageForEditAction(
   };
 }
 
+const checkCodeInput = z.object({
+  code: z.string().trim().min(1).max(64),
+  /** The package being edited, so its own saved code is not reported as taken. */
+  packageId: idSchema.nullable().optional(),
+});
+
+export type PackageCodeCheckResult =
+  | { ok: true; available: true }
+  | { ok: true; available: false; suggestion: string }
+  | { ok: false; error: string };
+
+/**
+ * Tells the wizard's Package Code field whether a code is free in the caller's
+ * agency, and if not, the next free `CODE-2`, `CODE-3`, ... It mirrors the
+ * `packages_internal_code_agency_unique` index (case-insensitive, per agency),
+ * but the index remains the authority: this is only an early, friendly warning,
+ * and the save/publish actions still translate a race into the same message.
+ */
+export async function checkPackageCodeAction(input: unknown): Promise<PackageCodeCheckResult> {
+  const gate = await requirePackageCapability(
+    "createPackage",
+    (can) => can.createPackage || can.editPackage,
+  );
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsed = checkCodeInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Enter a package code first." };
+
+  const { code, packageId } = parsed.data;
+  const likeEscaped = code.replace(/[\\%_]/g, (character) => `\\${character}`);
+
+  // Row-level security already scopes this to the caller's agency.
+  const supabase = createClient(await cookies());
+  const { data, error } = await supabase
+    .from("packages")
+    .select("id, internal_code")
+    .ilike("internal_code", `${likeEscaped}%`)
+    .limit(200);
+  if (error) return { ok: false, error: describePackageWriteFailure(error).error };
+
+  const taken = new Set(
+    (data ?? [])
+      .filter((row) => row.id !== packageId)
+      .map((row) => row.internal_code.trim().toLowerCase()),
+  );
+  if (!taken.has(code.toLowerCase())) return { ok: true, available: true };
+
+  for (let suffix = 2; suffix <= 200; suffix++) {
+    const candidate = `${code}-${suffix}`;
+    if (!taken.has(candidate.toLowerCase())) {
+      return { ok: true, available: false, suggestion: candidate };
+    }
+  }
+  return { ok: true, available: false, suggestion: `${code}-${Date.now().toString(36).toUpperCase()}` };
+}
+
 /** Open for Sale -> Sales Closed. */
 export async function unpublishPackageAction(
   packageId: string,
@@ -723,7 +801,7 @@ export async function setPackageFeaturedAction(
     .select("id")
     .maybeSingle();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: describePackageWriteFailure(error).error };
   if (!data) return { ok: false, error: "That package no longer exists." };
 
   revalidatePath("/packages");
@@ -864,7 +942,7 @@ export async function duplicatePackageAction(
     .eq("id", parsedId.data)
     .maybeSingle();
 
-  if (readError) return { ok: false, error: readError.message };
+  if (readError) return { ok: false, error: describePackageWriteFailure(readError).error };
   if (!source) return { ok: false, error: "That package no longer exists." };
   if (!canRoleViewPackage(source.status, gate.role, source.owner_id, gate.user.id)) {
     return { ok: false, error: "You do not have permission to do that." };
@@ -940,7 +1018,7 @@ export async function duplicatePackageAction(
 
     const isCodeCollision =
       error.code === "23505" && error.message.includes("packages_internal_code_agency_unique");
-    if (!isCodeCollision) return { ok: false, error: error.message };
+    if (!isCodeCollision) return { ok: false, error: describePackageWriteFailure(error).error };
     // Otherwise: that code is taken, loop and try the next suffix.
   }
 
@@ -997,7 +1075,7 @@ export async function deletePackageAction(
         error: "This package cannot be deleted — one or more departure groups still reference it.",
       };
     }
-    return { ok: false, error: error.message };
+    return { ok: false, error: describePackageWriteFailure(error).error };
   }
 
   if (!data) {

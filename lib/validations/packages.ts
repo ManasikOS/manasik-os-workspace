@@ -102,7 +102,9 @@ export const readinessRequirementSchema = z.object({
 export const packageFormSchema = z.object({
   // Step 1
   title: text,
-  internalCode: text,
+  // Trimmed on every write: the unique index compares `lower(internal_code)`
+  // without trimming, so "UM01" and "UM01 " would otherwise both be accepted.
+  internalCode: z.string().trim().default(""),
   description: text,
   journeyType: z.enum(["Umrah", "Hajj", "Early Registration"]),
   category: z.enum(["Hajj", "Umrah"]),

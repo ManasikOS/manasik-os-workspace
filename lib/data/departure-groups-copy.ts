@@ -942,7 +942,9 @@ const READINESS_REQUIREMENTS: ReadinessRequirementSnapshot[] =
 const UMRAH_TEMPLATE: PackageTemplateDefinition = {
   id: "pkg-umrah-standard-2026",
   name: INITIAL_PACKAGE_FORM_DATA.title,
-  code: INITIAL_PACKAGE_FORM_DATA.internalCode,
+  // Fixed sample code for this built-in template. It used to read the wizard's
+  // default form, whose code is now blank (TASK-041).
+  code: "RF-PKG-2026-UM01",
   journeyType: "UMRAH",
   category: "Standard",
   status: "Open for Sale",

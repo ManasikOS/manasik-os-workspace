@@ -8,7 +8,9 @@ import type { PackageFormData } from "./types";
 export type AutosaveStatus = "idle" | "saving" | "saved" | "error" | "stale";
 
 /** What a single flush actually did — returned by `saveNow()` so a caller can react honestly instead of assuming success (finding E3). */
-export type FlushOutcome = { ok: true } | { ok: false; code?: "STALE" };
+export type FlushOutcome =
+  | { ok: true }
+  | { ok: false; code?: "STALE"; error?: string; step?: number };
 
 interface UseDraftAutosaveOptions {
   formData: PackageFormData;
@@ -52,6 +54,8 @@ export function useDraftAutosave({
     initialUpdatedAt ? new Date(initialUpdatedAt) : null,
   );
   const [packageId, setPackageId] = useState<string | null>(initialPackageId);
+  /** Why the last save failed, for the "Could not save" label. Cleared by the next success. */
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const latestForm = useRef(formData);
   const packageIdRef = useRef(initialPackageId);
@@ -101,9 +105,11 @@ export function useDraftAutosave({
           if (!result.ok) {
             isDirty.current = true;
             setStatus("error");
-            return { ok: false, code: result.code };
+            setErrorMessage(result.error);
+            return { ok: false, code: result.code, error: result.error, step: result.step };
           }
 
+          setErrorMessage(null);
           packageIdRef.current = result.packageId;
           setPackageId(result.packageId);
           lastSavedFormRef.current = snapshot;
@@ -137,13 +143,15 @@ export function useDraftAutosave({
             // it — stop retrying blindly (that would just hit STALE again)
             // and surface it so the wizard can prompt a reload.
             setStatus("stale");
-            return { ok: false, code: "STALE" };
+            return { ok: false, code: "STALE", error: result.error };
           }
           isDirty.current = true;
           setStatus("error");
-          return { ok: false };
+          setErrorMessage(result.error);
+          return { ok: false, error: result.error, step: result.step };
         }
 
+        setErrorMessage(null);
         lastSavedFormRef.current = snapshot;
         lastSavedAtIsoRef.current = result.savedAt;
         setLastSavedAt(new Date(result.savedAt));
@@ -153,7 +161,9 @@ export function useDraftAutosave({
         // Network drop or a rotated action id — keep the edit pending.
         isDirty.current = true;
         setStatus("error");
-        return { ok: false };
+        const unreachable = "Could not reach the server. Check your connection and try again.";
+        setErrorMessage(unreachable);
+        return { ok: false, error: unreachable };
       }
     });
 
@@ -235,6 +245,7 @@ export function useDraftAutosave({
 
   return {
     status,
+    errorMessage,
     lastSavedAt,
     packageId,
     saveNow,

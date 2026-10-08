@@ -412,7 +412,9 @@ export const DEFAULT_READINESS_CHECKLIST: GroupReadinessRequirement[] = [
 export const INITIAL_PACKAGE_FORM_DATA: PackageFormData = {
   // Step 1: Commercial Identity
   title: "14-Day Standard Umrah Package 2026",
-  internalCode: "RF-PKG-2026-UM01",
+  // Blank on purpose: a pre-filled code is shared by every new package, and the
+  // per-agency unique index then rejects the second one (TASK-041).
+  internalCode: "",
   description: "A comprehensive guided Umrah journey featuring 4-star hotel accommodations in Makkah and Madinah, direct air tickets, intercity VIP bus transfers, guided historical Ziyarah tours, and full Mutawwif support.",
   journeyType: "Umrah",
   category: "Umrah",
