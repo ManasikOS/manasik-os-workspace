@@ -31,7 +31,7 @@ import {
   INITIAL_PACKAGE_FORM_DATA,
   PackageFormData,
 } from "../create-package/types";
-import { isStepValid } from "../create-package/schemas";
+import { isStepValid, stepFieldErrors } from "../create-package/schemas";
 import { decidePublishAfterDraftSave } from "../create-package/publish-guard";
 import { useDraftAutosave } from "../create-package/use-draft-autosave";
 import { TONE_CLASS } from "@/lib/ui/tone";
@@ -173,9 +173,16 @@ function CreatePackageDialogBody({
   // `react-hooks`/React Compiler as unsafe under concurrent rendering).
   const [direction, setDirection] = useState(1);
 
+  // Steps the user has already left. Inline field errors only appear on these,
+  // so a first visit to a step never opens with a wall of red.
+  const [leftSteps, setLeftSteps] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  );
+
   const goToStep = useCallback(
     (index: number) => {
       setDirection(index >= activeStep ? 1 : -1);
+      setLeftSteps((prev) => new Set(prev).add(activeStep));
       setActiveStep(index);
     },
     [activeStep],
@@ -219,6 +226,17 @@ function CreatePackageDialogBody({
   }, [formData]);
 
   const isCurrentStepValid = stepValidity[activeStep + 1];
+
+  // Field-level messages for the open step. The footer always names the first
+  // one; the step itself only shows them once it has been visited and left.
+  const currentStepErrors = useMemo(
+    () => stepFieldErrors(activeStep + 1, formData),
+    [activeStep, formData],
+  );
+  const firstStepErrorMessage = currentStepErrors
+    ? Object.values(currentStepErrors).flat()[0]
+    : undefined;
+  const inlineFieldErrors = leftSteps.has(activeStep) ? currentStepErrors : null;
 
   const checkStepClickable = useCallback(
     (targetIndex: number) => {
@@ -321,32 +339,38 @@ function CreatePackageDialogBody({
   const stepContent = [
     <StepCommercialIdentity
       key="commercial"
+      fieldErrors={inlineFieldErrors}
       formData={formData}
       setFormData={setFormData}
       currentPackageId={draftPackageId}
     />,
     <StepSalesOfferPricing
       key="pricing"
+      fieldErrors={inlineFieldErrors}
       formData={formData}
       setFormData={setFormData}
     />,
     <StepJourneyTemplate
       key="journey"
+      fieldErrors={inlineFieldErrors}
       formData={formData}
       setFormData={setFormData}
     />,
     <StepServiceStandards
       key="service"
+      fieldErrors={inlineFieldErrors}
       formData={formData}
       setFormData={setFormData}
     />,
     <StepTravellerRequirements
       key="traveller"
+      fieldErrors={inlineFieldErrors}
       formData={formData}
       setFormData={setFormData}
     />,
     <StepGroupDefaults
       key="groups"
+      fieldErrors={inlineFieldErrors}
       formData={formData}
       setFormData={setFormData}
     />,
@@ -386,6 +410,7 @@ function CreatePackageDialogBody({
       onStepSelect={handleStepChange}
       getStepState={(index) => ({
         isLocked: !checkStepClickable(index),
+        lockedReason: "Finish the earlier steps to unlock this one.",
         isCompleted: index < activeStep && stepValidity[index + 1],
       })}
       sidebarFooter={
@@ -428,11 +453,13 @@ function CreatePackageDialogBody({
       footerHint={
         !isCurrentStepValid ? (
           <span
-            role="alert"
-            className="hidden sm:flex text-[11px] text-destructive font-medium items-center gap-1 max-w-56 truncate"
+            role="status"
+            className="flex min-w-0 items-center gap-1 text-xs font-medium text-destructive"
           >
             <AlertCircle className="size-3 shrink-0" />
-            Complete the required fields to continue
+            <span className="line-clamp-2">
+              {firstStepErrorMessage ?? "Complete the required fields to continue"}
+            </span>
           </span>
         ) : null
       }

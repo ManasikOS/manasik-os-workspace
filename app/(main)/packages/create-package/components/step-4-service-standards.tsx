@@ -1,24 +1,33 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import {
-  ShieldCheck,
-  Building2,
   Bus,
+  Check,
   CheckCircle2,
+  ChevronDown,
+  MoveDown,
+  MoveUp,
   Plus,
   Trash2,
-  MoveUp,
-  MoveDown,
   XCircle,
-  HelpCircle,
-  ChevronDown,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   InputGroup,
   InputGroupAddon,
@@ -26,26 +35,23 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import InputFormHeader from "@/components/ui/input-form-header";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  PackageFormData,
-  TransportRequirement,
-  DEFAULT_TRANSPORT_REQUIREMENTS,
-} from "../types";
+import { PackageFormData, TransportRequirement } from "../types";
+import type { PackageFieldErrors } from "../schemas";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { cn } from "@/lib/utils";
 import { TONE_TEXT } from "@/lib/ui/tone";
-import SectionHeading from "@/components/section-heading";
 
 interface StepServiceStandardsProps {
   formData: PackageFormData;
   setFormData: React.Dispatch<React.SetStateAction<PackageFormData>>;
+  /** Messages for this step's fields; only passed once the step has been visited and left. */
+  fieldErrors?: PackageFieldErrors | null;
 }
 
 const ALL_PRESET_SERVICES = [
@@ -72,9 +78,42 @@ const MEAL_PLANS = ["Room Only", "Breakfast", "Half Board", "Full Board"];
 const HARAM_DISTANCES = ["Within 250m", "Within 500m", "Within 1km", "Other"];
 const VEHICLE_STANDARDS = ["Bus", "Private Car", "Train", "Other"] as const;
 
+/** The two cities share one layout; only the form keys and wording differ. */
+const ACCOMMODATION_CITIES = [
+  {
+    id: "makkah",
+    title: "Makkah accommodation",
+    wordingPlaceholder:
+      "e.g. 4-star accommodation near Masjid al-Haram or similar",
+    standardKey: "makkahAccommodationStandard",
+    nightsKey: "makkahNights",
+    wordingKey: "makkahCustomerWording",
+    distanceKey: "makkahTargetDistance",
+    mealKey: "makkahMealPlan",
+    guaranteeKey: "makkahExactHotelGuarantee",
+    hotelKey: "makkahHotel",
+    displayKey: "makkahExactDisplayName",
+  },
+  {
+    id: "madinah",
+    title: "Madinah accommodation",
+    wordingPlaceholder:
+      "e.g. 4-star accommodation near Prophet's Mosque or similar",
+    standardKey: "madinahAccommodationStandard",
+    nightsKey: "madinahNights",
+    wordingKey: "madinahCustomerWording",
+    distanceKey: "madinahTargetDistance",
+    mealKey: "madinahMealPlan",
+    guaranteeKey: "madinahExactHotelGuarantee",
+    hotelKey: "madinahHotel",
+    displayKey: "madinahExactDisplayName",
+  },
+] as const;
+
 export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
   formData,
   setFormData,
+  fieldErrors = null,
 }) => {
   const updateField = <K extends keyof PackageFormData>(
     field: K,
@@ -176,455 +215,337 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
     );
   };
 
+  const transportCount = formData.transportRequirements.length;
+  const servicesError = fieldErrors?.includedServices?.[0];
+  const transportError = fieldErrors?.transportRequirements?.[0];
+  const inclusionsError = fieldErrors?.inclusions?.[0];
+  const exclusionsError = fieldErrors?.exclusions?.[0];
+
   return (
-    <div className="space-y-6">
-      {/* SECTION A: Service Inclusion Checklist */}
-      <div className="flex flex-wrap gap-3">
-        {ALL_PRESET_SERVICES.map((srv) => {
-          const isChecked = formData.includedServices.includes(srv);
-          return (
-            <Badge
-              key={srv}
-              onClick={() => togglePresetService(srv)}
-              className={`px-4 py-4  border-none cursor-pointer transition flex items-center gap-2 text-sm ${
-                isChecked
-                  ? "bg-primary/10 border-primary/40 text-primary font-medium"
-                  : "bg-card/40 hover:bg-card text-muted-foreground"
-              }`}
-            >
-              {/* <Checkbox checked={isChecked} /> */}
-              <span className="truncate">{srv}</span>
-            </Badge>
-          );
-        })}
-      </div>
-
-      {/* SECTION B: Accommodation Standards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Makkah Accommodation Card */}
-        <div className="flex flex-col gap-4">
-          <SectionHeading title="Makkah Accommodation Standard" />
-
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="w-full text-start cursor-pointer">
-                    <InputGroup>
-                      <InputGroupAddon align={"block-start"}>
-                        <InputGroupText> Standard Rating</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        readOnly
-                        value={formData.makkahAccommodationStandard}
-                        className="text-xs cursor-pointer"
-                      />
-                    </InputGroup>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {HOTEL_STANDARDS.map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() =>
-                          updateField("makkahAccommodationStandard", s)
-                        }
-                      >
-                        {s}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="">
-                <InputGroup>
-                  <InputGroupAddon align="block-start">
-                    <InputGroupText className="">Nights</InputGroupText>
-                  </InputGroupAddon>
-                  <InputGroupInput
-                    type="number"
-                    value={formData.makkahNights}
-                    onChange={(e) =>
-                      updateField("makkahNights", parseInt(e.target.value) || 0)
-                    }
-                    className="text-xs"
-                  />
-                </InputGroup>
-              </div>
-            </div>
-
-            <div className="">
-              <InputGroup>
-                <InputGroupAddon align={"block-start"}>
-                  <InputGroupText> Customer-facing Wording *</InputGroupText>
-                </InputGroupAddon>
-                <InputGroupTextarea
-                  value={formData.makkahCustomerWording}
-                  onChange={(e) =>
-                    updateField("makkahCustomerWording", e.target.value)
-                  }
-                  placeholder="e.g. 4-star accommodation near Masjid al-Haram or similar"
-                  className="text-xs"
-                />
-              </InputGroup>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="w-full text-start cursor-pointer">
-                    <InputGroup>
-                      <InputGroupAddon align={"block-start"}>
-                        <InputGroupText> Target Distance</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        readOnly
-                        value={formData.makkahTargetDistance}
-                        className="text-xs cursor-pointer"
-                      />
-                    </InputGroup>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {HARAM_DISTANCES.map((d) => (
-                      <DropdownMenuItem
-                        key={d}
-                        onClick={() => updateField("makkahTargetDistance", d)}
-                      >
-                        {d}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="w-full text-start cursor-pointer">
-                    <InputGroup>
-                      <InputGroupAddon align={"block-start"}>
-                        <InputGroupText> Meal Plan</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        readOnly
-                        value={formData.makkahMealPlan}
-                        className="text-xs cursor-pointer"
-                      />
-                    </InputGroup>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {MEAL_PLANS.map((m) => (
-                      <DropdownMenuItem
-                        key={m}
-                        onClick={() => updateField("makkahMealPlan", m)}
-                      >
-                        {m}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
-
-            {/* Exact Hotel Guarantee Toggle */}
-            <Card className="p-5 bg-card/5 transition-all duration-300 dark:bg-transparent">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground">
-                  Exact Hotel Guarantee
-                </span>
-                <Switch
-                  checked={formData.makkahExactHotelGuarantee}
-                  onCheckedChange={(chk) =>
-                    updateField("makkahExactHotelGuarantee", chk)
-                  }
-                />
-              </div>
-
-              {formData.makkahExactHotelGuarantee && (
-                <div className="space-y-3 pt-2">
-                  <InputGroup>
-                    <InputGroupAddon align="block-start">
-                      <InputGroupText className="text-xs">
-                        Hotel Name
-                      </InputGroupText>
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      value={formData.makkahHotel}
-                      onChange={(e) =>
-                        updateField("makkahHotel", e.target.value)
-                      }
-                      className="text-xs font-medium"
-                    />
-                  </InputGroup>
-
-                  <InputGroup>
-                    <InputGroupAddon align="block-start">
-                      <InputGroupText className="text-xs">
-                        Display Name
-                      </InputGroupText>
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      value={formData.makkahExactDisplayName}
-                      onChange={(e) =>
-                        updateField("makkahExactDisplayName", e.target.value)
-                      }
-                      className="text-xs"
-                    />
-                  </InputGroup>
-                </div>
-              )}
-            </Card>
+    <div className="flex flex-col gap-5">
+      {/* GROUP 1: service inclusion checklist */}
+      <Card variant="md-shadow" className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Included services</CardTitle>
+          <CardDescription>
+            Pick every service this package promises.{" "}
+            {formData.includedServices.length} selected.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div
+            role="group"
+            aria-label="Included services"
+            className="flex flex-wrap gap-2"
+          >
+            {ALL_PRESET_SERVICES.map((srv) => {
+              const isChecked = formData.includedServices.includes(srv);
+              return (
+                <Button
+                  key={srv}
+                  type="button"
+                  size="sm"
+                  className="min-h-0"
+                  variant={isChecked ? "secondary" : "outline_without_border"}
+                  aria-pressed={isChecked}
+                  onClick={() => togglePresetService(srv)}
+                >
+                  {isChecked ? <Check /> : null}
+                  {srv}
+                </Button>
+              );
+            })}
           </div>
-        </div>
+          {servicesError ? (
+            <p className="text-xs text-destructive">{servicesError}</p>
+          ) : null}
+        </CardContent>
+      </Card>
 
-        {/* Madinah Accommodation Card */}
-        <div className="flex flex-col gap-4">
-          <SectionHeading title="Madinah Accommodation Standard" />
+      {/* GROUP 2: accommodation standards, one collapsible section per city */}
+      <Card variant="md-shadow" className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Accommodation standards</CardTitle>
+          <CardDescription>
+            What each Departure Group must arrange in Makkah and Madinah.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Accordion multiple defaultValue={["makkah"]}>
+            {ACCOMMODATION_CITIES.map((city) => {
+              const standard = formData[city.standardKey];
+              const nights = formData[city.nightsKey];
+              const cityError = fieldErrors?.[city.standardKey]?.[0];
+              return (
+                <AccordionItem key={city.id} value={city.id}>
+                  <AccordionTrigger>
+                    <span className="flex flex-col gap-0.5">
+                      <span>{city.title}</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        {standard || "Rating not set"} · {nights} night
+                        {nights === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent className="flex flex-col gap-4 px-1 pt-2 pb-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="flex flex-col gap-1.5">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className="w-full cursor-pointer text-start">
+                            <InputGroup>
+                              <InputGroupAddon align="block-start">
+                                <InputGroupText>
+                                  Standard Rating{" "}
+                                  <span className="text-destructive">*</span>
+                                </InputGroupText>
+                                <ChevronDown className="ml-auto mr-2 size-3.5 text-muted-foreground" />
+                              </InputGroupAddon>
+                              <InputGroupInput
+                                readOnly
+                                value={standard}
+                                aria-invalid={cityError ? true : undefined}
+                                className="cursor-pointer text-xs"
+                              />
+                            </InputGroup>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            {HOTEL_STANDARDS.map((s) => (
+                              <DropdownMenuItem
+                                key={s}
+                                onClick={() => updateField(city.standardKey, s)}
+                              >
+                                {s}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        {cityError ? (
+                          <p className="text-xs text-destructive">
+                            {cityError}
+                          </p>
+                        ) : null}
+                      </div>
 
-          <div className="flex flex-col gap-6">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="w-full text-start cursor-pointer">
+                      <InputGroup>
+                        <InputGroupAddon align="block-start">
+                          <InputGroupText>Nights</InputGroupText>
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          type="number"
+                          value={nights}
+                          onChange={(e) =>
+                            updateField(
+                              city.nightsKey,
+                              parseInt(e.target.value) || 0,
+                            )
+                          }
+                          className="text-xs"
+                        />
+                      </InputGroup>
+                    </div>
+
                     <InputGroup>
-                      <InputGroupAddon align={"block-start"}>
-                        <InputGroupText> Standard Rating</InputGroupText>
+                      <InputGroupAddon align="block-start">
+                        <InputGroupText>
+                          Customer-facing Wording{" "}
+                          <span className="text-destructive">*</span>
+                        </InputGroupText>
                       </InputGroupAddon>
-                      <InputGroupInput
-                        readOnly
-                        value={formData.madinahAccommodationStandard}
-                        className="text-xs cursor-pointer"
-                      />
-                    </InputGroup>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {HOTEL_STANDARDS.map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() =>
-                          updateField("madinahAccommodationStandard", s)
+                      <InputGroupTextarea
+                        value={formData[city.wordingKey]}
+                        onChange={(e) =>
+                          updateField(city.wordingKey, e.target.value)
                         }
-                      >
-                        {s}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="">
-                <InputGroup>
-                  <InputGroupAddon align="block-start">
-                    <InputGroupText className="text-xs">Nights</InputGroupText>
-                  </InputGroupAddon>
-                  <InputGroupInput
-                    type="number"
-                    value={formData.madinahNights}
-                    onChange={(e) =>
-                      updateField(
-                        "madinahNights",
-                        parseInt(e.target.value) || 0,
-                      )
-                    }
-                    className="text-xs"
-                  />
-                </InputGroup>
-              </div>
-            </div>
-
-            <div className="">
-              <InputGroup>
-                <InputGroupAddon align={"block-start"}>
-                  <InputGroupText> Customer-facing Wording *</InputGroupText>
-                </InputGroupAddon>
-                <InputGroupTextarea
-                  value={formData.madinahCustomerWording}
-                  onChange={(e) =>
-                    updateField("madinahCustomerWording", e.target.value)
-                  }
-                  placeholder="e.g. 4-star accommodation near Prophet's Mosque or similar"
-                  className="text-xs"
-                />
-              </InputGroup>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="w-full text-start cursor-pointer">
-                    <InputGroup>
-                      <InputGroupAddon align={"block-start"}>
-                        <InputGroupText> Target Distance</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        readOnly
-                        value={formData.madinahTargetDistance}
-                        className="text-xs cursor-pointer"
+                        placeholder={city.wordingPlaceholder}
+                        className="text-xs"
                       />
                     </InputGroup>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {HARAM_DISTANCES.map((d) => (
-                      <DropdownMenuItem
-                        key={d}
-                        onClick={() => updateField("madinahTargetDistance", d)}
-                      >
-                        {d}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
 
-              <div className="">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="w-full text-start cursor-pointer">
-                    <InputGroup>
-                      <InputGroupAddon align={"block-start"}>
-                        <InputGroupText> Meal Plan</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        readOnly
-                        value={formData.madinahMealPlan}
-                        className="text-xs cursor-pointer"
-                      />
-                    </InputGroup>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {MEAL_PLANS.map((m) => (
-                      <DropdownMenuItem
-                        key={m}
-                        onClick={() => updateField("madinahMealPlan", m)}
-                      >
-                        {m}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="w-full cursor-pointer text-start">
+                          <InputGroup>
+                            <InputGroupAddon align="block-start">
+                              <InputGroupText>Target Distance</InputGroupText>
+                              <ChevronDown className="ml-auto mr-2 size-3.5 text-muted-foreground" />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              readOnly
+                              value={formData[city.distanceKey]}
+                              className="cursor-pointer text-xs"
+                            />
+                          </InputGroup>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {HARAM_DISTANCES.map((d) => (
+                            <DropdownMenuItem
+                              key={d}
+                              onClick={() => updateField(city.distanceKey, d)}
+                            >
+                              {d}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
 
-            {/* Exact Hotel Guarantee Toggle */}
-            <Card className="p-5 bg-card/10 dark:bg-transparent">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground">
-                  Exact Hotel Guarantee
-                </span>
-                <Switch
-                  checked={formData.madinahExactHotelGuarantee}
-                  onCheckedChange={(chk) =>
-                    updateField("madinahExactHotelGuarantee", chk)
-                  }
-                />
-              </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger className="w-full cursor-pointer text-start">
+                          <InputGroup>
+                            <InputGroupAddon align="block-start">
+                              <InputGroupText>Meal Plan</InputGroupText>
+                              <ChevronDown className="ml-auto mr-2 size-3.5 text-muted-foreground" />
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              readOnly
+                              value={formData[city.mealKey]}
+                              className="cursor-pointer text-xs"
+                            />
+                          </InputGroup>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {MEAL_PLANS.map((m) => (
+                            <DropdownMenuItem
+                              key={m}
+                              onClick={() => updateField(city.mealKey, m)}
+                            >
+                              {m}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
 
-              {formData.madinahExactHotelGuarantee && (
-                <div className="space-y-3 pt-2">
-                  <InputGroup>
-                    <InputGroupAddon align="block-start">
-                      <InputGroupText className="text-xs">
-                        Hotel Name
-                      </InputGroupText>
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      value={formData.madinahHotel}
-                      onChange={(e) =>
-                        updateField("madinahHotel", e.target.value)
-                      }
-                      className=" font-medium"
-                    />
-                  </InputGroup>
+                    {/* Exact hotel guarantee toggle */}
+                    <Card variant="md-shadow" className="gap-1 px-4 py-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            Exact Hotel Guarantee
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Promise a named hotel instead of &ldquo;or
+                            similar&rdquo;.
+                          </p>
+                        </div>
+                        <Switch
+                          aria-label={`${city.title}: exact hotel guarantee`}
+                          checked={formData[city.guaranteeKey]}
+                          onCheckedChange={(chk) =>
+                            updateField(city.guaranteeKey, chk)
+                          }
+                        />
+                      </div>
 
-                  <InputGroup>
-                    <InputGroupAddon align="block-start">
-                      <InputGroupText className="text-xs">
-                        Display Name
-                      </InputGroupText>
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      value={formData.madinahExactDisplayName}
-                      onChange={(e) =>
-                        updateField("madinahExactDisplayName", e.target.value)
-                      }
-                      className="text-xs"
-                    />
-                  </InputGroup>
-                </div>
-              )}
-            </Card>
-          </div>
-        </div>
-      </div>
+                      {formData[city.guaranteeKey] && (
+                        <div className="flex flex-col gap-3">
+                          <InputGroup>
+                            <InputGroupAddon align="block-start">
+                              <InputGroupText>Hotel Name</InputGroupText>
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              value={formData[city.hotelKey]}
+                              onChange={(e) =>
+                                updateField(city.hotelKey, e.target.value)
+                              }
+                              className="text-xs font-medium"
+                            />
+                          </InputGroup>
 
-      {/* SECTION C: Transport Requirements */}
-      <div className="flex flex-col gap-5 dark:bg-transparent">
-        <SectionHeading
-          title="Default Transport Requirements"
-          act={
+                          <InputGroup>
+                            <InputGroupAddon align="block-start">
+                              <InputGroupText>Display Name</InputGroupText>
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              value={formData[city.displayKey]}
+                              onChange={(e) =>
+                                updateField(city.displayKey, e.target.value)
+                              }
+                              className="text-xs"
+                            />
+                          </InputGroup>
+                        </div>
+                      )}
+                    </Card>
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
+          </Accordion>
+        </CardContent>
+      </Card>
+
+      {/* GROUP 3: transport requirements */}
+      <Card variant="md-shadow" className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Default transport requirements</CardTitle>
+          <CardDescription>
+            Routes each Departure Group must cover.
+          </CardDescription>
+          <CardAction>
             <Button
               type="button"
-              variant="link"
+              variant="outline_without_border"
               size="sm"
               onClick={addTransportReq}
-              className="gap-1.5  h-7  cursor-pointer"
             >
-              <Plus className="size-3.5" /> Add Transport Route
+              <Plus /> Add Transport Route
             </Button>
-          }
-        />
-
-        <div className="space-y-3 px-2">
+          </CardAction>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
           {formData.transportRequirements.map((tr, idx) => (
-            <Card
-              key={tr.id}
-              className="p-5 bg-transparent gap-6 dark:bg-transparent"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="text-sm px-3 py-3 bg-primary/10 text-primary font-medium"
-                  >
-                    Route {idx + 1}
-                  </Badge>
-                  <span className="text-sm font-medium text-foreground">
-                    {tr.routeLabel}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
+            <Card variant="md-shadow" key={tr.id} className="gap-4 p-4">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <Bus className="size-3.5 text-muted-foreground" />
+                  {tr.routeLabel || `Route ${idx + 1}`}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Route {idx + 1} of {transportCount}
+                </CardDescription>
+                <CardAction className="flex items-center gap-0.5">
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0"
+                    aria-label={`Move route ${idx + 1} up`}
                     onClick={() => moveTransportReq(idx, "up")}
                     disabled={idx === 0}
-                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                   >
-                    <MoveUp className="size-3.5" />
-                  </button>
-                  <button
+                    <MoveUp />
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0"
+                    aria-label={`Move route ${idx + 1} down`}
                     onClick={() => moveTransportReq(idx, "down")}
-                    disabled={idx === formData.transportRequirements.length - 1}
-                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                    disabled={idx === transportCount - 1}
                   >
-                    <MoveDown className="size-3.5" />
-                  </button>
-                  <button
+                    <MoveDown />
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0 hover:text-destructive"
+                    aria-label={`Delete route ${idx + 1}`}
                     onClick={() => removeTransportReq(idx)}
-                    disabled={formData.transportRequirements.length <= 1}
-                    className="p-1 text-muted-foreground hover:text-destructive disabled:opacity-30 cursor-pointer ml-1"
+                    disabled={transportCount <= 1}
                   >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              </div>
+                    <Trash2 />
+                  </Button>
+                </CardAction>
+              </CardHeader>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="">
+              <CardContent>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
                   <InputGroup>
                     <InputGroupAddon align="block-start">
-                      <InputGroupText className="text-xs">
-                        Route Label *
+                      <InputGroupText>
+                        Route Label <span className="text-destructive">*</span>
                       </InputGroupText>
                     </InputGroupAddon>
                     <InputGroupInput
@@ -635,12 +556,10 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
                       className="text-xs font-medium"
                     />
                   </InputGroup>
-                </div>
 
-                <div className="">
                   <InputGroup>
                     <InputGroupAddon align="block-start">
-                      <InputGroupText className="text-xs">Start</InputGroupText>
+                      <InputGroupText>Start</InputGroupText>
                     </InputGroupAddon>
                     <InputGroupInput
                       value={tr.startLocation}
@@ -652,14 +571,10 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
                       className="text-xs"
                     />
                   </InputGroup>
-                </div>
 
-                <div className="">
                   <InputGroup>
                     <InputGroupAddon align="block-start">
-                      <InputGroupText className="text-xs">
-                        Destination
-                      </InputGroupText>
+                      <InputGroupText>Destination</InputGroupText>
                     </InputGroupAddon>
                     <InputGroupInput
                       value={tr.destination}
@@ -669,19 +584,18 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
                       className="text-xs"
                     />
                   </InputGroup>
-                </div>
 
-                <div className="">
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="w-full text-start cursor-pointer">
+                    <DropdownMenuTrigger className="w-full cursor-pointer text-start">
                       <InputGroup>
-                        <InputGroupAddon align={"block-start"}>
+                        <InputGroupAddon align="block-start">
                           <InputGroupText>Transport</InputGroupText>
+                          <ChevronDown className="ml-auto mr-2 size-3.5 text-muted-foreground" />
                         </InputGroupAddon>
                         <InputGroupInput
                           readOnly
                           value={tr.vehicleStandard}
-                          className="text-xs cursor-pointer"
+                          className="cursor-pointer text-xs"
                         />
                       </InputGroup>
                     </DropdownMenuTrigger>
@@ -699,19 +613,26 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-              </div>
+              </CardContent>
             </Card>
           ))}
-        </div>
-      </div>
+          {transportError ? (
+            <p className="text-xs text-destructive">{transportError}</p>
+          ) : null}
+        </CardContent>
+      </Card>
 
-      {/* SECTION D: Customer Inclusions & Exclusions */}
-      <div className="px-2  flex flex-col gap-5">
-        <SectionHeading title="Customer-facing Inclusions" />
-
-        <div className="flex gap-2">
-          <InputGroup className="flex-1">
-            <InputGroupAddon align={"block-start"}>
+      {/* GROUP 4: customer-facing inclusions */}
+      <Card variant="md-shadow" className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Customer-facing inclusions</CardTitle>
+          <CardDescription>
+            What customers are told is included in the price.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <InputGroup>
+            <InputGroupAddon align="block-start">
               <InputGroupText>Add custom inclusion</InputGroupText>
             </InputGroupAddon>
             <ButtonGroup className="w-full items-center">
@@ -727,46 +648,58 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
               <Button
                 type="button"
                 size="sm"
-                variant={"link"}
+                variant="link"
                 onClick={addCustomInclusion}
-                className="text-xs cursor-pointer"
+                className="cursor-pointer text-xs"
               >
                 <Plus />
                 Add
               </Button>
             </ButtonGroup>
           </InputGroup>
-        </div>
 
-        <div className="flex flex-col gap-3 pb-5 px-2 overflow-y-auto">
+          {inclusionsError ? (
+            <p className="text-xs text-destructive">{inclusionsError}</p>
+          ) : null}
+
           {formData.inclusions.map((inc, i) => (
             <Card
-              key={i}
-              className="px-2 py-3  flex-row   flex items-center justify-between  bg-card"
+              key={`${inc}-${i}`}
+              size="sm"
+              variant="md-shadow"
+              className="flex-row items-center justify-between gap-3 px-3 py-2"
             >
               <span className="flex items-center gap-2">
                 <CheckCircle2 className={cn("size-3.5", TONE_TEXT.success)} />
                 {inc}
               </span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="min-h-0 px-0 hover:text-destructive"
+                aria-label={`Remove inclusion: ${inc}`}
                 onClick={() => removeInclusion(i)}
-                className="text-muted-foreground hover:text-destructive cursor-pointer"
+                disabled={formData.inclusions.length <= 1}
               >
-                <Trash2 className="size-3.5" />
-              </button>
+                <Trash2 />
+              </Button>
             </Card>
           ))}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Customer Exclusions */}
-      <div className="px-2  flex flex-col gap-5">
-        <SectionHeading title="Customer-facing Exclusions" />
-
-        <div className="flex gap-2">
-          <InputGroup className="flex-1">
-            <InputGroupAddon align={"block-start"}>
+      {/* GROUP 5: customer-facing exclusions */}
+      <Card variant="md-shadow" className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Customer-facing exclusions</CardTitle>
+          <CardDescription>
+            What customers are told is not included in the price.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <InputGroup>
+            <InputGroupAddon align="block-start">
               <InputGroupText>Add custom exclusion</InputGroupText>
             </InputGroupAddon>
             <ButtonGroup className="w-full items-center">
@@ -782,38 +715,46 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
               <Button
                 type="button"
                 size="sm"
-                variant={"link"}
+                variant="link"
                 onClick={addCustomExclusion}
-                className="text-xs cursor-pointer"
+                className="cursor-pointer text-xs"
               >
                 <Plus />
                 Add
               </Button>
             </ButtonGroup>
           </InputGroup>
-        </div>
 
-        <div className="flex flex-col gap-3 pb-5 px-2 overflow-y-auto">
+          {exclusionsError ? (
+            <p className="text-xs text-destructive">{exclusionsError}</p>
+          ) : null}
+
           {formData.exclusions.map((exc, i) => (
             <Card
-              key={i}
-              className="px-2 py-3  flex-row   flex items-center justify-between  bg-card"
+              key={`${exc}-${i}`}
+              size="sm"
+              variant="md-shadow"
+              className="flex-row items-center justify-between gap-3 px-3 py-2"
             >
               <span className="flex items-center gap-2 text-muted-foreground">
                 <XCircle className={cn("size-3.5", TONE_TEXT.danger)} />
                 {exc}
               </span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="min-h-0 px-0 hover:text-destructive"
+                aria-label={`Remove exclusion: ${exc}`}
                 onClick={() => removeExclusion(i)}
-                className="text-muted-foreground hover:text-destructive cursor-pointer"
+                disabled={formData.exclusions.length <= 1}
               >
-                <Trash2 className="size-3.5" />
-              </button>
+                <Trash2 />
+              </Button>
             </Card>
           ))}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

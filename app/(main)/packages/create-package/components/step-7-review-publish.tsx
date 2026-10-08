@@ -123,8 +123,11 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
       {/* Review Cards Grid */}
       <div className="grid px-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
         {/* 1. Commercial Identity Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
-          <div className="space-y-5">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
+          <div className="space-y-3">
             <SectionHeading
               title="Commercial Identity"
               act={
@@ -179,7 +182,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 2. Pricing Policy Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Pricing Policy"
@@ -220,7 +226,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 3. Journey Itinerary Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Journey Itinerary"
@@ -250,7 +259,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 4. Service Standards Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Service Standards"
@@ -299,7 +311,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 5. Traveller Requirements Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Traveller Requirements"
@@ -338,7 +353,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 6. Group Defaults Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Group Creation Defaults"

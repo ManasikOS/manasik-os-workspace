@@ -1,6 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertCircle, CheckCircle2, ChevronRight, Lock } from "lucide-react";
@@ -15,6 +20,8 @@ export interface SidebarStepperStep {
 export interface SidebarStepperStepState {
   /** The step cannot be opened yet (shows a lock, not clickable). */
   isLocked: boolean;
+  /** Why the step is locked, shown in a tooltip on hover or focus. */
+  lockedReason?: string;
   /** The step was finished and has no problems. */
   isCompleted: boolean;
   /** The step has a problem the user must fix (shows a warning icon). */
@@ -81,10 +88,10 @@ function SidebarStepperNavItem({
   state,
   onSelect,
 }: SidebarStepperNavItemProps) {
-  const { isLocked, isCompleted, hasError = false } = state;
+  const { isLocked, isCompleted, hasError = false, lockedReason } = state;
   const isActive = index === activeStep;
 
-  return (
+  const navButton = (
     <button
       type="button"
       onClick={isLocked ? undefined : onSelect}
@@ -95,7 +102,7 @@ function SidebarStepperNavItem({
         "group relative w-full flex items-center gap-3 rounded-sm px-3 py-2.5 text-left transition-all duration-150 outline-none",
         "focus-visible:ring-2 disabled:opacity-100 focus-visible:ring-primary/40",
         isLocked
-          ? "cursor-not-allowed opacity-40"
+          ? "pointer-events-none opacity-40"
           : isActive
             ? "bg-primary/6 text-primary"
             : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
@@ -145,7 +152,7 @@ function SidebarStepperNavItem({
         </p>
         <p
           className={cn(
-            "mt-0.5 text-[11px] leading-tight truncate transition-colors",
+            "mt-1 text-[11px] leading-snug line-clamp-2 transition-colors",
             isActive ? "text-primary/70" : "text-muted-foreground/60",
           )}
         >
@@ -157,6 +164,19 @@ function SidebarStepperNavItem({
         <ChevronRight className="size-3.5 shrink-0 text-primary opacity-70" />
       )}
     </button>
+  );
+
+  if (!isLocked || !lockedReason) return navButton;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<span className="block cursor-not-allowed" tabIndex={0} />}
+      >
+        {navButton}
+      </TooltipTrigger>
+      <TooltipContent side="right">{lockedReason}</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -267,21 +287,16 @@ export function SidebarStepperDialogBody({
                 transition={{ duration: 0.18, ease: "easeInOut" }}
                 className="absolute inset-0 p-4 sm:p-5 flex flex-col gap-4 sm:gap-5 text-sm"
               >
-                <div className="hidden md:flex items-center gap-2.5 pb-1">
-                  <div>
-                    <h3 className="font-semibold text-base lg:text-lg leading-tight">
-                      {currentStep.label}
-                    </h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      {currentStep.description}
-                    </p>
-                  </div>
-                  <span className="ml-auto text-[11px] text-muted-foreground font-medium tabular-nums">
-                    {activeStep + 1} / {steps.length}
-                  </span>
+                <div className="hidden md:block pb-1">
+                  <h3 className="font-semibold text-base lg:text-lg leading-tight">
+                    {currentStep.label}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {currentStep.description}
+                  </p>
                 </div>
 
-                <div className="overflow-y-auto custom-scroll px-1">
+                <div className="-mx-2 -my-1 overflow-y-auto custom-scroll px-2 py-1">
                   {children}
                 </div>
               </motion.div>
@@ -289,11 +304,7 @@ export function SidebarStepperDialogBody({
           </div>
 
           <div className="flex items-center justify-between gap-2 border-t border-border/40 bg-card/90 backdrop-blur-md px-4 sm:px-5 py-3">
-            <Button
-              type="button"
-              variant="outline_without_border"
-              onClick={onCancel}
-            >
+            <Button type="button" variant="ghost" onClick={onCancel}>
               Cancel
             </Button>
 
@@ -311,7 +322,6 @@ export function SidebarStepperDialogBody({
               ) : (
                 <Button
                   type="button"
-                  variant="secondary"
                   disabled={!canContinue}
                   onClick={onContinue}
                 >
