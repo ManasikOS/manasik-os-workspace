@@ -60,12 +60,12 @@ export const TONE_BADGE_BORDER: Record<Tone, string> = {
 
 /** Tinted background + border for a small stat/summary card — pair with TONE_TEXT for its label/value. */
 export const TONE_STAT_CARD: Record<Tone, string> = {
-  neutral: "bg-muted/40 dark:bg-muted/20 border-border",
-  info: "bg-sky-500/10 dark:bg-sky-900/20 border-sky-500/20",
-  success: "bg-emerald-500/10 dark:bg-emerald-900/20 border-emerald-500/20",
-  warning: "bg-amber-500/10 dark:bg-amber-900/20 border-amber-500/20",
-  danger: "bg-destructive/10 dark:bg-destructive/20 border-destructive/20",
-  brand: "bg-primary/10 dark:bg-primary/20 border-primary/20",
+  neutral: "bg-muted/40 dark:bg-muted/20 ",
+  info: "bg-sky-500/10 dark:bg-sky-900/20 ",
+  success: "bg-emerald-500/10 dark:bg-emerald-900/20 ",
+  warning: "bg-amber-500/10 dark:bg-amber-900/20 ",
+  danger: "bg-destructive/10 dark:bg-destructive/20 ",
+  brand: "bg-primary/10 dark:bg-primary/20 ",
 };
 
 export function percentTone(percent: number): Tone {

@@ -406,9 +406,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
             const tone = WARNING_TONE[w.type];
             return (
               <Card
+                variant="md-shadow"
                 key={i}
                 className={cn(
-                  "px-3 py-3  rounded-sm flex-row  flex items-center gap-2",
+                  "px-3 py-3 border-none! ring-none! rounded-sm flex-row  flex items-center gap-2",
                   TONE_STAT_CARD[tone],
                   TONE_TEXT[tone],
                 )}
