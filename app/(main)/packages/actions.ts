@@ -8,13 +8,13 @@ import { requireUser } from "@/lib/dal";
 import { canRoleViewPackage, capabilitiesForPackages } from "@/lib/access/packages-access";
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
-import { listPendingPackageChanges } from "@/lib/data/packages-repository";
 import { createClient } from "@/utils/supabase/server";
 
 import { changesToContent, computePackageChanges } from "@/lib/packages/change-diff";
 import type { PackageDeleteImpact } from "@/lib/packages/delete-impact";
 
 import { formDataToDraftRow, rowToFormData } from "./create-package/mappers";
+import { loadPackageEditSnapshot, type PackageEditSnapshot } from "./package-edit-snapshot";
 import { describePackageWriteFailure } from "./package-write-errors";
 import { crossFieldIssues, isStepValid } from "./create-package/schemas";
 import { packageFormSchema, toPackageFormData } from "./create-package/server-schema";
@@ -491,25 +491,15 @@ export async function publishExistingPackageAction(
 }
 
 export type GetPackageForEditResult =
-  | {
-      ok: true;
-      formData: ReturnType<typeof rowToFormData>;
-      updatedAt: string | null;
-      liveGroupCount: number;
-      /** The package's real status, so the wizard knows whether a save is a draft save or a reviewed change. */
-      status: string;
-      /** Whether this person may change payment and booking terms of a package that is on sale. */
-      canEditSensitiveTerms: boolean;
-      /** A change already waiting for approval, if any. */
-      pendingChange: { id: string; requestedByName: string; createdAt: string; columns: string[] } | null;
-    }
+  | ({ ok: true } & PackageEditSnapshot)
   | { ok: false; error: string };
 
 /**
  * Loads an existing package as wizard form data, for the edit dialog opened
  * straight from the list — the list only holds the narrow `PackageListItem`
  * projection, not the ~120 wizard columns, so this fetches the full row on
- * demand instead.
+ * demand instead. The read itself lives in `loadPackageEditSnapshot`, shared
+ * with the edit page.
  */
 export async function getPackageForEditAction(
   packageId: string,
@@ -517,37 +507,14 @@ export async function getPackageForEditAction(
   const gate = await requirePackageCapability("editPackage", (can) => can.editPackage);
   if (!gate.ok) return gate;
 
-  const parsedId = idSchema.safeParse(packageId);
-  if (!parsedId.success) return { ok: false, error: "Invalid package reference." };
-
-  const supabase = createClient(await cookies());
-  const [{ data: row, error }, { data: usage }] = await Promise.all([
-    supabase.from("packages").select("*").eq("id", parsedId.data).maybeSingle(),
-    supabase
-      .from("package_usage")
-      .select("live_group_count")
-      .eq("package_id", parsedId.data)
-      .maybeSingle(),
-  ]);
-
-  if (error || !row) return { ok: false, error: "That package no longer exists." };
-  if (!canRoleViewPackage(row.status, gate.role, row.owner_id, gate.user.id)) {
-    return { ok: false, error: "You do not have permission to do that." };
-  }
-
-  const pending = (await listPendingPackageChanges(row.id))[0] ?? null;
-
-  return {
-    ok: true,
-    formData: rowToFormData(row),
-    updatedAt: row.updated_at ?? null,
-    liveGroupCount: usage?.live_group_count ?? 0,
-    status: row.status,
+  const result = await loadPackageEditSnapshot(packageId, {
+    role: gate.role,
+    userId: gate.user.id,
     canEditSensitiveTerms: gate.can.editSensitiveTerms,
-    pendingChange: pending
-      ? { id: pending.id, requestedByName: pending.requestedByName, createdAt: pending.createdAt, columns: Object.keys(pending.changes) }
-      : null,
-  };
+  });
+  if (!result.ok) return result;
+
+  return { ok: true, ...result.snapshot };
 }
 
 const checkCodeInput = z.object({

@@ -36,7 +36,9 @@ import {
   type SavePackageResult,
 } from "../actions";
 import { computePackageChanges } from "@/lib/packages/change-diff";
-import PackageChangeReviewDialog, { type PackageApprovalPolicy } from "./package-change-review-dialog";
+import PackageChangeReviewDialog, {
+  type PackageApprovalPolicy,
+} from "./package-change-review-dialog";
 import {
   INITIAL_PACKAGE_FORM_DATA,
   PackageFormData,
@@ -193,11 +195,14 @@ function CreatePackageDialogBody({
   const [packageId, setPackageId] = useState<string | null>(initialPackageId);
   const [packageStatus] = useState(initialStatus);
   const [updatedAt, setUpdatedAt] = useState<string | null>(initialUpdatedAt);
-  const [pendingChange] = useState<PendingChangeSummary | null>(initialPendingChange);
+  const [pendingChange] = useState<PendingChangeSummary | null>(
+    initialPendingChange,
+  );
   const [isWorking, startWorking] = useTransition();
 
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [approvalPolicy, setApprovalPolicy] = useState<PackageApprovalPolicy | null>(null);
+  const [approvalPolicy, setApprovalPolicy] =
+    useState<PackageApprovalPolicy | null>(null);
   const [pendingConflict, setPendingConflict] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
 
@@ -216,10 +221,17 @@ function CreatePackageDialogBody({
     () => new Set(),
   );
 
-  const isLive = packageStatus === "Open for Sale" || packageStatus === "Sales Closed";
-  const changes = useMemo(() => computePackageChanges(savedForm, formData), [savedForm, formData]);
+  const isLive =
+    packageStatus === "Open for Sale" || packageStatus === "Sales Closed";
+  const changes = useMemo(
+    () => computePackageChanges(savedForm, formData),
+    [savedForm, formData],
+  );
   const isDirty = changes.length > 0;
-  const sensitiveChanges = useMemo(() => changes.filter((change) => change.tier > 0), [changes]);
+  const sensitiveChanges = useMemo(
+    () => changes.filter((change) => change.tier > 0),
+    [changes],
+  );
 
   // Closing the tab or navigating away with edits that were never saved asks first.
   useEffect(() => {
@@ -278,7 +290,9 @@ function CreatePackageDialogBody({
   const firstStepErrorMessage = currentStepErrors
     ? Object.values(currentStepErrors).flat()[0]
     : undefined;
-  const inlineFieldErrors = leftSteps.has(activeStep) ? currentStepErrors : null;
+  const inlineFieldErrors = leftSteps.has(activeStep)
+    ? currentStepErrors
+    : null;
 
   const checkStepClickable = useCallback(
     (targetIndex: number) => {
@@ -293,7 +307,10 @@ function CreatePackageDialogBody({
 
   /** Sends the form to the server. Resolves with the result, or undefined if the request itself failed. */
   const persist = useCallback(
-    async (options?: { reason?: string; supersedePending?: boolean }): Promise<SavePackageResult | undefined> => {
+    async (options?: {
+      reason?: string;
+      supersedePending?: boolean;
+    }): Promise<SavePackageResult | undefined> => {
       const result = await runWithLoadingToast(
         () =>
           savePackageAction({
@@ -306,8 +323,11 @@ function CreatePackageDialogBody({
         {
           loadingTitle: isLive ? "Saving changes…" : "Saving draft…",
           successTitle: "Saved",
-          errorTitle: isLive ? "Could not save changes" : "Could not save draft",
-          getFailureMessage: (response) => (response.ok ? undefined : response.error),
+          errorTitle: isLive
+            ? "Could not save changes"
+            : "Could not save draft",
+          getFailureMessage: (response) =>
+            response.ok ? undefined : response.error,
           shouldDismissSilently: (response) => response.ok,
         },
       );
@@ -321,7 +341,8 @@ function CreatePackageDialogBody({
 
       setPackageId(result.packageId);
       setUpdatedAt(result.savedAt);
-      if (result.kind === "SAVED" || result.kind === "APPLIED") setSavedForm(formData);
+      if (result.kind === "SAVED" || result.kind === "APPLIED")
+        setSavedForm(formData);
       return result;
     },
     [packageId, formData, updatedAt, isLive],
@@ -337,7 +358,10 @@ function CreatePackageDialogBody({
             : "An administrator must approve the changes before they take effect. The package stays as it is until then.",
       });
     } else if (result.kind === "APPLIED") {
-      toast.add({ title: "Changes applied", description: "They were recorded with your name and reason." });
+      toast.add({
+        title: "Changes applied",
+        description: "They were recorded with your name and reason.",
+      });
     } else {
       toast.add({ title: "Changes saved" });
     }
@@ -360,7 +384,11 @@ function CreatePackageDialogBody({
       setPendingConflict(false);
       setReviewOpen(true);
       void getPackageApprovalPolicyAction().then((policy) => {
-        if (policy.ok) setApprovalPolicy({ moneyAndContract: policy.moneyAndContract, bookingsAndOperations: policy.bookingsAndOperations });
+        if (policy.ok)
+          setApprovalPolicy({
+            moneyAndContract: policy.moneyAndContract,
+            bookingsAndOperations: policy.bookingsAndOperations,
+          });
       });
       return;
     }
@@ -370,9 +398,15 @@ function CreatePackageDialogBody({
     });
   };
 
-  const handleConfirmReview = (input: { reason: string; supersedePending: boolean }) => {
+  const handleConfirmReview = (input: {
+    reason: string;
+    supersedePending: boolean;
+  }) => {
     startWorking(async () => {
-      const result = await persist({ reason: input.reason, supersedePending: input.supersedePending });
+      const result = await persist({
+        reason: input.reason,
+        supersedePending: input.supersedePending,
+      });
       if (result?.ok) {
         setReviewOpen(false);
         finishAfterLiveSave(result);
@@ -383,12 +417,18 @@ function CreatePackageDialogBody({
   const handlePublish = () => {
     startWorking(async () => {
       const result = await runWithLoadingToast(
-        () => publishPackageAction({ packageId, form: formData, expectedUpdatedAt: updatedAt ?? undefined }),
+        () =>
+          publishPackageAction({
+            packageId,
+            form: formData,
+            expectedUpdatedAt: updatedAt ?? undefined,
+          }),
         {
           loadingTitle: "Publishing package…",
           successTitle: "Package published",
           errorTitle: "Could not publish package",
-          getFailureMessage: (response) => (response.ok ? undefined : response.error),
+          getFailureMessage: (response) =>
+            response.ok ? undefined : response.error,
           shouldDismissSilently: (response) => response.ok,
         },
       );
@@ -397,7 +437,10 @@ function CreatePackageDialogBody({
         if (result.step) setActiveStep(result.step - 1);
         return;
       }
-      toast.add({ title: "Package published", description: formData.title.trim() || undefined });
+      toast.add({
+        title: "Package published",
+        description: formData.title.trim() || undefined,
+      });
       onClose();
       router.push(`/packages/${result.packageId}`);
       router.refresh();
@@ -512,31 +555,49 @@ function CreatePackageDialogBody({
         panelBanner={
           <>
             {pendingChange ? (
-              <div className={cn("flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0", TONE_CLASS.info)}>
+              <div
+                className={cn(
+                  "flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0",
+                  TONE_CLASS.info,
+                )}
+              >
                 <ShieldAlert className="size-3.5 mt-0.5 shrink-0" />
                 <span>
-                  A change requested by {pendingChange.requestedByName} is waiting for approval. Fields it changes will show the values saved today until it
-                  is decided.
+                  A change requested by {pendingChange.requestedByName} is
+                  waiting for approval. Fields it changes will show the values
+                  saved today until it is decided.
                 </span>
               </div>
             ) : null}
             {mode === "edit" && initialLiveGroupCount > 0 ? (
-              <div className={cn("flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0", TONE_CLASS.warning)}>
+              <div
+                className={cn(
+                  "flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0",
+                  TONE_CLASS.warning,
+                )}
+              >
                 <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
                 <span>
                   {initialLiveGroupCount} live departure group
-                  {initialLiveGroupCount === 1 ? " is" : "s are"} already running
-                  off this template. Saving here never rewrites them — each keeps
-                  its own independent price and configuration — it only changes
-                  what the NEXT group created from this package copies.
+                  {initialLiveGroupCount === 1 ? " is" : "s are"} already
+                  running off this template. Saving here never rewrites them —
+                  each keeps its own independent price and configuration — it
+                  only changes what the NEXT group created from this package
+                  copies.
                 </span>
               </div>
             ) : null}
             {isLive && !canEditSensitiveTerms ? (
-              <div className={cn("flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0", TONE_CLASS.warning)}>
+              <div
+                className={cn(
+                  "flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0",
+                  TONE_CLASS.warning,
+                )}
+              >
                 <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
                 <span>
-                  This package is on sale. You can edit its display text, but your role cannot change its payment or booking terms.
+                  This package is on sale. You can edit its display text, but
+                  your role cannot change its payment or booking terms.
                 </span>
               </div>
             ) : null}
@@ -554,7 +615,8 @@ function CreatePackageDialogBody({
             >
               <AlertCircle className="size-3 shrink-0" />
               <span className="line-clamp-2">
-                {firstStepErrorMessage ?? "Complete the required fields to continue"}
+                {firstStepErrorMessage ??
+                  "Complete the required fields to continue"}
               </span>
             </span>
           ) : null
@@ -571,11 +633,19 @@ function CreatePackageDialogBody({
         }
         lastStepAction={
           isLive ? (
-            <Button type="button" disabled={isWorking || !isDirty} onClick={handleSaveChanges}>
+            <Button
+              type="button"
+              disabled={isWorking || !isDirty}
+              onClick={handleSaveChanges}
+            >
               {isWorking ? "Saving…" : "Save changes"}
             </Button>
           ) : (
-            <Button type="button" disabled={isWorking || !isCurrentStepValid} onClick={handlePublish}>
+            <Button
+              type="button"
+              disabled={isWorking || !isCurrentStepValid}
+              onClick={handlePublish}
+            >
               {isWorking ? "Publishing…" : "Publish package"}
             </Button>
           )
@@ -596,16 +666,24 @@ function CreatePackageDialogBody({
         onConfirm={handleConfirmReview}
       />
 
-      <Dialog open={leaveOpen} onOpenChange={(next) => !next && !isWorking && setLeaveOpen(false)}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog
+        open={leaveOpen}
+        onOpenChange={(next) => !next && !isWorking && setLeaveOpen(false)}
+      >
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>You have unsaved changes</DialogTitle>
             <DialogDescription>
-              Nothing is saved until you choose to. If you leave now, the changes you made in this window are lost.
+              Nothing is saved until you choose to. If you leave now, the
+              changes you made in this window are lost.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline_without_border" disabled={isWorking} onClick={() => setLeaveOpen(false)}>
+          <div className="gap-3 items-start justify-start flex flex-row w-full">
+            <Button
+              variant="outline_without_border"
+              disabled={isWorking}
+              onClick={() => setLeaveOpen(false)}
+            >
               Keep editing
             </Button>
             <Button
@@ -621,7 +699,7 @@ function CreatePackageDialogBody({
             <Button disabled={isWorking} onClick={saveAndLeave}>
               {isLive ? "Review and save changes" : "Save draft and close"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </>
@@ -726,9 +804,7 @@ export default function CreatePackageDialog({
 
         {open && mode === "edit" && editError && (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
-            <p className="text-sm text-destructive font-medium">
-              {editError}
-            </p>
+            <p className="text-sm text-destructive font-medium">{editError}</p>
             <Button variant="outline_without_border" onClick={handleClose}>
               Close
             </Button>
