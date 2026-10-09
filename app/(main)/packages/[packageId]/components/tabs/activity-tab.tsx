@@ -5,7 +5,7 @@ import { EmptyState } from "@/components/ui/tone-badge";
 import { ActorChip } from "@/components/ui/copilot-mark";
 import SectionHeading from "@/components/section-heading";
 import type { PackageActivityLog } from "@/lib/types/packages";
-import { ArchiveRestore, Archive, PauseCircle, PlayCircle, Send } from "lucide-react";
+import { ArchiveRestore, Archive, Pencil, PauseCircle, PlayCircle, Send } from "lucide-react";
 import React from "react";
 
 import { PackageStatusBadge } from "../../../components/package-status-badges";
@@ -20,6 +20,7 @@ const ACTION_ICON: Record<PackageActivityLog["actionType"], React.ReactNode> = {
   REOPENED: <PlayCircle className="size-3.5" />,
   ARCHIVED: <Archive className="size-3.5" />,
   RESTORED: <ArchiveRestore className="size-3.5" />,
+  CHANGE_APPLIED: <Pencil className="size-3.5" />,
 };
 
 function relativeTimestamp(iso: string): string {

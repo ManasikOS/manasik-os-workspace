@@ -168,12 +168,15 @@ export interface DepartureGroupUsingPackage {
   bookedSeats: number;
   capacity: number;
   archived: boolean;
-  /** From `departure_group_payment_summaries.expected_revenue` — sum of `total_booking_value` across this group's bookings. Same definition Reports uses for package profitability. */
-  expectedRevenue: number;
+  /**
+   * From `departure_group_payment_summaries.expected_revenue` — sum of `total_booking_value` across this group's bookings. Same definition Reports uses for package profitability.
+   * `null` when the caller may not see finance figures (no `viewInternalFinance`): the figure is then not even fetched.
+   */
+  expectedRevenue: number | null;
 }
 
 export const listDepartureGroupsForPackage = cache(
-  async (packageId: string): Promise<DepartureGroupUsingPackage[]> => {
+  async (packageId: string, includeRevenue: boolean): Promise<DepartureGroupUsingPackage[]> => {
     const supabase = createClient(await cookies());
     const { data, error } = await supabase
       .from("departure_groups")
@@ -202,7 +205,7 @@ export const listDepartureGroupsForPackage = cache(
     // not a per-group price × seats estimate, so the two screens can never
     // disagree about what "revenue" means for the same group.
     const revenueByGroup = new Map<string, number>();
-    if (rows.length > 0) {
+    if (includeRevenue && rows.length > 0) {
       const { data: summaryRows } = await supabase
         .from("departure_group_payment_summaries")
         .select("departure_group_id, expected_revenue")
@@ -225,7 +228,7 @@ export const listDepartureGroupsForPackage = cache(
       bookedSeats: row.booked_seats,
       capacity: row.capacity,
       archived: row.archived,
-      expectedRevenue: revenueByGroup.get(row.id) ?? 0,
+      expectedRevenue: includeRevenue ? (revenueByGroup.get(row.id) ?? 0) : null,
     }));
   },
 );

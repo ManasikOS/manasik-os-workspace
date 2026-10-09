@@ -27,6 +27,8 @@ const CODE_COLLISION = {
   message: 'duplicate key value violates unique constraint "packages_internal_code_agency_unique"',
 };
 const insertCalls: Array<Record<string, unknown>> = [];
+const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+let publishRpcResult: { data: unknown; error: { code: string; message: string } | null } = { data: null, error: CODE_COLLISION };
 let takenRows: Array<{ id: string; internal_code: string }> = [];
 vi.mock("@/utils/supabase/server", () => ({
   createClient: () => ({
@@ -37,7 +39,10 @@ vi.mock("@/utils/supabase/server", () => ({
       },
       select: () => ({ ilike: () => ({ limit: async () => ({ data: takenRows, error: null }) }) }),
     }),
-    rpc: async () => ({ data: null, error: null }),
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      rpcCalls.push({ name, args });
+      return name === "publish_package_with_content" ? publishRpcResult : { data: null, error: null };
+    },
   }),
 }));
 
@@ -48,6 +53,8 @@ const FORM_WITH_TAKEN_CODE = { ...INITIAL_PACKAGE_FORM_DATA, internalCode: "RF-P
 
 beforeEach(() => {
   insertCalls.length = 0;
+  rpcCalls.length = 0;
+  publishRpcResult = { data: null, error: CODE_COLLISION };
   takenRows = [];
 });
 
@@ -79,6 +86,33 @@ describe("a package code that another package in the agency already uses", () =>
     const result = await publishPackageAction({ packageId: null, form: INITIAL_PACKAGE_FORM_DATA });
     expect(result).toMatchObject({ ok: false, step: 1 });
     expect(insertCalls).toHaveLength(0);
+    expect(rpcCalls).toHaveLength(0);
+  });
+
+  it("publishes through the single database function and never sends status or featured", async () => {
+    publishRpcResult = { data: { id: "99999999-9999-4999-8999-999999999999" }, error: null };
+    const result = await publishPackageAction({
+      packageId: null,
+      form: { ...FORM_WITH_TAKEN_CODE, status: "Archived", featured: true },
+    });
+    expect(result).toEqual({ ok: true, packageId: "99999999-9999-4999-8999-999999999999" });
+    expect(insertCalls).toHaveLength(0);
+    const call = rpcCalls.find((entry) => entry.name === "publish_package_with_content");
+    expect(call).toBeDefined();
+    const content = call?.args.p_content as Record<string, unknown>;
+    expect(content).not.toHaveProperty("status");
+    expect(content).not.toHaveProperty("featured");
+    expect(content.internal_code).toBe("RF-PKG-2026-UM01");
+    expect(call?.args.p_package_id).toBeNull();
+  });
+
+  it("turns the database's stale-write error into the STALE result", async () => {
+    publishRpcResult = {
+      data: null,
+      error: { code: "40001", message: "This package changed elsewhere. Reload and try again." },
+    };
+    const result = await publishPackageAction({ packageId: null, form: FORM_WITH_TAKEN_CODE });
+    expect(result).toMatchObject({ ok: false, code: "STALE" });
   });
 
   it("trims the code before writing, so 'UM01 ' and 'UM01' cannot both be saved", async () => {

@@ -43,6 +43,43 @@ const CHECK_CONSTRAINT_FIELDS: Record<string, { label: string; step: number }> =
 const GENERIC_FAILURE = "This package could not be saved. Please try again.";
 
 /**
+ * Messages the package functions and triggers raise on purpose, written for
+ * people. Only these are shown as they are: Postgres raises the same SQLSTATEs
+ * (22023, P0002, 28000, 42501) for its own internal errors, whose wording must
+ * never reach the screen.
+ */
+const SAFE_DATABASE_MESSAGES: RegExp[] = [
+  /^That package no longer exists.$/,
+  /^Your session has no active agency.$/,
+  /^Your role cannot [a-z ]+.$/,
+  /^Only an administrator can archive a package that still has live departure groups.$/,
+  /^A reason is required to archive a package that still has live departure groups.$/,
+  /^This package has d+ live departure group(s)./,
+  /^This package is .+ (?:— that is not a valid starting point for this action|and cannot be published from here).$/,
+  /^The package content (?:is missing|has fields that cannot be published).$/,
+  /^MARKETING may only change a package's featured flag, not its other fields.$/,
+  /^A package is created as a Draft. Publish it through the publish action.$/,
+  /^A package's status can only change through the publish, close sales, reopen, archive and restore actions.$/,
+  // TASK-043 change requests and the live-terms guard.
+  /^Changes to payment or booking terms on a package that is on sale must go through the review.$/,
+  /^An archived package cannot be edited. Restore it first.$/,
+  /^A reason is required for changes to payment or booking terms.$/,
+  /^Another change is already waiting for approval for this package.$/,
+  /^The time you last loaded this package is missing.$/,
+  /^That change request no longer exists.$/,
+  /^This change is no longer waiting for approval.$/,
+  /^You cannot approve your own change.$/,
+  /^This package changed since the request was made. Ask for the change to be submitted again.$/,
+  /^The decision is missing.$/,
+  /^The note is too long.$/,
+  /^A note is required when a change is rejected.$/,
+];
+
+function isSafeDatabaseMessage(message: string): boolean {
+  return SAFE_DATABASE_MESSAGES.some((pattern) => pattern.test(message));
+}
+
+/**
  * @param error the Postgres/PostgREST error object.
  * @param context.internalCode the code the user typed, so the message can name it.
  */
@@ -88,7 +125,13 @@ export function describePackageWriteFailure(
     if (/row-level security/i.test(message)) {
       return { error: "You do not have permission to do that." };
     }
-    return { error: message || "You do not have permission to do that." };
+    return { error: isSafeDatabaseMessage(message) ? message : "You do not have permission to do that." };
+  }
+
+  // Raised on purpose by the lifecycle functions: invalid starting state,
+  // missing package, no active agency, empty or unsupported content.
+  if ((error.code === "22023" || error.code === "P0002" || error.code === "28000") && isSafeDatabaseMessage(message)) {
+    return { error: message };
   }
 
   // `raise exception '...'` with no errcode: written for people on purpose.

@@ -66,6 +66,54 @@ describe("describePackageWriteFailure", () => {
     );
   });
 
+  it("shows the lifecycle functions' own messages for a wrong starting state, a missing package and no agency", () => {
+    expect(
+      describePackageWriteFailure({
+        code: "22023",
+        message: "This package is Archived — that is not a valid starting point for this action.",
+      }).error,
+    ).toBe("This package is Archived — that is not a valid starting point for this action.");
+    expect(describePackageWriteFailure({ code: "P0002", message: "That package no longer exists." }).error).toBe(
+      "That package no longer exists.",
+    );
+    expect(describePackageWriteFailure({ code: "28000", message: "Your session has no active agency." }).error).toBe(
+      "Your session has no active agency.",
+    );
+  });
+
+  it("never shows Postgres's own wording for those SQLSTATEs or for a permission error", () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(describePackageWriteFailure({ code: "22023", message: 'unrecognized configuration parameter "x"' }).error).toBe(
+      "This package could not be saved. Please try again.",
+    );
+    expect(describePackageWriteFailure({ code: "42501", message: "permission denied for function packages_record_version" }).error).toBe(
+      "You do not have permission to do that.",
+    );
+    expect(log).toHaveBeenCalledOnce();
+  });
+
+  it("shows the change-request functions' own messages and hides look-alikes", () => {
+    expect(describePackageWriteFailure({ code: "42501", message: "You cannot approve your own change." }).error).toBe("You cannot approve your own change.");
+    expect(
+      describePackageWriteFailure({ code: "42501", message: "Changes to payment or booking terms on a package that is on sale must go through the review." }).error,
+    ).toContain("must go through the review");
+    expect(describePackageWriteFailure({ code: "22023", message: "Another change is already waiting for approval for this package." }).error).toBe(
+      "Another change is already waiting for approval for this package.",
+    );
+    expect(describePackageWriteFailure({ code: "42501", message: "You cannot approve your own change. (internal detail)" }).error).toBe(
+      "You do not have permission to do that.",
+    );
+  });
+
+  it("explains the new guard on creating or changing a package's status directly", () => {
+    expect(
+      describePackageWriteFailure({
+        code: "42501",
+        message: "A package's status can only change through the publish, close sales, reopen, archive and restore actions.",
+      }).error,
+    ).toContain("status can only change");
+  });
+
   it("logs and hides an unexpected error", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const result = describePackageWriteFailure({ code: "XX000", message: 'relation "packages" is on fire' });

@@ -77,32 +77,6 @@ function mapLifecycleRpcError(error: { code?: string; message: string }): {
   return { error: describePackageWriteFailure(error).error };
 }
 
-/**
- * Records a publish as an immutable `package_versions` row, best-effort —
- * see `package_versions_create()` in
- * supabase/migrations/20261007090000_packages_versioning_and_snapshot.sql.
- * By the time this is called the actual publish (the status transition,
- * and for `publishPackageAction` the content write too) has already
- * succeeded, so a failure here is a lesser degradation — a missing history
- * entry, not a broken publish — and is logged rather than surfaced as a
- * publish failure to the caller.
- */
-async function createPackageVersionBestEffort(
-  supabase: ReturnType<typeof createClient>,
-  packageId: string,
-  snapshot: Record<string, unknown>,
-): Promise<void> {
-  const { error } = await supabase.rpc("package_versions_create", {
-    p_package_id: packageId,
-    p_snapshot: snapshot,
-  });
-  if (error) {
-    console.error(
-      `[packages] could not record a version for ${packageId} after publish: ${error.message}`,
-    );
-  }
-}
-
 const idSchema = z.uuid();
 
 const saveDraftInput = z.object({
@@ -423,117 +397,47 @@ export async function publishPackageAction(
   if (parsed.data.packageId) {
     const access = await requirePackageRow(parsed.data.packageId, gate, supabase);
     if (!access.ok) return { ok: false, error: access.error };
+  }
 
-    // The target status is always 'Open for Sale', and the transition is
-    // only legal from the row's REAL, database status — never from
-    // `form.status`, which is client-supplied and can be stale or simply
-    // wrong (the form only flips to "Open for Sale" locally *after* a
-    // publish already succeeded — see create-package-wizard.tsx). Trusting
-    // it here used to let this action "publish" an Archived or Sales
-    // Closed package by just keeping whatever `form.status` already said,
-    // which also kept re-stamping `published_at` on every such save. This
-    // is the same FROM-state rule `publish_package()` (the RPC used by
-    // `publishExistingPackageAction` below) enforces — see finding B2 in
-    // docs/modules/packages-production-readiness-plan.md.
-    if (access.row.status !== "Draft" && access.row.status !== "Sales Closed") {
-      return {
-        ok: false,
-        error: `This package is ${access.row.status} and cannot be published from here.`,
-      };
-    }
+  // The whole publish — role and agency check, row lock, stale-write compare,
+  // the content write, the Draft/Sales Closed -> Open for Sale transition, the
+  // activity-log entry and the version — happens in one database transaction
+  // (`publish_package_with_content`, TASK-043 PKG-01/PKG-05). The database,
+  // not this action, decides which transition is legal from the row's REAL
+  // status, so a stale or forged `form.status` cannot matter. Only the
+  // draft-safe columns are sent: `status`, `featured` and every lifecycle
+  // column are never part of the content, so a publish cannot set `featured`.
+  const { data, error } = await supabase.rpc("publish_package_with_content", {
+    p_package_id: parsed.data.packageId ?? null,
+    p_content: formDataToDraftRow(form),
+    p_expected_updated_at: parsed.data.expectedUpdatedAt ?? null,
+  });
 
-    // This action writes the wizard's full form body AND flips the
-    // lifecycle status in one statement — unlike `publishExistingPackageAction`
-    // (which has no in-flight form content, only a status change, so it
-    // goes through the `publish_package` RPC), so it cannot cleanly go
-    // through that RPC without splitting the write in two. It still gets
-    // the same compare-and-swap protection the RPC gives every other
-    // lifecycle write: refuse rather than silently clobber a row that
-    // changed since the browser last saw it (finding B7).
-    if (
-      parsed.data.expectedUpdatedAt &&
-      access.row.updated_at !== parsed.data.expectedUpdatedAt
-    ) {
-      return {
-        ok: false,
-        code: "STALE",
-        error: "This package changed elsewhere. Reload and try again.",
-      };
-    }
-
-    const row = {
-      ...formDataToRow(form),
-      status: "Open for Sale" as const,
-      previous_status: access.row.status,
-      published_at: new Date().toISOString(),
-    };
-
-    const { data, error } = await supabase
-      .from("packages")
-      .update(row)
-      .eq("id", parsed.data.packageId)
-      .eq("updated_at", access.row.updated_at)
-      .select("id")
-      .maybeSingle();
-
-    if (error) {
+  if (error) {
+    if (error.code === "23505") {
       return {
         ok: false,
         ...describePackageWriteFailure(error, { internalCode: form.internalCode }),
       };
     }
-    if (!data) {
-      return {
-        ok: false,
-        code: "STALE",
-        error: "This package changed elsewhere. Reload and try again.",
-      };
-    }
-
-    await createPackageVersionBestEffort(supabase, data.id, row);
-
-    revalidatePath("/packages");
-    revalidatePath(`/packages/${data.id}`);
-    // Both the Departure Groups create flow's template picker and the Leads
-    // module's quoting catalogue (`loadLeadPackages()`) only offer Open for
-    // Sale packages — without this, a package published here keeps showing
-    // as unavailable there until something else happens to revalidate those
-    // routes. See docs/modules/packages-production-readiness-plan.md, finding F3.
-    revalidatePath("/departure-groups");
-    revalidatePath("/leads");
-    return { ok: true, packageId: data.id };
+    return { ok: false, ...mapLifecycleRpcError(error) };
   }
 
-  // A brand-new package created straight through "Publish" (no draft row
-  // existed yet) has no earlier status worth preserving — it is always
-  // created directly as Open for Sale, regardless of whatever `form.status`
-  // says.
-  const row = {
-    ...formDataToRow(form),
-    status: "Open for Sale" as const,
-    previous_status: "Draft",
-    published_at: new Date().toISOString(),
-  };
-
-  const { data, error } = await supabase
-    .from("packages")
-    .insert({ ...row, owner_id: gate.user.id })
-    .select("id")
-    .single();
-
-  if (error) {
-    return {
-      ok: false,
-      ...describePackageWriteFailure(error, { internalCode: form.internalCode }),
-    };
+  const publishedId = (data as { id: string } | null)?.id;
+  if (!publishedId) {
+    return { ok: false, error: "This package could not be published. Please try again." };
   }
-
-  await createPackageVersionBestEffort(supabase, data.id, { ...row, owner_id: gate.user.id });
 
   revalidatePath("/packages");
+  revalidatePath(`/packages/${publishedId}`);
+  // Both the Departure Groups create flow's template picker and the Leads
+  // module's quoting catalogue (`loadLeadPackages()`) only offer Open for
+  // Sale packages — without this, a package published here keeps showing
+  // as unavailable there until something else happens to revalidate those
+  // routes. See docs/modules/packages-production-readiness-plan.md, finding F3.
   revalidatePath("/departure-groups");
   revalidatePath("/leads");
-  return { ok: true, packageId: data.id };
+  return { ok: true, packageId: publishedId };
 }
 
 /** Publish for an already-saved package straight from the list — used by the row menu. */
@@ -580,12 +484,7 @@ export async function publishExistingPackageAction(
   });
   if (error) return { ok: false, ...mapLifecycleRpcError(error) };
 
-  // `row` predates the transition, so its `status` is stamped over — this
-  // is what was actually published, not what the row said a moment ago.
-  await createPackageVersionBestEffort(supabase, parsedId.data, {
-    ...row,
-    status: "Open for Sale",
-  });
+  // The version is recorded inside publish_package, in the same transaction.
 
   revalidatePath("/packages");
   revalidatePath(`/packages/${parsedId.data}`);

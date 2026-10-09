@@ -159,12 +159,14 @@ export default function GroupsTab({
                   />
                 </div>
 
-                <div className="w-28 text-right">
-                  <p className="text-xs tabular-nums text-foreground">
-                    {formatCurrency(g.expectedRevenue)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">revenue</p>
-                </div>
+                {g.expectedRevenue !== null && (
+                  <div className="w-28 text-right">
+                    <p className="text-xs tabular-nums text-foreground">
+                      {formatCurrency(g.expectedRevenue)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">revenue</p>
+                  </div>
+                )}
 
                 <Button
                   variant="ghost"

@@ -48,7 +48,8 @@ export default async function PackageDetailPage({
 
   const [usage, groups, activity] = await Promise.all([
     getPackageUsage(packageId),
-    listDepartureGroupsForPackage(packageId),
+    // Revenue is fetched only for roles that may see finance figures (TASK-043 PKG-12).
+    listDepartureGroupsForPackage(packageId, can.viewInternalFinance),
     getPackageActivity(packageId),
   ]);
 
