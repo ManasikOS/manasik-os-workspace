@@ -49,7 +49,7 @@ set local "request.jwt.claims" = '{"sub":"81000000-0000-4000-8000-0000000000a1",
 
 select is(public.has_package_capability('deletePackage'), true, 'An ADMIN with no custom role holds deletePackage by default');
 select is(public.has_package_capability('madeUpCapability'), false, 'An unknown capability is never granted');
-select is(public.zz_pkgcap_rows_changed($$delete from public.packages where id = '8b000000-0000-4000-8000-0000000000b2'$$), 1, 'That ADMIN can delete a package');
+select is(public.zz_pkgcap_rows_changed($$delete from public.packages where id = '8b000000-0000-4000-8000-0000000000b2'$$), 0, 'Nobody deletes a package by writing to the table any more, not even an ADMIN: delete_package() is the only way (20270120090600)');
 
 -- b: custom ADMIN-tier role with delete and edit switched off, and a non-boolean publish value -------------------------------------------------------------
 set local "request.jwt.claims" = '{"sub":"82000000-0000-4000-8000-0000000000a1","role":"authenticated"}';

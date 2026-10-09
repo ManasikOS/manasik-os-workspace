@@ -105,6 +105,18 @@ describe("describePackageWriteFailure", () => {
     );
   });
 
+  it("shows the delete function's own messages", () => {
+    expect(describePackageWriteFailure({ code: "22023", message: "The confirmation text does not match the package code." }).error).toBe(
+      "The confirmation text does not match the package code.",
+    );
+    expect(
+      describePackageWriteFailure({ code: "22023", message: "This package is Open for Sale — a package must be archived before it can be deleted." }).error,
+    ).toContain("must be archived");
+    expect(
+      describePackageWriteFailure({ code: "22023", message: "This package cannot be deleted — departure groups use it. Archive it instead, or move those groups to another package first." }).error,
+    ).toContain("departure groups use it");
+  });
+
   it("explains the new guard on creating or changing a package's status directly", () => {
     expect(
       describePackageWriteFailure({

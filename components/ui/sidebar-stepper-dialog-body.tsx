@@ -313,14 +313,12 @@ export function SidebarStepperDialogBody({
 
             <div className="flex items-center gap-2 min-w-0">
               {footerHint}
-
-              {secondaryAction}
-
               {activeStep > 0 && (
                 <Button type="button" variant="ghost" onClick={onBack}>
                   Back
                 </Button>
               )}
+              {secondaryAction}
 
               {isLastStep ? (
                 lastStepAction

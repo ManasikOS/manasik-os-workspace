@@ -8,10 +8,14 @@ import type { PackageActivityLog } from "@/lib/types/packages";
 import { ArchiveRestore, Archive, Pencil, PauseCircle, PlayCircle, Send } from "lucide-react";
 import React from "react";
 
+import type { PackageChangeRequest } from "@/lib/data/packages-repository";
+
+import PackageChangeHistoryList from "../../../components/package-change-history-list";
 import { PackageStatusBadge } from "../../../components/package-status-badges";
 
 interface ActivityTabProps {
   activity: PackageActivityLog[];
+  changeHistory: PackageChangeRequest[];
 }
 
 const ACTION_ICON: Record<PackageActivityLog["actionType"], React.ReactNode> = {
@@ -44,7 +48,7 @@ function relativeTimestamp(iso: string): string {
  * (`20261006090000_packages_lifecycle_phase1.sql`) — this tab is the first
  * thing that actually reads it.
  */
-const ActivityTab = ({ activity }: ActivityTabProps) => {
+const ActivityTab = ({ activity, changeHistory }: ActivityTabProps) => {
   return (
     <Card className="gap-4">
       <SectionHeading title="Activity" />
@@ -90,6 +94,8 @@ const ActivityTab = ({ activity }: ActivityTabProps) => {
           ))}
         </div>
       )}
+
+      <PackageChangeHistoryList history={changeHistory} />
     </Card>
   );
 };

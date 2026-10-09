@@ -73,6 +73,11 @@ const SAFE_DATABASE_MESSAGES: RegExp[] = [
   /^The decision is missing.$/,
   /^The note is too long.$/,
   /^A note is required when a change is rejected.$/,
+  // TASK-043 controlled delete.
+  /^A reason is required to delete a package.$/,
+  /^The confirmation text does not match the package code.$/,
+  /^This package cannot be deleted — .+$/,
+  /^This package is .+ — a package must be archived before it can be deleted.$/,
 ];
 
 function isSafeDatabaseMessage(message: string): boolean {

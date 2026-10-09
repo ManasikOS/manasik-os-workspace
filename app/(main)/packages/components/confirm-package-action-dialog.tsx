@@ -14,7 +14,7 @@ import React from "react";
 import type { PackageLifecycleTarget } from "../use-package-lifecycle";
 import { Card } from "@/components/ui/card";
 
-export type PendingPackageActionType = "ARCHIVE" | "UNPUBLISH" | "DELETE";
+export type PendingPackageActionType = "ARCHIVE" | "UNPUBLISH";
 
 export interface PendingPackageAction {
   type: PendingPackageActionType;
@@ -48,17 +48,6 @@ const COPY: Record<PendingPackageActionType, Copy> = {
     confirmLabel: "Unpublish",
     destructive: false,
   },
-  DELETE: {
-    title: "Delete this package?",
-    description: (pkg) =>
-      pkg.groupCount > 0
-        ? `This package cannot be deleted — ${pkg.groupCount} departure group${
-            pkg.groupCount === 1 ? "" : "s"
-          } still reference it. Archive it instead.`
-        : "This permanently deletes the package template. This cannot be undone.",
-    confirmLabel: "Delete Package",
-    destructive: true,
-  },
 };
 
 interface ConfirmPackageActionDialogProps {
@@ -74,7 +63,6 @@ const ConfirmPackageActionDialog = ({
 }: ConfirmPackageActionDialogProps) => {
   if (!pending) return null;
   const copy = COPY[pending.type];
-  const blocked = pending.type === "DELETE" && pending.pkg.groupCount > 0;
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -97,7 +85,6 @@ const ConfirmPackageActionDialog = ({
           </Button>
           <Button
             variant={copy.destructive ? "destructive" : "default"}
-            disabled={blocked}
             onClick={() => {
               onConfirmed(pending);
               onClose();

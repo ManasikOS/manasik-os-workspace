@@ -41,6 +41,7 @@ import {
   VisibilityBadge,
 } from "../../components/package-status-badges";
 import ConfirmPackageActionDialog from "../../components/confirm-package-action-dialog";
+import DeletePackageDialog from "../../components/delete-package-dialog";
 import CreatePackageDialog from "../../components/create-package-dialog";
 import ForceArchivePackageDialog from "../../components/force-archive-package-dialog";
 import { usePackageLifecycle } from "../../use-package-lifecycle";
@@ -92,6 +93,8 @@ interface PackageDetailProps {
   activity: PackageActivityLog[];
   /** Changes to payment/contract/booking terms waiting for an administrator's approval. */
   pendingChanges: PackageChangeRequest[];
+  /** Past reviewed changes (decided, applied, withdrawn or expired), newest first, for the Activity tab. */
+  changeHistory: PackageChangeRequest[];
   currentUserId: string | null;
   /**
    * Resolved server-side (`[packageId]/page.tsx`) via
@@ -121,6 +124,7 @@ const PackageDetail = ({
   groups,
   activity,
   pendingChanges,
+  changeHistory,
   currentUserId,
   can,
   initialTab,
@@ -173,7 +177,7 @@ const PackageDetail = ({
       case "groups":
         return <GroupsTab groups={groups} />;
       case "activity":
-        return <ActivityTab activity={activity} />;
+        return <ActivityTab activity={activity} changeHistory={changeHistory} />;
       default:
         return null;
     }
@@ -185,6 +189,16 @@ const PackageDetail = ({
         pending={lifecycle.pending}
         onClose={lifecycle.closePending}
         onConfirmed={lifecycle.confirmPending}
+      />
+      <DeletePackageDialog
+        key={lifecycle.deleteTarget?.id ?? "none"}
+        pkg={lifecycle.deleteTarget}
+        onClose={lifecycle.closeDelete}
+        onDeleted={() => {
+          lifecycle.closeDelete();
+          router.push("/packages");
+          router.refresh();
+        }}
       />
       <ForceArchivePackageDialog
         pkg={lifecycle.forceArchiveTarget?.pkg ?? null}
@@ -328,13 +342,15 @@ const PackageDetail = ({
                 {can.deletePackage && (
                   <DropdownMenuItem
                     variant="destructive"
-                    disabled={usage.groupCount > 0}
+                    disabled={usage.groupCount > 0 || (pkg.status !== "Draft" && pkg.status !== "Archived")}
                     onClick={() => lifecycle.actions.onDelete(lifecycleTarget)}
                   >
                     <Trash2 />
                     {usage.groupCount > 0
                       ? `Delete (used by ${usage.groupCount})`
-                      : "Delete Package"}
+                      : pkg.status === "Draft" || pkg.status === "Archived"
+                        ? "Delete Package"
+                        : "Delete (archive it first)"}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>

@@ -460,7 +460,7 @@ export default function ConversationPanel({
 
   return (
     <div
-      className="flex h-full min-w-0 w-full bg-background flex-col"
+      className="flex h-full min-w-0 w-full  flex-col"
       data-inbox-conversation-open=""
     >
       <header className="flex flex-row items-center justify-between gap-x-3 gap-y-2 border-b border-muted px-5 py-3">

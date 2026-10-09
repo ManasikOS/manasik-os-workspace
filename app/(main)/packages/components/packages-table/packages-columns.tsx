@@ -251,13 +251,15 @@ export function buildPackageColumns(
               {can.deletePackage && (
                 <DropdownMenuItem
                   variant="destructive"
-                  disabled={p.groupCount > 0}
+                  disabled={p.groupCount > 0 || !(p.archived || p.status === "Draft")}
                   onClick={() => actions.onDelete(p)}
                 >
                   <Trash2 />
                   {p.groupCount > 0
                     ? `Delete (used by ${p.groupCount})`
-                    : "Delete Package"}
+                    : p.archived || p.status === "Draft"
+                      ? "Delete Package"
+                      : "Delete (archive it first)"}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>

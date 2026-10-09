@@ -13,6 +13,7 @@ import {
   getPackageDetail,
   getPackageUsage,
   listDepartureGroupsForPackage,
+  listPackageChangeHistory,
   listPendingPackageChanges,
 } from "@/lib/data/packages-repository";
 import { isUuid } from "@/lib/utils";
@@ -47,12 +48,13 @@ export default async function PackageDetailPage({
     notFound();
   }
 
-  const [usage, groups, activity, pendingChanges] = await Promise.all([
+  const [usage, groups, activity, pendingChanges, changeHistory] = await Promise.all([
     getPackageUsage(packageId),
     // Revenue is fetched only for roles that may see finance figures (TASK-043 PKG-12).
     listDepartureGroupsForPackage(packageId, can.viewInternalFinance),
     getPackageActivity(packageId),
     listPendingPackageChanges(packageId),
+    listPackageChangeHistory(packageId),
   ]);
 
   const validTabs: PackageDetailTabId[] = [
@@ -76,6 +78,7 @@ export default async function PackageDetailPage({
       groups={groups}
       activity={activity}
       pendingChanges={pendingChanges}
+      changeHistory={changeHistory}
       currentUserId={user?.id ?? null}
       can={can}
       initialTab={initialTab}

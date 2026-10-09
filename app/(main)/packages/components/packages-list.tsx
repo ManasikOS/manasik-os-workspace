@@ -12,7 +12,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/ui/toast";
+import { runWithLoadingToast, toast } from "@/components/ui/toast";
 import { ToneBadge } from "@/components/ui/tone-badge";
 import {
   DataTable,
@@ -48,9 +48,11 @@ import {
   sortPackages,
   type PackageSort,
 } from "../utils";
+import { authorisePackageExportAction } from "../actions";
 import { usePackageLifecycle } from "../use-package-lifecycle";
 import ArchivedPackagesSheet from "./archived-packages-sheet";
 import ConfirmPackageActionDialog from "./confirm-package-action-dialog";
+import DeletePackageDialog from "./delete-package-dialog";
 import PackageChangeQueueSheet from "./package-change-queue-sheet";
 import CreatePackageDialog from "./create-package-dialog";
 import ForceArchivePackageDialog from "./force-archive-package-dialog";
@@ -172,7 +174,7 @@ const PackagesList = ({
    * sort — built straight from the array already in the browser, so this is
    * instant and needs no server round trip.
    */
-  const exportPackages = (format: "csv" | "xlsx") => {
+  const exportPackages = async (format: "csv" | "xlsx") => {
     if (sorted.length === 0) {
       toast.add({
         title: "Nothing to export",
@@ -180,6 +182,23 @@ const PackagesList = ({
       });
       return;
     }
+
+    // One tiny server call checks permission, applies the hourly limit and records the export. The file is then built here from the list already
+    // loaded, so there is no second download. If this fails, nothing is exported.
+    const filtersUsed: Record<string, string> = { view: savedView };
+    if (search.trim()) filtersUsed.search = search.trim().slice(0, 80);
+    for (const [key, value] of Object.entries(filters)) if (value !== ALL) filtersUsed[key] = value.slice(0, 80);
+    const authorised = await runWithLoadingToast(
+      () => authorisePackageExportAction({ format, rowCount: sorted.length, filters: filtersUsed }),
+      {
+        loadingTitle: "Preparing export…",
+        successTitle: "Export ready",
+        errorTitle: "Could not export packages",
+        getFailureMessage: (response) => (response.ok ? undefined : response.error),
+        shouldDismissSilently: (response) => response.ok,
+      },
+    );
+    if (!authorised?.ok) return;
 
     if (format === "xlsx") {
       downloadBinaryFile(
@@ -232,11 +251,17 @@ const PackagesList = ({
         onConfirmed={lifecycle.confirmPending}
       />
       <ForceArchivePackageDialog
-        key={lifecycle.forceArchiveTarget?.pkg.id ?? "none"}
+        key={`force-archive-${lifecycle.forceArchiveTarget?.pkg.id ?? "none"}`}
         pkg={lifecycle.forceArchiveTarget?.pkg ?? null}
         liveGroupCount={lifecycle.forceArchiveTarget?.liveGroupCount ?? 0}
         onClose={lifecycle.closeForceArchive}
         onConfirm={lifecycle.forceArchive}
+      />
+      <DeletePackageDialog
+        key={`delete-${lifecycle.deleteTarget?.id ?? "none"}`}
+        pkg={lifecycle.deleteTarget}
+        onClose={lifecycle.closeDelete}
+        onDeleted={lifecycle.finishDelete}
       />
       <ArchivedPackagesSheet
         open={archivedOpen}
@@ -303,13 +328,13 @@ const PackagesList = ({
                         <Download /> Export Packages
                       </DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => exportPackages("csv")}>
+                          CSV (.csv) — smallest, opens anywhere
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => exportPackages("xlsx")}
                         >
                           Excel (.xlsx)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => exportPackages("csv")}>
-                          CSV (.csv)
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>

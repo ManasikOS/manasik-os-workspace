@@ -24,6 +24,8 @@ on:
       - "lib/csv.ts"
       - "lib/xlsx.ts"
       - "supabase/migrations/**"
+      - "supabase/config.toml"
+      - ".github/workflows/packages-ci.yml"
   workflow_dispatch:
 
 jobs:
@@ -63,6 +65,12 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      # Reports known advisories in production dependencies without failing the build: each one is triaged by whether the vulnerable code is reachable
+      # here, and a fix is a deliberate upgrade in its own change, not something a Packages PR should be blocked on. The report is in the job log.
+      - name: Dependency advisories (production, report only)
+        run: npm audit --omit=dev
+        continue-on-error: true
+
       # A deliberately narrow list: only column names dropped by
       # 20261008090000_packages_drop_deprecated_columns.sql that are
       # distinctive enough to grep safely (zero legitimate hits anywhere in
@@ -90,3 +98,20 @@ jobs:
             fi
           done
           exit $FOUND
+
+  # Builds an empty database from every migration (the Supabase CLI applies them on start; auth, storage and realtime stay on because migrations and tests refer to their schemas) and runs every pgTAP file in supabase/tests/database. This
+  # is the only place the SQL behind the Packages rules is actually executed: the Vitest tests read the migration text, these tests run it.
+  database-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start a local database from the migrations
+        run: supabase start -x studio,imgproxy,mailpit,logflare,vector,edge-runtime,supavisor
+
+      - name: Run the database tests
+        run: supabase test db

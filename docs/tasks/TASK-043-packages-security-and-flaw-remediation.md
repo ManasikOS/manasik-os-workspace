@@ -378,3 +378,51 @@ Step 2 remainder (change requests, change records, the submit/decide/withdraw fu
 - Approve and reject still go through `decide_package_change`, so the database refuses your own request, an expired or already-decided one, and a package that has changed since.
 
 **Step 9 — groups copy the approved terms.** `loadTemplateDefinition()` (used by departure-group creation) now overlays the package's **published version** on the live row for every payment, contract and booking column (Tier 1 and Tier 2) via the new `applyPublishedTerms()`. Display-only columns (name, wording, hotel display names, itinerary wording) still come from the live row. A draft, or a version the caller cannot read, falls back to the live row (a warning is logged and no version is claimed). `publishedVersionId` on the group's snapshot is now the version actually used. 7 tests in `lib/data/packages-template.test.ts`.
+
+## Phase 3, step 1 — controlled delete (built on `UI-update`; typecheck clean, unit tests passing; SQL not run, not exercised in a browser)
+
+- `20270120090600_packages_controlled_delete.sql`
+  - **No direct deletes:** the DELETE policy on `packages` is dropped. Only `delete_package()` can delete; existing pgTAP expectations (policies test, capability test) were changed from "ADMIN deletes 1 row" to 0.
+  - **`package_delete_impact(id)`** counts what a delete would touch: departure groups and group snapshots, lead quotes, agent booking submissions (these block), leads naming it, campaigns, agent allocations, website/SEO content, pending changes (disclosed).
+  - **`delete_package(id, expected_updated_at, confirm_code, reason)`**: ADMIN tier AND `deletePackage`; own agency; row lock and stale compare; only Draft or Archived; the package code typed (first 8 characters of the id when there is no code); a reason of 1 to 500 characters; refused while groups, snapshots, quotes or agent submissions refer to it; copies the package row, activity log, versions, change requests and impact into **`package_deletions`** before deleting.
+  - **`package_deletions`**: append-only, readable by the ADMIN tier of the same agency, no write policy or privilege.
+- App: `getPackageDeleteImpactAction`, `deletePackageAction({ packageId, expectedUpdatedAt, confirmCode, reason })`; `components/delete-package-dialog.tsx` (shows what blocks the delete or what will be cleared or removed, asks for the typed code and the reason, loading toast, kept record); `lib/packages/delete-impact.ts` (pure wording helpers); the generic confirm dialog no longer has a DELETE case; the menus (list, row, detail) enable Delete only for a Draft or an Archived package with no groups and say "archive it first" otherwise.
+- Tests: `lib/packages/delete-impact.test.ts` (6), `app/(main)/packages/actions.delete-package.test.ts` (7), `lib/security/packages-controlled-delete-migration.test.ts` (12), error-message allow-list additions, `supabase/tests/database/packages_controlled_delete.test.sql` (22 assertions: who can call it, the rules, the record, the activity-log copy, direct DELETE removes nothing, who can read the record; **not run**).
+- Fingerprint: 249 migrations present vs 240 recorded.
+- Not built: a screen for administrators to browse `package_deletions` (readable through the database today), and a "recently deleted" restore.
+
+## Phase 3, step 2 — audited export (built on `UI-update`; typecheck clean, unit tests passing; SQL not run, not exercised in a browser)
+
+- `20270120090700_packages_audited_export.sql`
+  - **`authorise_package_export(format, row_count, filters)`**: needs the `exportCatalogue` capability (the role's saved value, else its tier default), allows 10 exports an hour per person (counted from the log under a per-person advisory lock, so two at once cannot both slip through), validates format (`csv`/`xlsx`) and row count (1 to 100000), then writes one audit row.
+  - **`package_export_logs`**: append-only (no write privilege), readable by the ADMIN tier of the same agency; stores who, when, format, row count and the filters used.
+- App: `authorisePackageExportAction({ format, rowCount, filters })` (a few hundred bytes). `PackagesList.exportPackages` now calls it first behind a "Preparing export…" loading toast, builds the file in the browser only if it succeeds, and shows "Export ready". If the call fails (no permission, hourly limit, no connection) nothing is exported. CSV is listed first.
+- Left as is: the list payload has no finance columns (title, status, seats, completeness), so there was nothing to trim per role; spreadsheet formula injection is already neutralised by `lib/csv.ts`.
+- Tests: `lib/security/packages-audited-export-migration.test.ts` (6), `app/(main)/packages/actions.authorise-export.test.ts` (4), `supabase/tests/database/packages_audited_export.test.sql` (13 assertions; **not run**).
+- Fingerprint: 250 migrations present vs 240 recorded.
+- Not built: an admin screen to browse `package_export_logs` (readable through the database today).
+
+## Phase 3, step 3 — abuse limits (PKG-13) (built on `UI-update`; typecheck clean, unit tests passing; SQL not run)
+
+- `20270120090800_packages_abuse_limits.sql`
+  - **`consume_package_rate_limit(action)`**: counts the caller's uses in the last hour under a per-person-per-action lock and refuses at the limit. Per person per hour: `create_draft` 30, `duplicate` 20, `publish` 30, `code_lookup` 200. Backed by `package_rate_events` (no client access; pruned after 2 hours by the function).
+  - **`packages_cap_agency_drafts`**: before-insert trigger, refuses a new Draft when the agency already holds 500.
+- App: `packageRateLimitRefusal()` in `actions.ts`, called by `savePackageAction` (new package only), `duplicatePackageAction`, `publishPackageAction`, `publishExistingPackageAction`, `checkPackageCodeAction`, `getNextPackageCodeAction`. Publish counts only after the form checks pass, so an incomplete form does not use an attempt. If the limit check itself fails the action is refused.
+- Tests: `lib/security/packages-abuse-limits-migration.test.ts` (5), `actions.rate-limit.test.ts` (4), `supabase/tests/database/packages_abuse_limits.test.sql` (9 assertions; **not run**).
+- Fingerprint: 251 migrations present vs 240 recorded.
+- Not changed: the code check in step 1 still runs half a second after typing (it is mostly a generated read-only field); the 200 an hour limit covers it.
+
+## Phase 2 leftover — change history on the Activity tab (built on `UI-update`; typecheck clean; not exercised in a browser)
+
+- `[packageId]/page.tsx` loads `listPackageChangeHistory(packageId)` (last 50 decided, applied, withdrawn, expired or replaced requests; row security decides who sees them) and passes it through `PackageDetail` to `ActivityTab`.
+- New `components/package-change-history-list.tsx`, shown under the lifecycle timeline as "Changes to payment and booking terms": status badge, who asked and when, the reason, who decided and when, the decision note, and a "Show N changed fields" toggle that reuses `PackageChangeDiffView` for the before and after.
+- No new tests (presentational); the data reader and diff view already have coverage.
+
+## Phase 4 — CI and test gaps (PKG-18) (changed on `UI-update`; workflow not run; nothing executed locally because the Docker engine was not running)
+
+- `.github/workflows/packages-ci.yml`
+  - **New job `database-tests`:** `supabase start` builds an empty database from every migration (this also proves the migrations apply from nothing), then `supabase test db` runs every pgTAP file in `supabase/tests/database`, including the nine Packages files written for TASK-043 that have never been executed. Studio, imgproxy, mailpit, logflare, vector, edge-runtime and supavisor are excluded; auth, storage and realtime stay on because migrations and tests refer to their schemas. **First run may fail for reasons unrelated to this work** (a service excluded or needed, an older migration that only works on the hosted project, CLI version); the failure will name the migration or test.
+  - **New step `npm audit --omit=dev`:** report only (`continue-on-error`), so a Packages PR is not blocked by an upgrade decision.
+  - Path filters now include `supabase/config.toml` and the workflow file. (Node 22 and the other filters were done earlier.)
+- **`npm audit --omit=dev` today (2026-10-09):** 4 findings. `next` 16.3.6 (high; six advisories, all fixed in 16.4.0 which is not a major bump: cache poisoning of SSG/ISR pages in self-hosted setups, image-optimiser SSRF, metadata image route disclosure, `use cache` Draft Mode leak, dev-server MCP disclosure); `sharp` <0.35.5 (high, librsvg); `source-map-js` (high, DoS on crafted source maps); `ip-address` (moderate). None is in the Packages code; the Next.js upgrade is the one that matters and is a whole-app change, so it is left as its own decision.
+- Still to do by hand: apply the migrations to a local database (`bash scripts/local/rebuild-from-migrations.sh` with Docker running) and run the pgTAP files; regenerate `supabase/schema-fingerprint.json` with `scripts/local/write-schema-fingerprint.sh` (251 migrations present vs 240 recorded, so `lib/ops/gate/schema-baseline.test.ts` fails until then); click through the screens in a browser.

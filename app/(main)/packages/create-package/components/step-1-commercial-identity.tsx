@@ -66,26 +66,37 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
 
   // A new package starts with no code: fetch the next unused one for the read-only field.
   const needsGeneratedPackageCode = !typedPackageCode;
+  const [packageCodeError, setPackageCodeError] = useState<string | null>(null);
+  const [packageCodeRetry, setPackageCodeRetry] = useState(0);
   useEffect(() => {
     if (!needsGeneratedPackageCode) return;
     let cancelled = false;
     (async () => {
       try {
         const result = await getNextPackageCodeAction();
-        if (cancelled || !result.ok) return;
+        if (cancelled) return;
+        if (!result.ok) {
+          setPackageCodeError(result.error);
+          return;
+        }
+        setPackageCodeError(null);
         setFormData((prev) =>
           prev.internalCode.trim()
             ? prev
             : { ...prev, internalCode: result.code },
         );
-      } catch {
-        // Offline or a rotated action id: the save itself still reports a clash.
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Could not generate a package code", error);
+        setPackageCodeError(
+          "Could not generate a package code. Check your connection and try again.",
+        );
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [needsGeneratedPackageCode, setFormData]);
+  }, [needsGeneratedPackageCode, packageCodeRetry, setFormData]);
 
   // Asks the server whether the code is still free, half a second after it changes.
   useEffect(() => {
@@ -188,7 +199,21 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
                   aria-invalid={packageCodeSuggestion ? true : undefined}
                 />
               </InputGroup>
-              {packageCodeSuggestion ? (
+              {packageCodeError && !typedPackageCode ? (
+            <p className="text-xs text-destructive">
+              {packageCodeError}{" "}
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto cursor-pointer p-0 text-xs"
+                onClick={() => setPackageCodeRetry((count) => count + 1)}
+              >
+                Try again
+              </Button>
+            </p>
+          ) : null}
+          {packageCodeSuggestion ? (
                 <p className="text-xs text-destructive">
                   Another package already uses this code. Each package needs its
                   own code.{" "}

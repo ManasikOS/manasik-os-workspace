@@ -7,7 +7,6 @@ import { runWithLoadingToast } from "@/components/ui/toast";
 
 import {
   archivePackageAction,
-  deletePackageAction,
   duplicatePackageAction,
   publishExistingPackageAction,
   reopenPackageAction,
@@ -58,6 +57,8 @@ export function usePackageLifecycle() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [pending, setPending] = useState<PendingPackageAction | null>(null);
+  // Deleting is its own dialog (type the code, say why, see what it touches): delete-package-dialog.tsx.
+  const [deleteTarget, setDeleteTarget] = useState<PackageLifecycleTarget | null>(null);
   const [forceArchiveTarget, setForceArchiveTarget] = useState<{
     pkg: PackageLifecycleTarget;
     liveGroupCount: number;
@@ -113,20 +114,6 @@ export function usePackageLifecycle() {
         loading: "Unpublishing package…",
         success: "Package unpublished",
       });
-    } else if (action.type === "DELETE") {
-      startTransition(async () => {
-        const res = await runWithLoadingToast(
-          () => deletePackageAction(action.pkg.id),
-          {
-            loadingTitle: "Deleting package…",
-            successTitle: "Package deleted",
-            successDescription: `${action.pkg.title} was deleted.`,
-            errorTitle: "Could not delete package",
-            getFailureMessage: (result) => (result.ok ? undefined : result.error),
-          },
-        );
-        if (res?.ok) router.refresh();
-      });
     }
   };
 
@@ -179,7 +166,7 @@ export function usePackageLifecycle() {
         loading: "Restoring package…",
         success: "Package restored",
       }),
-    onDelete: (pkg: PackageLifecycleTarget) => setPending({ type: "DELETE", pkg }),
+    onDelete: (pkg: PackageLifecycleTarget) => setDeleteTarget(pkg),
   };
 
   return {
@@ -187,6 +174,12 @@ export function usePackageLifecycle() {
     actions,
     pending,
     closePending: () => setPending(null),
+    deleteTarget,
+    closeDelete: () => setDeleteTarget(null),
+    finishDelete: () => {
+      setDeleteTarget(null);
+      router.refresh();
+    },
     confirmPending,
     forceArchiveTarget,
     closeForceArchive: () => setForceArchiveTarget(null),

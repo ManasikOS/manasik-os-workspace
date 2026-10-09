@@ -416,8 +416,8 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
                     </div>
 
                     {/* Exact hotel guarantee toggle */}
-                    <Card variant="md-shadow" className="gap-1 px-4 py-4">
-                      <div className="flex items-center justify-between">
+                    <Card variant="md-shadow" className="gap-0! px-4 py-4">
+                      <div className="flex items-center gap-0 justify-between">
                         <div>
                           <p className="text-sm font-medium text-foreground">
                             Exact Hotel Guarantee

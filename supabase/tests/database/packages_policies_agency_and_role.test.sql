@@ -84,7 +84,7 @@ select throws_ok($$insert into public.packages (id, agency_id, owner_id, title, 
 
 -- ADMIN of agency A deletes (the only role that can) -----------------------------------------------------------------------------------------------------
 set local "request.jwt.claims" = '{"sub":"e1000000-0000-4000-8000-0000000000a1","role":"authenticated"}';
-select is(public.zz_rows_changed($$delete from public.packages where id = 'e9000000-0000-4000-8000-0000000000a2'$$), 1, 'ADMIN can delete a package in their own agency');
+select is(public.zz_rows_changed($$delete from public.packages where id = 'e9000000-0000-4000-8000-0000000000a2'$$), 0, 'ADMIN cannot delete a package by writing to the table: delete_package() is the only way (20270120090600)');
 
 -- The policies themselves: each of the four names an agency check and a role check ---------------------------------------------------------------------
 reset role;

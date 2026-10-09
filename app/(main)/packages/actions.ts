@@ -12,6 +12,7 @@ import { listPendingPackageChanges } from "@/lib/data/packages-repository";
 import { createClient } from "@/utils/supabase/server";
 
 import { changesToContent, computePackageChanges } from "@/lib/packages/change-diff";
+import type { PackageDeleteImpact } from "@/lib/packages/delete-impact";
 
 import { formDataToDraftRow, rowToFormData } from "./create-package/mappers";
 import { describePackageWriteFailure } from "./package-write-errors";
@@ -82,6 +83,24 @@ function mapLifecycleRpcError(error: { code?: string; message: string }): {
 }
 
 const idSchema = z.uuid();
+
+type PackageRateLimitedAction = "create_draft" | "duplicate" | "publish" | "code_lookup";
+
+/**
+ * Counts one use of a busy action against the caller's hour (consume_package_rate_limit, supabase/migrations/20270120090800_packages_abuse_limits.sql).
+ * Returns the message to show when the limit is reached, or null to carry on. If the check itself cannot run the action is refused: a limit that
+ * silently switches off when the database is slow is not a limit.
+ */
+async function packageRateLimitRefusal(
+  supabase: ReturnType<typeof createClient>,
+  action: PackageRateLimitedAction,
+): Promise<string | null> {
+  const { error } = await supabase.rpc("consume_package_rate_limit", { p_action: action });
+  if (!error) return null;
+  if (error.code === "P0001" && error.message) return describePackageWriteFailure(error).error;
+  console.error(`[packages] rate limit check failed (${action}): ${error.message}`);
+  return "Could not check how often this was used. Please try again.";
+}
 
 const savePackageInput = z.object({
   packageId: idSchema.nullable().optional(),
@@ -217,6 +236,8 @@ export async function savePackageAction(input: unknown): Promise<SavePackageResu
 
   if (!parsed.data.packageId) {
     if (!gate.can.createPackage) return { ok: false, error: "You do not have permission to do that." };
+    const createRefusal = await packageRateLimitRefusal(supabase, "create_draft");
+    if (createRefusal) return { ok: false, error: createRefusal };
 
     const { data, error } = await supabase
       .from("packages")
@@ -369,6 +390,10 @@ export async function publishPackageAction(
     if (!access.ok) return { ok: false, error: access.error };
   }
 
+  // After the form checks above, so a form that is refused for being incomplete does not use up an attempt.
+  const publishRefusal = await packageRateLimitRefusal(supabase, "publish");
+  if (publishRefusal) return { ok: false, error: publishRefusal };
+
   // The whole publish — role and agency check, row lock, stale-write compare,
   // the content write, the Draft/Sales Closed -> Open for Sale transition, the
   // activity-log entry and the version — happens in one database transaction
@@ -444,6 +469,8 @@ export async function publishExistingPackageAction(
   if (crossIssues.length > 0) {
     return { ok: false, error: `Cannot publish — ${crossIssues[0]}` };
   }
+  const publishExistingRefusal = await packageRateLimitRefusal(supabase, "publish");
+  if (publishExistingRefusal) return { ok: false, error: publishExistingRefusal };
 
   // The freshly-read `row.updated_at` above doubles as the optimistic-
   // concurrency guard — this read and this write are the same request, so
@@ -556,6 +583,8 @@ export async function checkPackageCodeAction(input: unknown): Promise<PackageCod
 
   // Row-level security already scopes this to the caller's agency.
   const supabase = createClient(await cookies());
+  const lookupRefusal = await packageRateLimitRefusal(supabase, "code_lookup");
+  if (lookupRefusal) return { ok: false, error: lookupRefusal };
   const { data, error } = await supabase
     .from("packages")
     .select("id, internal_code")
@@ -597,6 +626,8 @@ export async function getNextPackageCodeAction(): Promise<NextPackageCodeResult>
 
   const prefix = `PKG-${new Date().getFullYear()}-`;
   const supabase = createClient(await cookies());
+  const nextCodeRefusal = await packageRateLimitRefusal(supabase, "code_lookup");
+  if (nextCodeRefusal) return { ok: false, error: nextCodeRefusal };
   const { data, error } = await supabase
     .from("packages")
     .select("internal_code")
@@ -874,6 +905,8 @@ export async function duplicatePackageAction(
   if (!canRoleViewPackage(source.status, gate.role, source.owner_id, gate.user.id)) {
     return { ok: false, error: "You do not have permission to do that." };
   }
+  const duplicateRefusal = await packageRateLimitRefusal(supabase, "duplicate");
+  if (duplicateRefusal) return { ok: false, error: duplicateRefusal };
 
   const {
     id,
@@ -955,65 +988,101 @@ export async function duplicatePackageAction(
   };
 }
 
-export async function deletePackageAction(
-  packageId: string,
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const gate = await requirePackageCapability("deletePackage", (can) => can.deletePackage);
-  if (!gate.ok) return gate;
+export type PackageDeleteImpactResult =
+  | { ok: true; impact: PackageDeleteImpact; code: string; updatedAt: string }
+  | { ok: false; error: string };
 
-  const parsed = idSchema.safeParse(packageId);
+/** What deleting a package would touch, for the confirmation dialog: what blocks it, and what would lose its link or be removed. ADMIN with deletePackage only. */
+export async function getPackageDeleteImpactAction(packageId: string): Promise<PackageDeleteImpactResult> {
+  const gate = await requirePackageCapability("deletePackage", (can) => can.deletePackage);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsedId = idSchema.safeParse(packageId);
+  if (!parsedId.success) return { ok: false, error: "Invalid package reference." };
+
+  const supabase = createClient(await cookies());
+  const access = await requirePackageRow(parsedId.data, gate, supabase);
+  if (!access.ok) return { ok: false, error: access.error };
+
+  const { data, error } = await supabase.rpc("package_delete_impact", { p_package_id: parsedId.data });
+  if (error) return { ok: false, ...mapLifecycleRpcError(error) };
+
+  const { data: row } = await supabase.from("packages").select("internal_code").eq("id", parsedId.data).maybeSingle();
+  const code = (row?.internal_code ?? "").trim() || parsedId.data.slice(0, 8);
+
+  return { ok: true, impact: data as PackageDeleteImpact, code, updatedAt: access.row.updated_at };
+}
+
+const deletePackageInput = z.object({
+  packageId: idSchema,
+  /** The `updated_at` the person saw when they opened the dialog. */
+  expectedUpdatedAt: z.string().max(64).optional(),
+  /** The package code, typed by the person. */
+  confirmCode: z.string().trim().min(1).max(64),
+  reason: z.string().trim().min(1).max(500),
+});
+
+/**
+ * Deletes a package: Draft or Archived only, the code typed to confirm, a reason, refused while groups, quotes or agent submissions refer to it. The
+ * database function does the work, copies the package and its history into `package_deletions` first, and enforces every rule again
+ * (supabase/migrations/20270120090600_packages_controlled_delete.sql).
+ */
+export async function deletePackageAction(input: unknown): Promise<{ ok: true } | { ok: false; error: string; code?: "STALE" }> {
+  const gate = await requirePackageCapability("deletePackage", (can) => can.deletePackage);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsed = deletePackageInput.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Invalid package reference." };
+    return { ok: false, error: "Type the package code and say why you are deleting it." };
   }
 
   const supabase = createClient(await cookies());
-  const access = await requirePackageRow(parsed.data, gate, supabase);
+  const access = await requirePackageRow(parsed.data.packageId, gate, supabase);
   if (!access.ok) return { ok: false, error: access.error };
 
-  // A package with any departure group built from it cannot be deleted —
-  // the foreign key would refuse it anyway, but this returns a message that
-  // names the actual blocker instead of a raw Postgres constraint error.
-  const { data: usage } = await supabase
-    .from("package_usage")
-    .select("group_count")
-    .eq("package_id", parsed.data)
-    .maybeSingle();
-
-  if (usage && usage.group_count > 0) {
-    return {
-      ok: false,
-      error: `This package cannot be deleted — ${usage.group_count} departure group${
-        usage.group_count === 1 ? " uses" : "s use"
-      } it. Archive it instead, or move those groups off this template first.`,
-    };
-  }
-
-  const { data, error } = await supabase
-    .from("packages")
-    .delete()
-    .eq("id", parsed.data)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    if (error.code === "23503") {
-      return {
-        ok: false,
-        error: "This package cannot be deleted — one or more departure groups still reference it.",
-      };
-    }
-    return { ok: false, error: describePackageWriteFailure(error).error };
-  }
-
-  if (!data) {
-    return {
-      ok: false,
-      error: "That package no longer exists, or you cannot delete it.",
-    };
-  }
+  const { error } = await supabase.rpc("delete_package", {
+    p_package_id: parsed.data.packageId,
+    p_expected_updated_at: parsed.data.expectedUpdatedAt ?? null,
+    p_confirm_code: parsed.data.confirmCode,
+    p_reason: parsed.data.reason,
+  });
+  if (error) return { ok: false, ...mapLifecycleRpcError(error) };
 
   revalidatePath("/packages");
+  revalidatePath("/departure-groups");
+  revalidatePath("/leads");
   return { ok: true };
+}
+
+const authorisePackageExportInput = z.object({
+  format: z.enum(["csv", "xlsx"]),
+  rowCount: z.number().int().min(1).max(100000),
+  /** What was filtered on screen, kept in the audit row. Short text values only. */
+  filters: z.record(z.string().max(40), z.string().max(80)).refine((value) => Object.keys(value).length <= 12),
+});
+
+/**
+ * Permission and audit for a catalogue export. The file itself is built in the browser from the list already loaded, so this is the only server round
+ * trip: a few hundred bytes, which keeps the export quick on a slow connection. It checks the capability, applies the hourly limit and records who
+ * exported what; if it fails, no file is built (supabase/migrations/20270120090700_packages_audited_export.sql).
+ */
+export async function authorisePackageExportAction(input: unknown): Promise<{ ok: true; remaining: number } | { ok: false; error: string }> {
+  const gate = await requirePackageCapability("exportCatalogue", (can) => can.exportCatalogue);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsed = authorisePackageExportInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "There is nothing to export." };
+
+  const supabase = createClient(await cookies());
+  const { data, error } = await supabase.rpc("authorise_package_export", {
+    p_format: parsed.data.format,
+    p_row_count: parsed.data.rowCount,
+    p_filters: parsed.data.filters,
+  });
+  if (error) return { ok: false, error: describePackageWriteFailure(error).error };
+
+  const remaining = (data as { remaining?: unknown } | null)?.remaining;
+  return { ok: true, remaining: typeof remaining === "number" ? remaining : 0 };
 }
 
 /* ── Reviewed changes to a live package (TASK-043) ───────────────────────── */
