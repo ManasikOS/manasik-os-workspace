@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
+import { ToneBadge } from "@/components/ui/tone-badge";
 import {
   DataTable,
   type DataTableSort,
@@ -25,7 +26,8 @@ import {
   type PackageListItem,
   type PackageSavedView,
 } from "@/lib/types/packages";
-import { Archive, Download, MoreVertical, Plus } from "lucide-react";
+import { Archive, Download, MoreVertical, Plus, ShieldAlert } from "lucide-react";
+import type { PackageChangeRequest } from "@/lib/data/packages-repository";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import React, { useMemo, useState } from "react";
 
@@ -49,6 +51,7 @@ import {
 import { usePackageLifecycle } from "../use-package-lifecycle";
 import ArchivedPackagesSheet from "./archived-packages-sheet";
 import ConfirmPackageActionDialog from "./confirm-package-action-dialog";
+import PackageChangeQueueSheet from "./package-change-queue-sheet";
 import CreatePackageDialog from "./create-package-dialog";
 import ForceArchivePackageDialog from "./force-archive-package-dialog";
 import {
@@ -88,6 +91,8 @@ interface PackagesListProps {
    */
   can: PackageCapabilities;
   currentUserId: string | null;
+  /** Changes to packages on sale that are waiting for approval (TASK-043). */
+  pendingChanges: PackageChangeRequest[];
   /** From `?create=1` — opens the create dialog on mount (e.g. the redirect from `/packages/new`, or a deep link from another module). */
   autoOpenCreate?: boolean;
 }
@@ -109,6 +114,7 @@ const PackagesList = ({
   archivedPackages,
   can,
   currentUserId,
+  pendingChanges,
   autoOpenCreate = false,
 }: PackagesListProps) => {
   const router = useRouter();
@@ -119,6 +125,9 @@ const PackagesList = ({
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<PackageSort>(DEFAULT_PACKAGE_SORT);
   const [archivedOpen, setArchivedOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
+  // Which packages have a change waiting, so the table can mark them.
+  const pendingPackageIds = useMemo(() => new Set(pendingChanges.map((request) => request.packageId)), [pendingChanges]);
   // `?create=1` opens the dialog from its very first render via lazy
   // initial state, not a mount effect — see the identical pattern (and its
   // own reasoning) in `DepartureGroupsList`'s `createOpen`.
@@ -209,9 +218,10 @@ const PackagesList = ({
             field: next.field as PackageSort["field"],
             direction: next.direction,
           }),
+        pendingPackageIds,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [can, router, sort.field, sort.direction, lifecycle.actions],
+    [can, router, sort.field, sort.direction, lifecycle.actions, pendingPackageIds],
   );
 
   return (
@@ -233,6 +243,13 @@ const PackagesList = ({
         onOpenChange={setArchivedOpen}
         packages={archivedPackages}
         canRestore={can.archiveOrRestorePackage}
+      />
+      <PackageChangeQueueSheet
+        open={queueOpen}
+        onOpenChange={setQueueOpen}
+        requests={pendingChanges}
+        can={can}
+        currentUserId={currentUserId}
       />
       <CreatePackageDialog open={createOpen} setOpen={setCreateOpen} />
       {editingPackageId && (
@@ -257,6 +274,12 @@ const PackagesList = ({
           ]}
           action={
             <div className="flex items-center gap-4">
+              {pendingChanges.length > 0 && (
+                <Button variant="outline_without_border" onClick={() => setQueueOpen(true)}>
+                  <ShieldAlert /> Awaiting approval
+                  <ToneBadge tone="warning" label={String(pendingChanges.length)} className="ml-1 px-1.5 py-0.5 text-[10px] tabular-nums" />
+                </Button>
+              )}
               {can.createPackage && (
                 <Button onClick={() => setCreateOpen(true)}>
                   <Plus /> Create Package

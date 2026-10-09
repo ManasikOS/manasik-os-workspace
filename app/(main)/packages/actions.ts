@@ -8,16 +8,15 @@ import { requireUser } from "@/lib/dal";
 import { canRoleViewPackage, capabilitiesForPackages } from "@/lib/access/packages-access";
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { listPendingPackageChanges } from "@/lib/data/packages-repository";
 import { createClient } from "@/utils/supabase/server";
 
-import { formDataToDraftRow, formDataToRow, rowToFormData } from "./create-package/mappers";
+import { changesToContent, computePackageChanges } from "@/lib/packages/change-diff";
+
+import { formDataToDraftRow, rowToFormData } from "./create-package/mappers";
 import { describePackageWriteFailure } from "./package-write-errors";
 import { crossFieldIssues, isStepValid } from "./create-package/schemas";
-import {
-  packageFormPatchSchema,
-  packageFormSchema,
-  toPackageFormData,
-} from "./create-package/server-schema";
+import { packageFormSchema, toPackageFormData } from "./create-package/server-schema";
 
 /**
  * Mutations for package templates.
@@ -28,9 +27,14 @@ import {
  * trusting that the UI gated the call.
  */
 
-export type SaveDraftResult =
-  | { ok: true; packageId: string; savedAt: string }
-  | { ok: false; error: string; step?: number; code?: "STALE" };
+export type SavePackageResult =
+  /** Saved: a draft, or a live package whose changes were display-only or nothing. */
+  | { ok: true; kind: "SAVED"; packageId: string; savedAt: string }
+  /** A live package's payment/contract/booking changes were applied at once (approval is switched off for them) and recorded. */
+  | { ok: true; kind: "APPLIED"; packageId: string; savedAt: string; appliedColumns: string[] }
+  /** Display-only changes were saved; the rest waits for an administrator's approval. */
+  | { ok: true; kind: "PENDING"; packageId: string; savedAt: string; requestId: string; appliedColumns: string[]; pendingColumns: string[] }
+  | { ok: false; error: string; step?: number; code?: "STALE" | "PENDING_EXISTS" };
 
 export type PublishResult =
   | { ok: true; packageId: string }
@@ -79,16 +83,20 @@ function mapLifecycleRpcError(error: { code?: string; message: string }): {
 
 const idSchema = z.uuid();
 
-const saveDraftInput = z.object({
+const savePackageInput = z.object({
   packageId: idSchema.nullable().optional(),
   form: packageFormSchema,
+  /** The `updated_at` the client last saw. Required for an existing package: a stale write is refused rather than silently clobbered. */
+  expectedUpdatedAt: z.string().max(64).optional(),
+  /** Why a payment/contract/booking change is being made. Required by the database when the change touches them. */
+  reason: z.string().trim().max(500).optional(),
+  /** Replace the change already waiting for approval for this package. */
+  supersedePending: z.boolean().optional(),
 });
 
-const savePatchInput = z.object({
-  packageId: idSchema,
-  patch: packageFormPatchSchema,
-  /** The `updated_at` the client last saw — a stale write is refused rather than silently clobbered. */
-  expectedUpdatedAt: z.string().optional(),
+const archiveOptionsSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+  force: z.boolean().optional(),
 });
 
 const publishInput = z.object({
@@ -184,174 +192,136 @@ async function requirePackageRow(
 }
 
 /**
- * Creates or updates a draft. Called by autosave, so it is deliberately
- * tolerant: an incomplete package is a legitimate draft. It never publishes —
- * `status` is forced to a non-published value when creating.
+ * Saves a package. Nothing in the wizard saves on its own: this runs only when the person presses Save draft or Save changes (TASK-043).
+ *
+ * - No `packageId`: creates a Draft owned by the caller.
+ * - A Draft: writes only the columns that changed, refusing a stale write.
+ * - Open for Sale / Sales Closed: display-only changes save at once; payment, contract and booking changes go through `submit_package_change`
+ *   (reason required, then approval or immediate recorded application, depending on the agency's switches). The database recomputes the difference and
+ *   enforces all of it; this action only decides what to send.
+ * - Archived: refused.
+ *
+ * Tolerant on purpose for drafts: an incomplete package is a legitimate draft. It never changes `status` or `featured`.
  */
-export async function saveDraftAction(input: unknown): Promise<SaveDraftResult> {
-  const parsed = saveDraftInput.safeParse(input);
+export async function savePackageAction(input: unknown): Promise<SavePackageResult> {
+  const gate = await requirePackageCapability("savePackage", (can) => can.createPackage || can.editPackage);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsed = savePackageInput.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: "That package data could not be read." };
   }
 
   const form = toPackageFormData(parsed.data.form);
-  // Draft autosave never writes `status`/`featured` — see
-  // `formDataToDraftRow()` and finding A1 in
-  // docs/modules/packages-production-readiness-plan.md.
-  const row = formDataToDraftRow(form);
   const supabase = createClient(await cookies());
 
-  if (parsed.data.packageId) {
-    const gate = await requirePackageCapability("editPackage", (can) => can.editPackage);
-    if (!gate.ok) return { ok: false, error: gate.error };
-
-    const { data: current, error: currentError } = await supabase
-      .from("packages")
-      .select("status, owner_id")
-      .eq("id", parsed.data.packageId)
-      .maybeSingle();
-    if (currentError) return { ok: false, error: describePackageWriteFailure(currentError).error };
-    if (!current) return { ok: false, error: "That package no longer exists." };
-    if (!canRoleViewPackage(current.status, gate.role, current.owner_id, gate.user.id)) {
-      return { ok: false, error: "You do not have permission to do that." };
-    }
+  if (!parsed.data.packageId) {
+    if (!gate.can.createPackage) return { ok: false, error: "You do not have permission to do that." };
 
     const { data, error } = await supabase
       .from("packages")
-      .update(row)
-      .eq("id", parsed.data.packageId)
+      .insert({ ...formDataToDraftRow(form), status: "Draft", featured: false, owner_id: gate.user.id })
       .select("id, updated_at")
-      .maybeSingle();
+      .single();
 
     if (error) {
-      return {
-        ok: false,
-        ...describePackageWriteFailure(error, { internalCode: form.internalCode }),
-      };
+      return { ok: false, ...describePackageWriteFailure(error, { internalCode: form.internalCode }) };
     }
-    if (!data) {
-      return { ok: false, error: "That package no longer exists." };
-    }
-
-    return { ok: true, packageId: data.id, savedAt: data.updated_at };
+    revalidatePath("/packages");
+    return { ok: true, kind: "SAVED", packageId: data.id, savedAt: data.updated_at };
   }
 
-  const gate = await requirePackageCapability("createPackage", (can) => can.createPackage);
-  if (!gate.ok) return { ok: false, error: gate.error };
-
-  // `status`/`featured` are forced here, not read off the client's form —
-  // see finding A1.
-  const { data, error } = await supabase
-    .from("packages")
-    .insert({ ...row, status: "Draft", featured: false, owner_id: gate.user.id })
-    .select("id, updated_at")
-    .single();
-
-  if (error) {
-    return {
-      ok: false,
-      ...describePackageWriteFailure(error, { internalCode: form.internalCode }),
-    };
+  if (!gate.can.editPackage) return { ok: false, error: "You do not have permission to do that." };
+  if (!parsed.data.expectedUpdatedAt) {
+    return { ok: false, code: "STALE", error: "This package changed elsewhere. Reload and try again." };
   }
 
-  return { ok: true, packageId: data.id, savedAt: data.updated_at };
-}
-
-/**
- * Patch autosave: the client sends only the form keys it changed; this loads
- * the current row, merges the patch onto it, and writes only the columns
- * whose *value* actually changed — not merely the columns that happen to
- * share a name with a changed form field, which would be one typo away from
- * silently writing the wrong column. The extra read this costs is far
- * cheaper than the ~120-column full-row write autosave used to do on every
- * flush.
- *
- * Refuses the write (`code: "STALE"`) if another tab has written to the row
- * since the client's `expectedUpdatedAt`, instead of silently clobbering it.
- */
-export async function savePackagePatchAction(
-  input: unknown,
-): Promise<SaveDraftResult> {
-  const gate = await requirePackageCapability("editPackage", (can) => can.editPackage);
-  if (!gate.ok) return { ok: false, error: gate.error };
-
-  const parsed = savePatchInput.safeParse(input);
-  if (!parsed.success) {
-    return { ok: false, error: "That package data could not be read." };
-  }
-
-  const supabase = createClient(await cookies());
-  const { data: currentRow, error: readError } = await supabase
+  const { data: current, error: readError } = await supabase
     .from("packages")
     .select("*")
     .eq("id", parsed.data.packageId)
     .maybeSingle();
-
   if (readError) return { ok: false, error: describePackageWriteFailure(readError).error };
-  if (!currentRow) return { ok: false, error: "That package no longer exists." };
-  if (!canRoleViewPackage(currentRow.status, gate.role, currentRow.owner_id, gate.user.id)) {
+  if (!current) return { ok: false, error: "That package no longer exists." };
+  if (!canRoleViewPackage(current.status, gate.role, current.owner_id, gate.user.id)) {
     return { ok: false, error: "You do not have permission to do that." };
   }
-
-  if (
-    parsed.data.expectedUpdatedAt &&
-    currentRow.updated_at !== parsed.data.expectedUpdatedAt
-  ) {
-    return {
-      ok: false,
-      code: "STALE",
-      error: "This draft changed in another tab. Reload to continue.",
-    };
+  if (current.status === "Archived") {
+    return { ok: false, error: "An archived package cannot be edited. Restore it first." };
+  }
+  if (current.updated_at !== parsed.data.expectedUpdatedAt) {
+    return { ok: false, code: "STALE", error: "This package changed elsewhere. Reload and try again." };
   }
 
-  if (Object.keys(parsed.data.patch).length === 0) {
-    return { ok: true, packageId: currentRow.id, savedAt: currentRow.updated_at };
+  const changes = computePackageChanges(rowToFormData(current), form);
+  if (changes.length === 0) {
+    return { ok: true, kind: "SAVED", packageId: current.id, savedAt: current.updated_at };
+  }
+  const content = changesToContent(changes);
+
+  if (current.status === "Draft") {
+    const { data, error } = await supabase
+      .from("packages")
+      .update(content)
+      .eq("id", current.id)
+      .eq("updated_at", current.updated_at)
+      .select("id, updated_at")
+      .maybeSingle();
+
+    if (error) {
+      return { ok: false, ...describePackageWriteFailure(error, { internalCode: form.internalCode }) };
+    }
+    if (!data) {
+      return { ok: false, code: "STALE", error: "This package changed elsewhere. Reload and try again." };
+    }
+    revalidatePath("/packages");
+    revalidatePath(`/packages/${data.id}`);
+    return { ok: true, kind: "SAVED", packageId: data.id, savedAt: data.updated_at };
   }
 
-  const currentForm = rowToFormData(currentRow);
-  const mergedForm = { ...currentForm, ...parsed.data.patch } as typeof currentForm;
-  const newRow = formDataToRow(mergedForm);
+  // On sale: the database function sorts the changes into tiers, enforces the capability, the reason and the approval switches.
+  const { data: result, error: rpcError } = await supabase.rpc("submit_package_change", {
+    p_package_id: current.id,
+    p_content: content,
+    p_expected_updated_at: current.updated_at,
+    p_reason: parsed.data.reason ?? null,
+    p_supersede: parsed.data.supersedePending === true,
+  });
 
-  const rowPatch: Record<string, unknown> = {};
-  for (const [column, value] of Object.entries(newRow)) {
-    // Lifecycle columns are never writable through patch autosave — the
-    // patch schema already strips them (`packageFormPatchSchema`), but this
-    // loop iterates every column `formDataToRow()` produces regardless of
-    // what the patch contained, so it is guarded again here as a second,
-    // independent line of defence. See finding A1.
-    if (column === "status" || column === "featured") continue;
-    const before = JSON.stringify((currentRow as Record<string, unknown>)[column]);
-    const after = JSON.stringify(value);
-    if (before !== after) rowPatch[column] = value;
+  if (rpcError) {
+    if (rpcError.code === "23505") {
+      return { ok: false, ...describePackageWriteFailure(rpcError, { internalCode: form.internalCode }) };
+    }
+    if (/already waiting for approval/i.test(rpcError.message)) {
+      return { ok: false, code: "PENDING_EXISTS", error: "Another change is already waiting for approval for this package." };
+    }
+    return { ok: false, ...mapLifecycleRpcError(rpcError) };
   }
 
-  if (Object.keys(rowPatch).length === 0) {
-    return { ok: true, packageId: currentRow.id, savedAt: currentRow.updated_at };
-  }
+  const outcome = result as {
+    status?: string;
+    request_id?: string | null;
+    applied_columns?: string[];
+    pending_columns?: string[];
+  } | null;
 
-  const { data, error } = await supabase
-    .from("packages")
-    .update(rowPatch)
-    .eq("id", parsed.data.packageId)
-    .eq("updated_at", currentRow.updated_at)
-    .select("id, updated_at")
-    .maybeSingle();
+  const { data: fresh } = await supabase.from("packages").select("updated_at").eq("id", current.id).maybeSingle();
+  const savedAt = fresh?.updated_at ?? current.updated_at;
 
-  if (error) {
-    return {
-      ok: false,
-      ...describePackageWriteFailure(error, { internalCode: mergedForm.internalCode }),
-    };
-  }
-  if (!data) {
-    return {
-      ok: false,
-      code: "STALE",
-      error: "This draft changed in another tab. Reload to continue.",
-    };
-  }
+  revalidatePath("/packages");
+  revalidatePath(`/packages/${current.id}`);
+  revalidatePath("/departure-groups");
+  revalidatePath("/leads");
 
-  return { ok: true, packageId: data.id, savedAt: data.updated_at };
+  const appliedColumns = outcome?.applied_columns ?? [];
+  const pendingColumns = outcome?.pending_columns ?? [];
+  if (outcome?.status === "PENDING" && outcome.request_id) {
+    return { ok: true, kind: "PENDING", packageId: current.id, savedAt, requestId: outcome.request_id, appliedColumns, pendingColumns };
+  }
+  if (outcome?.status === "APPLIED") {
+    return { ok: true, kind: "APPLIED", packageId: current.id, savedAt, appliedColumns };
+  }
+  return { ok: true, kind: "SAVED", packageId: current.id, savedAt };
 }
 
 /**
@@ -499,6 +469,12 @@ export type GetPackageForEditResult =
       formData: ReturnType<typeof rowToFormData>;
       updatedAt: string | null;
       liveGroupCount: number;
+      /** The package's real status, so the wizard knows whether a save is a draft save or a reviewed change. */
+      status: string;
+      /** Whether this person may change payment and booking terms of a package that is on sale. */
+      canEditSensitiveTerms: boolean;
+      /** A change already waiting for approval, if any. */
+      pendingChange: { id: string; requestedByName: string; createdAt: string; columns: string[] } | null;
     }
   | { ok: false; error: string };
 
@@ -532,11 +508,18 @@ export async function getPackageForEditAction(
     return { ok: false, error: "You do not have permission to do that." };
   }
 
+  const pending = (await listPendingPackageChanges(row.id))[0] ?? null;
+
   return {
     ok: true,
     formData: rowToFormData(row),
     updatedAt: row.updated_at ?? null,
     liveGroupCount: usage?.live_group_count ?? 0,
+    status: row.status,
+    canEditSensitiveTerms: gate.can.editSensitiveTerms,
+    pendingChange: pending
+      ? { id: pending.id, requestedByName: pending.requestedByName, createdAt: pending.createdAt, columns: Object.keys(pending.changes) }
+      : null,
   };
 }
 
@@ -729,6 +712,7 @@ export async function setPackageFeaturedAction(
 
   const parsedId = idSchema.safeParse(packageId);
   if (!parsedId.success) return { ok: false, error: "Invalid package reference." };
+  if (typeof featured !== "boolean") return { ok: false, error: "Choose featured or not featured." };
 
   const supabase = createClient(await cookies());
   const access = await requirePackageRow(parsedId.data, gate, supabase);
@@ -776,6 +760,9 @@ export async function archivePackageAction(
 
   const parsedId = idSchema.safeParse(packageId);
   if (!parsedId.success) return { ok: false, error: "Invalid package reference." };
+  const parsedOptions = archiveOptionsSchema.safeParse(options ?? {});
+  if (!parsedOptions.success) return { ok: false, error: "The archive reason could not be read." };
+  options = parsedOptions.data;
 
   const supabase = createClient(await cookies());
   const access = await requirePackageRow(parsedId.data, gate, supabase);
@@ -1027,4 +1014,91 @@ export async function deletePackageAction(
 
   revalidatePath("/packages");
   return { ok: true };
+}
+
+/* ── Reviewed changes to a live package (TASK-043) ───────────────────────── */
+
+export type PackageChangeDecisionResult =
+  | { ok: true; status: "APPROVED" | "REJECTED" | "WITHDRAWN" | "EXPIRED" }
+  | { ok: false; error: string; code?: "STALE" };
+
+const decideChangeInput = z.object({
+  requestId: idSchema,
+  approve: z.boolean(),
+  note: z.string().trim().max(500).optional(),
+});
+
+/** Approve or reject another person's pending change. The database refuses your own request, an expired or already-decided one, and a package that has changed since. */
+export async function decidePackageChangeAction(input: unknown): Promise<PackageChangeDecisionResult> {
+  const gate = await requirePackageCapability("approvePackageChanges", (can) => can.approvePackageChanges);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsed = decideChangeInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That decision could not be read." };
+
+  const supabase = createClient(await cookies());
+  const { data, error } = await supabase.rpc("decide_package_change", {
+    p_request_id: parsed.data.requestId,
+    p_approve: parsed.data.approve,
+    p_note: parsed.data.note ?? null,
+  });
+  if (error) return { ok: false, ...mapLifecycleRpcError(error) };
+
+  revalidatePath("/packages");
+  revalidatePath("/departure-groups");
+  revalidatePath("/leads");
+  const status = (data as { status?: string } | null)?.status;
+  if (status === "APPROVED" || status === "REJECTED" || status === "EXPIRED") return { ok: true, status };
+  return { ok: false, error: "The decision could not be recorded. Please try again." };
+}
+
+const withdrawChangeInput = z.object({
+  requestId: idSchema,
+  note: z.string().trim().max(500).optional(),
+});
+
+/** Cancel a pending change: the requester, or an approver. */
+export async function withdrawPackageChangeAction(input: unknown): Promise<PackageChangeDecisionResult> {
+  const gate = await requirePackageCapability("withdrawPackageChange", (can) => can.editPackage || can.approvePackageChanges);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const parsed = withdrawChangeInput.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That request could not be read." };
+
+  const supabase = createClient(await cookies());
+  const { error } = await supabase.rpc("withdraw_package_change", {
+    p_request_id: parsed.data.requestId,
+    p_note: parsed.data.note ?? null,
+  });
+  if (error) return { ok: false, ...mapLifecycleRpcError(error) };
+
+  revalidatePath("/packages");
+  return { ok: true, status: "WITHDRAWN" };
+}
+
+export type PackageApprovalPolicyResult =
+  | { ok: true; moneyAndContract: boolean; bookingsAndOperations: boolean }
+  | { ok: false; error: string };
+
+/** Whether each tier of change currently needs a second person's approval, so the comparison dialog can say what will happen. Defaults to "needs approval". */
+export async function getPackageApprovalPolicyAction(): Promise<PackageApprovalPolicyResult> {
+  const gate = await requirePackageCapability("viewPackageApprovalPolicy", (can) => can.viewModule);
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  const { agencyId } = await getCurrentStaffRole();
+  if (!agencyId) return { ok: true, moneyAndContract: true, bookingsAndOperations: true };
+
+  const supabase = createClient(await cookies());
+  const { data, error } = await supabase
+    .from("agency_settings")
+    .select("package_approval_money_contract, package_approval_bookings_ops")
+    .eq("agency_id", agencyId)
+    .maybeSingle();
+  if (error) return { ok: true, moneyAndContract: true, bookingsAndOperations: true };
+
+  return {
+    ok: true,
+    moneyAndContract: data?.package_approval_money_contract ?? true,
+    bookingsAndOperations: data?.package_approval_bookings_ops ?? true,
+  };
 }

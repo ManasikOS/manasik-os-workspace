@@ -335,3 +335,46 @@ Step 2 remainder (change requests, change records, the submit/decide/withdraw fu
 - Fingerprint: 248 migrations present vs 240 recorded.
 
 **Phase 1 is complete in source** (8 migrations: `…090000`, `…090050`, `…090060`, `…090100`, `…090200`, `…090300`, `…090400`, `…090500`). Nothing has been applied or executed against a database; pgTAP files (about 130 assertions across 7 files) are unrun.
+
+## Phase 2 progress (built on `UI-update`; typecheck clean, unit tests passing; not exercised in a browser, SQL not run)
+
+**Step 0 — automatic draft saving removed.**
+- Deleted `create-package/use-draft-autosave.ts`, `publish-guard.ts` and its test. `saveDraftAction` and `savePackagePatchAction` are gone.
+- The wizard (`components/create-package-dialog.tsx`) keeps everything in the browser until the person presses **Save draft** (create / Draft), **Save changes** (a package on sale) or **Publish package** (last step, Draft or new). A footer button on every step (new optional `secondaryAction` prop on `SidebarStepperDialogBody`) does the save.
+- One new action, `savePackageAction`: authenticates first; creates a Draft; for an existing package requires `expectedUpdatedAt` and refuses a stale write; refuses Archived; for a Draft writes only the changed columns; for a package on sale sends only the changed columns to `submit_package_change` with the reason and the "replace the waiting change" choice. Result kinds: SAVED, APPLIED, PENDING.
+- Lost-work protection: "Unsaved changes" / "Not saved yet" label in the sidebar, a leave dialog (Keep editing / Discard / Save), and a `beforeunload` warning. No form content is stored in the browser. Escape and clicking outside no longer close the dialog silently (use Cancel).
+- `publishPackageAction` and the database publish function now handle a Draft only; a Sales Closed package is reopened with Reopen for Sale and its content changes go through the review (migration `…090100` edited in place; its Vitest and pgTAP updated).
+
+**Step 1 — comparison and approval UI.**
+- `lib/packages/change-diff.ts` (+ 14 tests): computes the changed columns with their tier, key-order-safe equality, word-level text diff, row diff by id, string-list diff.
+- `components/package-change-diff-view.tsx` (removed text red and struck through, added text green, list rows marked Added / Removed / Changed) and `components/package-change-review-dialog.tsx` (groups by tier, says what will happen per the agency's switches, required reason, "replace the waiting change" tickbox, Send for approval / Confirm and apply).
+- `components/package-change-requests-panel.tsx` on the package page: shows each waiting change with its reason, expiry and diffs; Approve / Reject (note required) for someone with `approvePackageChanges` who is not the requester; Withdraw for the requester or an approver. Actions: `decidePackageChangeAction`, `withdrawPackageChangeAction`, `getPackageApprovalPolicyAction`; repository `listPendingPackageChanges`, `listPackageChangeHistory`.
+
+**Step 1b — Settings card.** *Settings → Operations → Package change approval* (`operations/package-approval-policy-card.tsx`): two switches, warnings when approval is turned off and when fewer than two administrators exist, `updatePackageApprovalPolicyAction`. New settings capability `managePackageApprovalPolicy` (ADMIN) added to `SettingsCapabilities` and the role sheet's key list.
+
+**Step 2 — validation limits.** `PACKAGE_LIMITS` in `lib/validations/packages.ts`: bounded text, lists and numbers (counts are whole numbers, amounts 0 to 1,000,000,000, real `yyyy-mm-dd` dates, ids 1 to 64 characters), the wire schema is `.strict()`. Sub-object schemas keep stripping unknown keys so existing stored data still validates. 8 new tests.
+
+**Steps 3, 4, 5, 6** were delivered with Phase 1 and the actions above (publish no longer writes `featured`; edit and create capability checks; required `expectedUpdatedAt`; specific safe error messages; group revenue only for finance roles).
+
+**Step 7 — capabilities fail closed.** `loadDynamicCapabilities`: a read error now denies every boolean capability for that request (and logs); only a saved boolean `true` grants; unknown keys and non-object JSON are ignored. 6 tests.
+
+**Step 8 — hygiene.** `requireUser()` in `getPackageUsage`, `listDepartureGroupsForPackage`, `getPackageActivity`; `archivePackageAction` options parsed with Zod (reason 500 characters); `setPackageFeaturedAction` checks a boolean; `/packages/create-package?id=` must be a real id.
+
+**CI:** Packages workflow now on Node 22 and watches the new files (`lib/packages`, `lib/security`, `supabase/tests`, tiers, dynamic capabilities, settings).
+
+**Not done yet in Phase 2**
+- Step 9: departure-group creation still reads the live package row (`loadTemplateDefinition`), not the published version.
+- A cross-package "Changes awaiting approval" queue / badge on the Packages list (the panel on each package page works; approvers currently find requests by opening the package).
+- The Activity tab does not yet render the request history with diffs (`listPackageChangeHistory` exists; `CHANGE_APPLIED` entries show in the activity log).
+- Nothing was exercised in a browser (no login available here): the wizard buttons, the comparison dialog, the panel and the Settings card are compiled and linted, not clicked through.
+- Phase 3 (typed-confirmation delete with record, audited export, rate limits) and the remaining Phase 4 CI items (running pgTAP, `npm audit`).
+
+## Phase 2 follow-up: approvals queue and step 9 (built on `UI-update`; typecheck clean, tests passing, not exercised in a browser)
+
+**Approvals queue.**
+- `packages/page.tsx` loads `listPendingPackageChanges()` for every package the caller can read (row security decides who sees what; a requester always sees their own).
+- `PackagesList` shows an **Awaiting approval** button with a count in the page header whenever something is waiting, which opens `components/package-change-queue-sheet.tsx`: the same panel as on the package page (diffs, reason, days left, Approve / Reject with note / Withdraw) with each request's package name linking to the package.
+- Each affected row in the table carries a **Change awaiting approval** marker.
+- Approve and reject still go through `decide_package_change`, so the database refuses your own request, an expired or already-decided one, and a package that has changed since.
+
+**Step 9 — groups copy the approved terms.** `loadTemplateDefinition()` (used by departure-group creation) now overlays the package's **published version** on the live row for every payment, contract and booking column (Tier 1 and Tier 2) via the new `applyPublishedTerms()`. Display-only columns (name, wording, hotel display names, itinerary wording) still come from the live row. A draft, or a version the caller cannot read, falls back to the live row (a warning is logged and no version is claimed). `publishedVersionId` on the group's snapshot is now the version actually used. 7 tests in `lib/data/packages-template.test.ts`.

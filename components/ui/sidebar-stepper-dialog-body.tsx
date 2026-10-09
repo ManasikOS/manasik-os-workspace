@@ -56,6 +56,8 @@ export interface SidebarStepperDialogBodyProps {
   lastStepAction: ReactNode;
   /** Optional hint shown next to the buttons, such as a validation message. */
   footerHint?: ReactNode;
+  /** An extra action shown on every step, before Back (for example "Save draft"). */
+  secondaryAction?: ReactNode;
 }
 
 const stepPanelSlideVariants = {
@@ -203,6 +205,7 @@ export function SidebarStepperDialogBody({
   canContinue,
   lastStepAction,
   footerHint,
+  secondaryAction,
 }: SidebarStepperDialogBodyProps) {
   const currentStep = steps[activeStep];
   const isLastStep = activeStep === steps.length - 1;
@@ -310,6 +313,8 @@ export function SidebarStepperDialogBody({
 
             <div className="flex items-center gap-2 min-w-0">
               {footerHint}
+
+              {secondaryAction}
 
               {activeStep > 0 && (
                 <Button type="button" variant="ghost" onClick={onBack}>

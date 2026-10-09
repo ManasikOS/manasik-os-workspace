@@ -288,7 +288,9 @@ begin
     if p_expected_updated_at is not null and v_updated is distinct from p_expected_updated_at then
       raise exception 'This package changed elsewhere. Reload and try again.' using errcode = '40001';
     end if;
-    if v_status not in ('Draft', 'Sales Closed') then
+    -- Draft only: a Sales Closed package is reopened with reopen_package, and its content changes go through submit_package_change (the review),
+    -- so this function cannot be used to rewrite a live package's terms.
+    if v_status <> 'Draft' then
       raise exception 'This package is % and cannot be published from here.', v_status using errcode = '22023';
     end if;
   end if;
@@ -297,15 +299,14 @@ begin
   perform public.packages_apply_content(v_id, p_content);
 
   v_result := public.packages_apply_status_transition(
-    v_id, null, array['Draft', 'Sales Closed'], 'Open for Sale',
-    case when v_status = 'Sales Closed' then 'REOPENED' else 'PUBLISHED' end, null
+    v_id, null, array['Draft'], 'Open for Sale', 'PUBLISHED', null
   );
   return v_result;
 end;
 $$;
 
 comment on function public.publish_package_with_content(uuid, jsonb, timestamptz) is
-  'Publishes a package in one transaction: ADMIN/OPERATIONS only, own agency only, optimistic-concurrency compare, writes only the allow-listed content columns (never status/featured/lifecycle columns), moves Draft or Sales Closed to Open for Sale, logs it and records the version. p_package_id null creates the package. The application validates completeness; this function enforces who, which columns and which transition.';
+  'Publishes a package in one transaction: ADMIN/OPERATIONS only, own agency only, optimistic-concurrency compare, writes only the allow-listed content columns (never status/featured/lifecycle columns), moves a Draft to Open for Sale, logs it and records the version. p_package_id null creates the package. The application validates completeness; this function enforces who, which columns and which transition.';
 
 revoke all on function public.publish_package_with_content(uuid, jsonb, timestamptz) from public, anon;
 grant execute on function public.publish_package_with_content(uuid, jsonb, timestamptz) to authenticated, service_role;

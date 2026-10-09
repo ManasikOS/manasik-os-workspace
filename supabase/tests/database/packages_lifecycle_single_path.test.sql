@@ -5,7 +5,7 @@ begin;
 -- One transaction, rolled back. Expect zero rows from finish() when every assertion passes.
 
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(28);
 
 insert into public.agencies (id, name, slug, status) values
   ('50000000-0000-4000-8000-0000000000a1', 'Pkg Single Path A', 'pkg-single-path-a', 'ACTIVE'),
@@ -91,12 +91,14 @@ select throws_ok(
   $$select public.publish_package_with_content(current_setting('test.pub_id')::uuid, '{"title":"Again"}'::jsonb)$$,
   '22023', null, 'An Open for Sale package cannot be published again from here');
 
--- Close sales then publish with content: a reopen, with a second version ---------------------------------------------------------------------
+-- A Sales Closed package cannot be rewritten through publish: it is reopened with reopen_package, and content changes go through the review ------------
 select lives_ok($$select public.close_package_sales(current_setting('test.pub_id')::uuid)$$, 'An ADMIN can close sales');
-select lives_ok(
+select throws_ok(
   $$select public.publish_package_with_content(current_setting('test.pub_id')::uuid, '{"title":"Brand new, edited"}'::jsonb)$$,
-  'A Sales Closed package can be published again with new content');
-select is((select count(*)::int from public.package_versions where package_id = current_setting('test.pub_id')::uuid), 2, 'The second publish recorded a second version');
+  '22023', 'This package is Sales Closed and cannot be published from here.',
+  'A Sales Closed package cannot be published with new content');
+select lives_ok($$select public.reopen_package(current_setting('test.pub_id')::uuid)$$, 'It is reopened with reopen_package instead');
+select is((select count(*)::int from public.package_versions where package_id = current_setting('test.pub_id')::uuid), 2, 'Reopening recorded a second version');
 
 -- Other callers ------------------------------------------------------------------------------------------------------------------------------
 set local "request.jwt.claims" = '{"sub":"52000000-0000-4000-8000-0000000000a1","role":"authenticated"}';

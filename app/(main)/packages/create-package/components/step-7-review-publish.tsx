@@ -47,16 +47,11 @@ const WARNING_TONE: Record<"warning" | "check", Tone> = {
 interface StepReviewPublishProps {
   formData: PackageFormData;
   onGoToStep: (stepIndex: number) => void;
-  onSaveDraft: () => void | Promise<void>;
-  /** Resolves true once the package is persisted as published. */
-  onPublish: () => Promise<boolean>;
 }
 
 export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
   formData,
   onGoToStep,
-  onSaveDraft,
-  onPublish,
 }) => {
   const router = useRouter();
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);

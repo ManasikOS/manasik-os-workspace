@@ -13,6 +13,7 @@ import {
   getPackageDetail,
   getPackageUsage,
   listDepartureGroupsForPackage,
+  listPendingPackageChanges,
 } from "@/lib/data/packages-repository";
 import { isUuid } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/server";
@@ -46,11 +47,12 @@ export default async function PackageDetailPage({
     notFound();
   }
 
-  const [usage, groups, activity] = await Promise.all([
+  const [usage, groups, activity, pendingChanges] = await Promise.all([
     getPackageUsage(packageId),
     // Revenue is fetched only for roles that may see finance figures (TASK-043 PKG-12).
     listDepartureGroupsForPackage(packageId, can.viewInternalFinance),
     getPackageActivity(packageId),
+    listPendingPackageChanges(packageId),
   ]);
 
   const validTabs: PackageDetailTabId[] = [
@@ -73,6 +75,8 @@ export default async function PackageDetailPage({
       usage={usage}
       groups={groups}
       activity={activity}
+      pendingChanges={pendingChanges}
+      currentUserId={user?.id ?? null}
       can={can}
       initialTab={initialTab}
       autoOpenEdit={edit === "1"}

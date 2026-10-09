@@ -226,6 +226,11 @@ export type UpdateIntegrationNotesInput = z.infer<typeof updateIntegrationNotesS
 
 /* ── §5.8 Security & Access ───────────────────────────────────────────────── */
 
+export const packageApprovalPolicySchema = z.object({
+  moneyAndContract: z.boolean(),
+  bookingsAndOperations: z.boolean(),
+});
+
 export const securityDefaultsSchema = z.object({
   defaultStaffRole: z.enum(ROLES),
   requireAccountApproval: z.boolean(),

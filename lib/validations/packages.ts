@@ -20,166 +20,194 @@ import type { PackageFormData } from "@/app/(main)/packages/create-package/types
  */
 
 /**
+ * Limits (TASK-043 PKG-07). Every text, list and number is bounded so one request cannot write a multi-megabyte row that the list screen, the
+ * departure-group snapshot and every detail tab then read, and so a bad number is refused here with a clear reason instead of failing in Postgres with
+ * an overflow. The limits are generous for real packages; a form that hits one is almost certainly a mistake or an attack.
+ */
+export const PACKAGE_LIMITS = {
+  title: 200,
+  code: 64,
+  shortText: 200,
+  mediumText: 1000,
+  longText: 5000,
+  listItemText: 300,
+  itineraryDays: 60,
+  paymentMilestones: 20,
+  transportRequirements: 30,
+  documentRequirements: 40,
+  readinessItems: 40,
+  textListItems: 100,
+  roomTypes: 12,
+  communicationTemplates: 50,
+  idLength: 64,
+  maxCount: 100_000,
+  maxAmount: 1_000_000_000,
+  maxDays: 365,
+} as const;
+
+/**
  * Numeric inputs are `""` while empty in the UI. A stray `NaN` from a bad
  * `parseInt` is normalised to `""` rather than rejected — one malformed field
- * should not fail validation for the entire payload and stall autosave.
+ * should not fail validation for the entire payload.
  */
-const numberOrEmpty = z.preprocess(
-  (value) => (typeof value === "number" && !Number.isFinite(value) ? "" : value),
-  z.union([z.number().finite(), z.literal("")]),
-);
-const text = z.string().default("");
+const emptyForNaN = (value: unknown) => (typeof value === "number" && !Number.isFinite(value) ? "" : value);
+/** A whole number of people, seats or nights — the database columns are integers. */
+const countOrEmpty = z.preprocess(emptyForNaN, z.union([z.number().int().min(0).max(PACKAGE_LIMITS.maxCount), z.literal("")]));
+/** An amount of money or a percentage. */
+const amountOrEmpty = z.preprocess(emptyForNaN, z.union([z.number().min(0).max(PACKAGE_LIMITS.maxAmount), z.literal("")]));
+
+const textOf = (max: number) => z.string().max(max).default("");
+const text = textOf(PACKAGE_LIMITS.longText);
+const shortText = textOf(PACKAGE_LIMITS.shortText);
+const mediumText = textOf(PACKAGE_LIMITS.mediumText);
+const idText = z.string().min(1).max(PACKAGE_LIMITS.idLength);
+const listItem = z.string().max(PACKAGE_LIMITS.listItemText);
 
 /* ── Shared sub-object shapes ─────────────────────────────────────────────── */
 
 export const itineraryItemSchema = z.object({
-  id: z.string(),
-  dayNumber: z.number(),
-  title: text,
-  location: text.optional(),
-  description: text,
-  category: z.string().optional(),
-  internalNotes: z.string().optional(),
-});
+    id: idText,
+    dayNumber: z.number().int().min(0).max(PACKAGE_LIMITS.maxDays),
+    title: textOf(PACKAGE_LIMITS.title),
+    location: shortText.optional(),
+    description: text,
+    category: shortText.optional(),
+    internalNotes: textOf(PACKAGE_LIMITS.longText).optional(),
+  });
 
-export const paymentMilestoneSchema = z.object({
-  id: z.string(),
-  label: text,
-  amountType: z.enum(["Fixed Amount", "Percentage", "Remaining Balance"]),
-  amount: numberOrEmpty,
-  dueRule: z.enum(["On Booking", "Fixed Date", "Days Before Departure"]),
-  dueDate: z.string().optional(),
-  daysBeforeDeparture: numberOrEmpty.optional(),
-  refundable: z.boolean(),
-  notes: z.string().optional(),
-});
+export const paymentMilestoneSchema = z
+  .object({
+    id: idText,
+    label: textOf(PACKAGE_LIMITS.title),
+    amountType: z.enum(["Fixed Amount", "Percentage", "Remaining Balance"]),
+    amount: amountOrEmpty,
+    dueRule: z.enum(["On Booking", "Fixed Date", "Days Before Departure"]),
+    dueDate: z.string().max(10).regex(/^(\d{4}-\d{2}-\d{2})?$/, "Use a real date.").optional(),
+    daysBeforeDeparture: countOrEmpty.optional(),
+    refundable: z.boolean(),
+    notes: textOf(PACKAGE_LIMITS.longText).optional(),
+  });
 
-export const transportRequirementSchema = z.object({
-  id: z.string(),
-  routeLabel: text,
-  startLocation: text,
-  destination: text,
-  required: z.boolean(),
-  vehicleStandard: z.enum(["Bus", "Private Car", "Train", "Other"]),
-  vehicleNotes: text,
-  state: z.enum(["Included", "Optional"]),
-  internalNotes: z.string().optional(),
-});
+export const transportRequirementSchema = z
+  .object({
+    id: idText,
+    routeLabel: textOf(PACKAGE_LIMITS.title),
+    startLocation: shortText,
+    destination: shortText,
+    required: z.boolean(),
+    vehicleStandard: z.enum(["Bus", "Private Car", "Train", "Other"]),
+    vehicleNotes: mediumText,
+    state: z.enum(["Included", "Optional"]),
+    internalNotes: textOf(PACKAGE_LIMITS.longText).optional(),
+  });
 
-export const documentRequirementSchema = z.object({
-  id: z.string(),
-  name: text,
-  category: z.enum([
-    "Passport",
-    "Identity",
-    "Visa",
-    "Medical",
-    "Finance",
-    "Travel",
-    "Other",
-  ]),
-  required: z.boolean(),
-  requiredByStage: z.enum([
-    "On Booking",
-    "Before Visa Submission",
-    "Before Final Payment",
-    "Before Departure",
-  ]),
-  verifiedByRole: z.enum(["Admin", "Operations", "Visa", "Finance"]),
-  visibleInPortal: z.boolean(),
-});
+export const documentRequirementSchema = z
+  .object({
+    id: idText,
+    name: textOf(PACKAGE_LIMITS.title),
+    category: z.enum(["Passport", "Identity", "Visa", "Medical", "Finance", "Travel", "Other"]),
+    required: z.boolean(),
+    requiredByStage: z.enum(["On Booking", "Before Visa Submission", "Before Final Payment", "Before Departure"]),
+    verifiedByRole: z.enum(["Admin", "Operations", "Visa", "Finance"]),
+    visibleInPortal: z.boolean(),
+  });
 
-export const readinessRequirementSchema = z.object({
-  id: z.string(),
-  label: text,
-  required: z.boolean(),
-  responsibleRole: z.enum(["Operations", "Visa", "Finance", "Guide", "Admin"]),
-  dueTiming: text,
-});
+export const readinessRequirementSchema = z
+  .object({
+    id: idText,
+    label: textOf(PACKAGE_LIMITS.title),
+    required: z.boolean(),
+    responsibleRole: z.enum(["Operations", "Visa", "Finance", "Guide", "Admin"]),
+    dueTiming: shortText,
+  });
 
 /* ── Wire-shape schema — the Server Action's real gate ───────────────────── */
 
-export const packageFormSchema = z.object({
-  // Step 1
-  title: text,
-  // Trimmed on every write: the unique index compares `lower(internal_code)`
-  // without trimming, so "UM01" and "UM01 " would otherwise both be accepted.
-  internalCode: z.string().trim().default(""),
-  description: text,
-  journeyType: z.enum(["Umrah", "Hajj", "Early Registration"]),
-  category: z.enum(["Hajj", "Umrah"]),
-  year: z.union([z.number(), z.string()]),
-  package_category: z.enum(["Economy", "Standard", "Premium", "VIP", "Custom"]),
-  branch: text,
-  visibility: z.enum(["Internal Only", "Pilgrim Portal", "Website & Portal"]),
-  status: z.enum(["Draft", "Open for Sale", "Sales Closed", "Archived"]),
-  featured: z.boolean(),
-  defaultCapacity: numberOrEmpty,
-  minGroupSize: numberOrEmpty,
-  waitlistEnabled: z.boolean(),
-  seatHoldExpiry: z.enum(["6 hours", "12 hours", "24 hours", "48 hours"]),
-  suggestedGuideRatio: numberOrEmpty,
-  maxPilgrims: numberOrEmpty,
-  // A template's length is genuinely reusable — Package Classification now.
-  days: z.number().int().min(0).max(365),
-  nights: z.number().int().min(0).max(365),
-  duration: text,
+const textList = (maxItems: number) => z.array(listItem).max(maxItems);
 
-  // Step 2 — pricing POLICY only. Room-occupancy prices, the internal cost
-  // estimate, and flight routing all moved to Departure Group creation (see
-  // docs/architecture/package-departure-architecture-master-plan.md).
-  paymentMilestones: z.array(paymentMilestoneSchema),
-  paymentTerms: text,
-  cancellationPolicy: text,
-  latePaymentPolicy: text,
-  priceChangeDisclaimer: text,
-  financeRoleView: z.enum(["Admin", "CEO", "Finance", "Marketing"]),
+export const packageFormSchema = z
+  .object({
+    // Step 1
+    title: textOf(PACKAGE_LIMITS.title),
+    // Trimmed on every write: the unique index compares `lower(internal_code)`
+    // without trimming, so "UM01" and "UM01 " would otherwise both be accepted.
+    internalCode: z.string().trim().max(PACKAGE_LIMITS.code).default(""),
+    description: text,
+    journeyType: z.enum(["Umrah", "Hajj", "Early Registration"]),
+    category: z.enum(["Hajj", "Umrah"]),
+    year: z.union([z.number().int().min(1900).max(3000), z.string().max(10)]),
+    package_category: z.enum(["Economy", "Standard", "Premium", "VIP", "Custom"]),
+    branch: shortText,
+    visibility: z.enum(["Internal Only", "Pilgrim Portal", "Website & Portal"]),
+    status: z.enum(["Draft", "Open for Sale", "Sales Closed", "Archived"]),
+    featured: z.boolean(),
+    defaultCapacity: countOrEmpty,
+    minGroupSize: countOrEmpty,
+    waitlistEnabled: z.boolean(),
+    seatHoldExpiry: z.enum(["6 hours", "12 hours", "24 hours", "48 hours"]),
+    suggestedGuideRatio: countOrEmpty,
+    maxPilgrims: countOrEmpty,
+    // A template's length is genuinely reusable — Package Classification now.
+    days: z.number().int().min(0).max(PACKAGE_LIMITS.maxDays),
+    nights: z.number().int().min(0).max(PACKAGE_LIMITS.maxDays),
+    duration: shortText,
 
-  // Step 3 — itinerary only. Routing intent moved to Departure Group creation.
-  itinerary: z.array(itineraryItemSchema),
+    // Step 2 — pricing POLICY only. Room-occupancy prices, the internal cost
+    // estimate, and flight routing all moved to Departure Group creation (see
+    // docs/architecture/package-departure-architecture-master-plan.md).
+    paymentMilestones: z.array(paymentMilestoneSchema).max(PACKAGE_LIMITS.paymentMilestones),
+    paymentTerms: text,
+    cancellationPolicy: text,
+    latePaymentPolicy: text,
+    priceChangeDisclaimer: text,
+    financeRoleView: z.enum(["Admin", "CEO", "Finance", "Marketing"]),
 
-  // Step 4
-  includedServices: z.array(z.string()),
-  makkahAccommodationStandard: text,
-  makkahCustomerWording: text,
-  makkahNights: z.number().int().min(0).max(365),
-  makkahOccupancies: z.array(z.string()),
-  makkahTargetDistance: text,
-  makkahMealPlan: text,
-  makkahExactHotelGuarantee: z.boolean(),
-  makkahHotel: text,
-  makkahExactDisplayName: text,
-  madinahAccommodationStandard: text,
-  madinahCustomerWording: text,
-  madinahNights: z.number().int().min(0).max(365),
-  madinahOccupancies: z.array(z.string()),
-  madinahTargetDistance: text,
-  madinahMealPlan: text,
-  madinahExactHotelGuarantee: z.boolean(),
-  madinahHotel: text,
-  madinahExactDisplayName: text,
-  transportType: text,
-  transportRequirements: z.array(transportRequirementSchema),
-  inclusions: z.array(z.string()),
-  exclusions: z.array(z.string()),
-  customInclusionInput: text,
-  customExclusionInput: text,
+    // Step 3 — itinerary only. Routing intent moved to Departure Group creation.
+    itinerary: z.array(itineraryItemSchema).max(PACKAGE_LIMITS.itineraryDays),
 
-  // Step 5
-  documentRequirements: z.array(documentRequirementSchema),
-  seatReservationRule: text,
-  selectedCommunicationTemplates: z.array(z.string()),
+    // Step 4
+    includedServices: textList(PACKAGE_LIMITS.textListItems),
+    makkahAccommodationStandard: shortText,
+    makkahCustomerWording: mediumText,
+    makkahNights: z.number().int().min(0).max(PACKAGE_LIMITS.maxDays),
+    makkahOccupancies: textList(PACKAGE_LIMITS.roomTypes),
+    makkahTargetDistance: shortText,
+    makkahMealPlan: shortText,
+    makkahExactHotelGuarantee: z.boolean(),
+    makkahHotel: shortText,
+    makkahExactDisplayName: shortText,
+    madinahAccommodationStandard: shortText,
+    madinahCustomerWording: mediumText,
+    madinahNights: z.number().int().min(0).max(PACKAGE_LIMITS.maxDays),
+    madinahOccupancies: textList(PACKAGE_LIMITS.roomTypes),
+    madinahTargetDistance: shortText,
+    madinahMealPlan: shortText,
+    madinahExactHotelGuarantee: z.boolean(),
+    madinahHotel: shortText,
+    madinahExactDisplayName: shortText,
+    transportType: shortText,
+    transportRequirements: z.array(transportRequirementSchema).max(PACKAGE_LIMITS.transportRequirements),
+    inclusions: textList(PACKAGE_LIMITS.textListItems),
+    exclusions: textList(PACKAGE_LIMITS.textListItems),
+    customInclusionInput: textOf(PACKAGE_LIMITS.listItemText),
+    customExclusionInput: textOf(PACKAGE_LIMITS.listItemText),
 
-  // Step 6
-  defaultGroupCapacity: numberOrEmpty,
-  defaultGroupStatus: text,
-  groupReadinessChecklist: z.array(readinessRequirementSchema),
+    // Step 5
+    documentRequirements: z.array(documentRequirementSchema).max(PACKAGE_LIMITS.documentRequirements),
+    seatReservationRule: textOf(PACKAGE_LIMITS.mediumText * 2),
+    selectedCommunicationTemplates: z.array(idText).max(PACKAGE_LIMITS.communicationTemplates),
 
-  // Legacy / metadata — accepted but not persisted.
-  startDate: text,
-  endDate: text,
-  guide: text,
-});
+    // Step 6
+    defaultGroupCapacity: countOrEmpty,
+    defaultGroupStatus: shortText,
+    groupReadinessChecklist: z.array(readinessRequirementSchema).max(PACKAGE_LIMITS.readinessItems),
+
+    // Legacy / metadata — accepted but not persisted.
+    startDate: textOf(40),
+    endDate: textOf(40),
+    guide: shortText,
+  })
+  .strict();
 
 /**
  * A partial payload — used by patch autosave, which only sends changed keys.

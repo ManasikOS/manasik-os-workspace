@@ -49,6 +49,8 @@ import type {
   PackageUsageSummary,
 } from "@/lib/data/packages-repository";
 import type { PackageActivityLog } from "@/lib/types/packages";
+import type { PackageChangeRequest } from "@/lib/data/packages-repository";
+import PackageChangeRequestsPanel from "../../components/package-change-requests-panel";
 import ActivityTab from "./tabs/activity-tab";
 import GroupDefaultsTab from "./tabs/group-defaults-tab";
 import GroupsTab from "./tabs/groups-tab";
@@ -88,6 +90,9 @@ interface PackageDetailProps {
   usage: PackageUsageSummary;
   groups: DepartureGroupUsingPackage[];
   activity: PackageActivityLog[];
+  /** Changes to payment/contract/booking terms waiting for an administrator's approval. */
+  pendingChanges: PackageChangeRequest[];
+  currentUserId: string | null;
   /**
    * Resolved server-side (`[packageId]/page.tsx`) via
    * `loadDynamicCapabilities` — see `PackagesList`'s identical `can` prop
@@ -115,6 +120,8 @@ const PackageDetail = ({
   usage,
   groups,
   activity,
+  pendingChanges,
+  currentUserId,
   can,
   initialTab,
   autoOpenEdit = false,
@@ -370,6 +377,8 @@ const PackageDetail = ({
           </span>
         )}
       </Card>
+
+      <PackageChangeRequestsPanel requests={pendingChanges} can={can} currentUserId={currentUserId} />
 
       <div>
         <Tabs

@@ -120,10 +120,12 @@ describe("packages lifecycle single-path migration", () => {
       expect(body).toContain("public.package_content_columns()");
     });
 
-    it("locks the row, compares updated_at, and only publishes from Draft or Sales Closed", () => {
+    it("locks the row, compares updated_at, and only publishes a Draft (never rewrites a live package's terms)", () => {
       expect(body).toMatch(/for update/);
       expect(body).toContain("p_expected_updated_at is not null and v_updated is distinct from p_expected_updated_at");
-      expect(body).toContain("array['Draft', 'Sales Closed'], 'Open for Sale'");
+      expect(body).toContain("array['Draft'], 'Open for Sale'");
+      expect(body).toContain("if v_status <> 'Draft' then");
+      expect(body).not.toContain("'Sales Closed'");
       expect(body).toContain("agency_id = v_agency");
     });
 

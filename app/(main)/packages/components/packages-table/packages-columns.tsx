@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ProgressBar } from "@/components/ui/tone-badge";
+import { ProgressBar, ToneBadge } from "@/components/ui/tone-badge";
 import {
   header,
   sortableHeader,
@@ -68,6 +68,8 @@ export function buildPackageColumns(
   actions: PackageRowActions,
   sort: DataTableSort,
   onSortChange: (sort: DataTableSort) => void,
+  /** Packages with a change waiting for approval. */
+  pendingPackageIds: ReadonlySet<string> = new Set(),
 ): ColumnDef<PackageListItem>[] {
   return [
     {
@@ -84,6 +86,7 @@ export function buildPackageColumns(
               {p.featured && (
                 <Star className="size-3.5 fill-primary text-primary shrink-0" />
               )}
+              {pendingPackageIds.has(p.id) && <ToneBadge tone="warning" label="Change awaiting approval" className="py-0.5 text-[10px]" />}
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Badge

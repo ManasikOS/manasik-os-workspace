@@ -46,7 +46,7 @@ vi.mock("@/utils/supabase/server", () => ({
   }),
 }));
 
-import { checkPackageCodeAction, publishPackageAction, saveDraftAction } from "./actions";
+import { checkPackageCodeAction, publishPackageAction, savePackageAction } from "./actions";
 import { INITIAL_PACKAGE_FORM_DATA } from "./create-package/types";
 
 const FORM_WITH_TAKEN_CODE = { ...INITIAL_PACKAGE_FORM_DATA, internalCode: "RF-PKG-2026-UM01" };
@@ -65,8 +65,8 @@ describe("the wizard's starting form", () => {
 });
 
 describe("a package code that another package in the agency already uses", () => {
-  it("saveDraftAction explains the problem instead of echoing the constraint name", async () => {
-    const result = await saveDraftAction({ packageId: null, form: FORM_WITH_TAKEN_CODE });
+  it("savePackageAction explains the problem instead of echoing the constraint name", async () => {
+    const result = await savePackageAction({ packageId: null, form: FORM_WITH_TAKEN_CODE });
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.error).not.toContain("packages_internal_code_agency_unique");
@@ -116,7 +116,7 @@ describe("a package code that another package in the agency already uses", () =>
   });
 
   it("trims the code before writing, so 'UM01 ' and 'UM01' cannot both be saved", async () => {
-    await saveDraftAction({ packageId: null, form: { ...INITIAL_PACKAGE_FORM_DATA, internalCode: "  UM01  " } });
+    await savePackageAction({ packageId: null, form: { ...INITIAL_PACKAGE_FORM_DATA, internalCode: "  UM01  " } });
     expect(insertCalls[0]?.internal_code).toBe("UM01");
   });
 });

@@ -5,16 +5,18 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "@/components/ui/toast";
+import { runWithLoadingToast, toast } from "@/components/ui/toast";
 import {
   SidebarStepperDialogBody,
   type SidebarStepperStep,
 } from "@/components/ui/sidebar-stepper-dialog-body";
 import { cn } from "@/lib/utils";
-import { AlertCircle, TriangleAlert } from "lucide-react";
+import { AlertCircle, ShieldAlert, TriangleAlert } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import {
@@ -26,15 +28,21 @@ import {
   useTransition,
 } from "react";
 
-import { getPackageForEditAction, publishPackageAction } from "../actions";
+import {
+  getPackageApprovalPolicyAction,
+  getPackageForEditAction,
+  publishPackageAction,
+  savePackageAction,
+  type SavePackageResult,
+} from "../actions";
+import { computePackageChanges } from "@/lib/packages/change-diff";
+import PackageChangeReviewDialog, { type PackageApprovalPolicy } from "./package-change-review-dialog";
 import {
   INITIAL_PACKAGE_FORM_DATA,
   PackageFormData,
 } from "../create-package/types";
 import { isStepValid, stepFieldErrors } from "../create-package/schemas";
-import { decidePublishAfterDraftSave } from "../create-package/publish-guard";
-import { useDraftAutosave } from "../create-package/use-draft-autosave";
-import { TONE_CLASS } from "@/lib/ui/tone";
+import { TONE_CLASS, TONE_TEXT } from "@/lib/ui/tone";
 
 interface CreatePackageDialogProps {
   open: boolean;
@@ -137,9 +145,14 @@ const STEPS: SidebarStepperStep[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Body — everything that depends on autosave/form state. Mounted fresh (via a
-// `key` on the parent) every time a new creation session starts, so a
-// previous draft's row id never leaks into the next session.
+// Body — everything that depends on the form state. Mounted fresh (via a
+// `key` on the parent) every time a new session starts, so a previous
+// package's row id never leaks into the next session.
+//
+// Nothing here saves on its own (TASK-043). The form lives in the browser until
+// the person presses Save draft, Save changes or Publish. A package that is
+// already on sale is saved through the comparison dialog when the change
+// touches payment, contract or booking terms.
 // ---------------------------------------------------------------------------
 
 interface CreatePackageDialogBodyProps {
@@ -147,9 +160,19 @@ interface CreatePackageDialogBodyProps {
   initialPackageId: string | null;
   initialFormData: PackageFormData;
   initialUpdatedAt: string | null;
+  initialStatus: string;
   initialLiveGroupCount: number;
-  /** Called once the dialog should actually close (after flushing the draft). */
+  initialPendingChange: PendingChangeSummary | null;
+  canEditSensitiveTerms: boolean;
+  /** Called once the dialog should actually close. */
   onClose: () => void;
+}
+
+interface PendingChangeSummary {
+  id: string;
+  requestedByName: string;
+  createdAt: string;
+  columns: string[];
 }
 
 function CreatePackageDialogBody({
@@ -157,12 +180,26 @@ function CreatePackageDialogBody({
   initialPackageId,
   initialFormData,
   initialUpdatedAt,
+  initialStatus,
   initialLiveGroupCount,
+  initialPendingChange,
+  canEditSensitiveTerms,
   onClose,
 }: CreatePackageDialogBodyProps) {
   const router = useRouter();
   const [formData, setFormData] = useState<PackageFormData>(initialFormData);
-  const [isPublishing, startPublishing] = useTransition();
+  // What the database holds right now, as far as this browser knows: the form as loaded, then as last saved.
+  const [savedForm, setSavedForm] = useState<PackageFormData>(initialFormData);
+  const [packageId, setPackageId] = useState<string | null>(initialPackageId);
+  const [packageStatus] = useState(initialStatus);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(initialUpdatedAt);
+  const [pendingChange] = useState<PendingChangeSummary | null>(initialPendingChange);
+  const [isWorking, startWorking] = useTransition();
+
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [approvalPolicy, setApprovalPolicy] = useState<PackageApprovalPolicy | null>(null);
+  const [pendingConflict, setPendingConflict] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   // Stepper state — 0-based to match the STEPS array; the wizard's own
   // validation helpers are 1-based, so we add 1 wherever they're called.
@@ -179,6 +216,22 @@ function CreatePackageDialogBody({
     () => new Set(),
   );
 
+  const isLive = packageStatus === "Open for Sale" || packageStatus === "Sales Closed";
+  const changes = useMemo(() => computePackageChanges(savedForm, formData), [savedForm, formData]);
+  const isDirty = changes.length > 0;
+  const sensitiveChanges = useMemo(() => changes.filter((change) => change.tier > 0), [changes]);
+
+  // Closing the tab or navigating away with edits that were never saved asks first.
+  useEffect(() => {
+    if (!isDirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [isDirty]);
+
   const goToStep = useCallback(
     (index: number) => {
       setDirection(index >= activeStep ? 1 : -1);
@@ -187,17 +240,6 @@ function CreatePackageDialogBody({
     },
     [activeStep],
   );
-
-  const {
-    status: saveStatus,
-    errorMessage: saveErrorMessage,
-    packageId: draftPackageId,
-    saveNow,
-  } = useDraftAutosave({
-    formData,
-    initialPackageId,
-    initialUpdatedAt,
-  });
 
   // Prefetch the neighbouring steps' chunks once the browser is idle.
   useEffect(() => {
@@ -249,92 +291,140 @@ function CreatePackageDialogBody({
     [activeStep, stepValidity],
   );
 
-  // Moving between steps is a natural commit point for the draft.
-  const handleStepChange = (index: number) => {
-    goToStep(index);
-    void saveNow();
-  };
+  /** Sends the form to the server. Resolves with the result, or undefined if the request itself failed. */
+  const persist = useCallback(
+    async (options?: { reason?: string; supersedePending?: boolean }): Promise<SavePackageResult | undefined> => {
+      const result = await runWithLoadingToast(
+        () =>
+          savePackageAction({
+            packageId,
+            form: formData,
+            expectedUpdatedAt: updatedAt ?? undefined,
+            reason: options?.reason,
+            supersedePending: options?.supersedePending,
+          }),
+        {
+          loadingTitle: isLive ? "Saving changes…" : "Saving draft…",
+          successTitle: "Saved",
+          errorTitle: isLive ? "Could not save changes" : "Could not save draft",
+          getFailureMessage: (response) => (response.ok ? undefined : response.error),
+          shouldDismissSilently: (response) => response.ok,
+        },
+      );
 
-  const handleSaveDraft = async () => {
-    const outcome = await saveNow();
-    if (!outcome.ok) {
+      if (!result) return undefined;
+      if (!result.ok) {
+        if (result.code === "PENDING_EXISTS") setPendingConflict(true);
+        if (result.step) setActiveStep(result.step - 1);
+        return result;
+      }
+
+      setPackageId(result.packageId);
+      setUpdatedAt(result.savedAt);
+      if (result.kind === "SAVED" || result.kind === "APPLIED") setSavedForm(formData);
+      return result;
+    },
+    [packageId, formData, updatedAt, isLive],
+  );
+
+  const finishAfterLiveSave = (result: SavePackageResult & { ok: true }) => {
+    if (result.kind === "PENDING") {
       toast.add({
-        title: "Could not save draft",
+        title: "Sent for approval",
         description:
-          outcome.error ?? "Your changes were not saved. Please try again.",
+          result.appliedColumns.length > 0
+            ? "Display-only changes were saved. The payment and booking changes wait for an administrator; the package stays as it is until then."
+            : "An administrator must approve the changes before they take effect. The package stays as it is until then.",
       });
-      if (outcome.step) setActiveStep(outcome.step - 1);
-      return;
-    }
-    toast.add({ title: "Package template saved as Draft" });
-  };
-
-  // The first close with unsaved changes only warns; closing again leaves
-  // anyway, so a save that keeps failing (offline, say) can never trap anyone.
-  const closeWarningShown = useRef(false);
-  const attemptClose = useCallback(async () => {
-    const outcome = await saveNow();
-    if (!outcome.ok && !closeWarningShown.current) {
-      closeWarningShown.current = true;
-      toast.add({
-        title: "Your latest changes were not saved",
-        description: `${outcome.error ?? "The draft could not be saved."} Close again to leave without saving them.`,
-      });
-      if (outcome.step) setActiveStep(outcome.step - 1);
-      return;
+    } else if (result.kind === "APPLIED") {
+      toast.add({ title: "Changes applied", description: "They were recorded with your name and reason." });
+    } else {
+      toast.add({ title: "Changes saved" });
     }
     onClose();
-  }, [saveNow, onClose]);
+    router.refresh();
+  };
 
-  /** Returns true only once the package is actually persisted as published. */
-  const handlePublish = useCallback((): Promise<boolean> => {
-    return new Promise((resolve) => {
-      startPublishing(async () => {
-        // Flush pending edits first and use the id it resolves with — if
-        // this save is what created the row, `packageId` from the hook is
-        // still null and publishing with it would insert a duplicate row.
-        const flushed = await saveNow();
-
-        // If that save failed there may be no row yet; publishing anyway would
-        // attempt a second insert and show the user a second, raw error.
-        const decision = decidePublishAfterDraftSave(flushed);
-        if (!decision.proceed) {
-          toast.add({
-            title: "Could not publish package",
-            description: decision.message,
-          });
-          if (decision.step) setActiveStep(decision.step - 1);
-          resolve(false);
-          return;
-        }
-
-        const result = await publishPackageAction({
-          packageId: decision.packageId,
-          form: formData,
-          expectedUpdatedAt: decision.updatedAt ?? undefined,
-        });
-
-        if (!result.ok) {
-          toast.add({
-            title: "Could not publish package",
-            description: result.error,
-          });
-          if (result.step) setActiveStep(result.step - 1);
-          resolve(false);
-          return;
-        }
-
-        toast.add({
-          title: "Package created successfully",
-          description: formData.title.trim() || undefined,
-        });
-        onClose();
-        router.push(`/packages/${result.packageId}`);
+  const handleSaveDraft = () => {
+    startWorking(async () => {
+      const result = await persist();
+      if (result?.ok) {
+        toast.add({ title: "Draft saved" });
         router.refresh();
-        resolve(true);
-      });
+      }
     });
-  }, [formData, saveNow, onClose, router]);
+  };
+
+  const handleSaveChanges = () => {
+    if (sensitiveChanges.length > 0) {
+      setPendingConflict(false);
+      setReviewOpen(true);
+      void getPackageApprovalPolicyAction().then((policy) => {
+        if (policy.ok) setApprovalPolicy({ moneyAndContract: policy.moneyAndContract, bookingsAndOperations: policy.bookingsAndOperations });
+      });
+      return;
+    }
+    startWorking(async () => {
+      const result = await persist();
+      if (result?.ok) finishAfterLiveSave(result);
+    });
+  };
+
+  const handleConfirmReview = (input: { reason: string; supersedePending: boolean }) => {
+    startWorking(async () => {
+      const result = await persist({ reason: input.reason, supersedePending: input.supersedePending });
+      if (result?.ok) {
+        setReviewOpen(false);
+        finishAfterLiveSave(result);
+      }
+    });
+  };
+
+  const handlePublish = () => {
+    startWorking(async () => {
+      const result = await runWithLoadingToast(
+        () => publishPackageAction({ packageId, form: formData, expectedUpdatedAt: updatedAt ?? undefined }),
+        {
+          loadingTitle: "Publishing package…",
+          successTitle: "Package published",
+          errorTitle: "Could not publish package",
+          getFailureMessage: (response) => (response.ok ? undefined : response.error),
+          shouldDismissSilently: (response) => response.ok,
+        },
+      );
+      if (!result) return;
+      if (!result.ok) {
+        if (result.step) setActiveStep(result.step - 1);
+        return;
+      }
+      toast.add({ title: "Package published", description: formData.title.trim() || undefined });
+      onClose();
+      router.push(`/packages/${result.packageId}`);
+      router.refresh();
+    });
+  };
+
+  // Leaving with unsaved edits asks first. Nothing was saved on the way, so the choice is the person's.
+  const attemptClose = () => {
+    if (isDirty) setLeaveOpen(true);
+    else onClose();
+  };
+
+  const saveAndLeave = () => {
+    startWorking(async () => {
+      if (isLive && sensitiveChanges.length > 0) {
+        setLeaveOpen(false);
+        handleSaveChanges();
+        return;
+      }
+      const result = await persist();
+      if (result?.ok) {
+        setLeaveOpen(false);
+        onClose();
+        router.refresh();
+      }
+    });
+  };
 
   const stepContent = [
     <StepCommercialIdentity
@@ -342,7 +432,7 @@ function CreatePackageDialogBody({
       fieldErrors={inlineFieldErrors}
       formData={formData}
       setFormData={setFormData}
-      currentPackageId={draftPackageId}
+      currentPackageId={packageId}
     />,
     <StepSalesOfferPricing
       key="pricing"
@@ -378,103 +468,163 @@ function CreatePackageDialogBody({
       key="review"
       formData={formData}
       onGoToStep={(step) => setActiveStep(step - 1)}
-      onSaveDraft={handleSaveDraft}
-      onPublish={handlePublish}
     />,
   ];
 
-  const saveIndicator =
-    saveStatus === "saving"
-      ? "Saving…"
-      : saveStatus === "error"
-        ? saveErrorMessage
-          ? `Could not save: ${saveErrorMessage}`
-          : "Could not save"
-        : saveStatus === "saved"
-          ? "Draft saved"
-          : "";
-
   const dialogTitle = mode === "edit" ? "Edit Package" : "Create Package";
+  const saveLabel = isLive ? "Save changes" : "Save draft";
 
   return (
-    <SidebarStepperDialogBody
-      title={dialogTitle}
-      subtitle={
-        mode === "edit"
-          ? "Update this package's commercial & operational template."
-          : "Build a commercial & operational template for sales and Departure Groups."
-      }
-      steps={STEPS}
-      activeStep={activeStep}
-      direction={direction}
-      onStepSelect={handleStepChange}
-      getStepState={(index) => ({
-        isLocked: !checkStepClickable(index),
-        lockedReason: "Finish the earlier steps to unlock this one.",
-        isCompleted: index < activeStep && stepValidity[index + 1],
-      })}
-      sidebarFooter={
-        saveIndicator ? (
+    <>
+      <SidebarStepperDialogBody
+        title={dialogTitle}
+        subtitle={
+          mode === "edit"
+            ? "Update this package's commercial & operational template."
+            : "Build a commercial & operational template for sales and Departure Groups."
+        }
+        steps={STEPS}
+        activeStep={activeStep}
+        direction={direction}
+        onStepSelect={goToStep}
+        getStepState={(index) => ({
+          isLocked: !checkStepClickable(index),
+          lockedReason: "Finish the earlier steps to unlock this one.",
+          isCompleted: index < activeStep && stepValidity[index + 1],
+        })}
+        sidebarFooter={
           <p
             className={cn(
               "text-[11px] font-medium",
-              saveStatus === "error"
-                ? "text-destructive"
-                : "text-muted-foreground",
+              isDirty ? TONE_TEXT.warning : "text-muted-foreground",
             )}
-          >
-            {saveIndicator}
-          </p>
-        ) : null
-      }
-      panelBanner={
-        mode === "edit" && initialLiveGroupCount > 0 ? (
-          <div
-            className={cn(
-              "flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0",
-              TONE_CLASS.warning,
-            )}
-          >
-            <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
-            <span>
-              {initialLiveGroupCount} live departure group
-              {initialLiveGroupCount === 1 ? " is" : "s are"} already running
-              off this template. Saving here never rewrites them — each keeps
-              its own independent price and configuration — it only changes
-              what the NEXT group created from this package copies.
-            </span>
-          </div>
-        ) : null
-      }
-      onCancel={() => void attemptClose()}
-      onBack={() => handleStepChange(activeStep - 1)}
-      onContinue={() => handleStepChange(activeStep + 1)}
-      canContinue={isCurrentStepValid}
-      footerHint={
-        !isCurrentStepValid ? (
-          <span
             role="status"
-            className="flex min-w-0 items-center gap-1 text-xs font-medium text-destructive"
           >
-            <AlertCircle className="size-3 shrink-0" />
-            <span className="line-clamp-2">
-              {firstStepErrorMessage ?? "Complete the required fields to continue"}
+            {isDirty
+              ? packageId
+                ? "Unsaved changes"
+                : "Not saved yet"
+              : packageId
+                ? "All changes saved"
+                : ""}
+          </p>
+        }
+        panelBanner={
+          <>
+            {pendingChange ? (
+              <div className={cn("flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0", TONE_CLASS.info)}>
+                <ShieldAlert className="size-3.5 mt-0.5 shrink-0" />
+                <span>
+                  A change requested by {pendingChange.requestedByName} is waiting for approval. Fields it changes will show the values saved today until it
+                  is decided.
+                </span>
+              </div>
+            ) : null}
+            {mode === "edit" && initialLiveGroupCount > 0 ? (
+              <div className={cn("flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0", TONE_CLASS.warning)}>
+                <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
+                <span>
+                  {initialLiveGroupCount} live departure group
+                  {initialLiveGroupCount === 1 ? " is" : "s are"} already running
+                  off this template. Saving here never rewrites them — each keeps
+                  its own independent price and configuration — it only changes
+                  what the NEXT group created from this package copies.
+                </span>
+              </div>
+            ) : null}
+            {isLive && !canEditSensitiveTerms ? (
+              <div className={cn("flex items-start gap-2 px-4 sm:px-5 py-2 text-[11px] shrink-0", TONE_CLASS.warning)}>
+                <TriangleAlert className="size-3.5 mt-0.5 shrink-0" />
+                <span>
+                  This package is on sale. You can edit its display text, but your role cannot change its payment or booking terms.
+                </span>
+              </div>
+            ) : null}
+          </>
+        }
+        onCancel={attemptClose}
+        onBack={() => goToStep(activeStep - 1)}
+        onContinue={() => goToStep(activeStep + 1)}
+        canContinue={isCurrentStepValid}
+        footerHint={
+          !isCurrentStepValid ? (
+            <span
+              role="status"
+              className="flex min-w-0 items-center gap-1 text-xs font-medium text-destructive"
+            >
+              <AlertCircle className="size-3 shrink-0" />
+              <span className="line-clamp-2">
+                {firstStepErrorMessage ?? "Complete the required fields to continue"}
+              </span>
             </span>
-          </span>
-        ) : null
-      }
-      lastStepAction={
-        <Button
-          type="button"
-          disabled={isPublishing || !isCurrentStepValid}
-          onClick={() => void handlePublish()}
-        >
-          {isPublishing ? "Publishing…" : "Save Package"}
-        </Button>
-      }
-    >
-      {stepContent[activeStep]}
-    </SidebarStepperDialogBody>
+          ) : null
+        }
+        secondaryAction={
+          <Button
+            type="button"
+            variant="outline_without_border"
+            disabled={isWorking || !isDirty}
+            onClick={isLive ? handleSaveChanges : handleSaveDraft}
+          >
+            {isWorking ? "Saving…" : saveLabel}
+          </Button>
+        }
+        lastStepAction={
+          isLive ? (
+            <Button type="button" disabled={isWorking || !isDirty} onClick={handleSaveChanges}>
+              {isWorking ? "Saving…" : "Save changes"}
+            </Button>
+          ) : (
+            <Button type="button" disabled={isWorking || !isCurrentStepValid} onClick={handlePublish}>
+              {isWorking ? "Publishing…" : "Publish package"}
+            </Button>
+          )
+        }
+      >
+        {stepContent[activeStep]}
+      </SidebarStepperDialogBody>
+
+      <PackageChangeReviewDialog
+        open={reviewOpen}
+        packageTitle={formData.title}
+        changes={changes}
+        policy={approvalPolicy}
+        canEditSensitiveTerms={canEditSensitiveTerms}
+        pendingChangeExists={pendingConflict || pendingChange !== null}
+        isSaving={isWorking}
+        onCancel={() => setReviewOpen(false)}
+        onConfirm={handleConfirmReview}
+      />
+
+      <Dialog open={leaveOpen} onOpenChange={(next) => !next && !isWorking && setLeaveOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>You have unsaved changes</DialogTitle>
+            <DialogDescription>
+              Nothing is saved until you choose to. If you leave now, the changes you made in this window are lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline_without_border" disabled={isWorking} onClick={() => setLeaveOpen(false)}>
+              Keep editing
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={isWorking}
+              onClick={() => {
+                setLeaveOpen(false);
+                onClose();
+              }}
+            >
+              Discard changes
+            </Button>
+            <Button disabled={isWorking} onClick={saveAndLeave}>
+              {isLive ? "Review and save changes" : "Save draft and close"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -486,6 +636,9 @@ interface EditData {
   formData: PackageFormData;
   updatedAt: string | null;
   liveGroupCount: number;
+  status: string;
+  pendingChange: PendingChangeSummary | null;
+  canEditSensitiveTerms: boolean;
 }
 
 export default function CreatePackageDialog({
@@ -494,9 +647,9 @@ export default function CreatePackageDialog({
   mode = "create",
   packageId = null,
 }: CreatePackageDialogProps) {
-  // Bumped every time a session ends (cancel or publish) so the body below —
-  // and the autosave hook inside it — remounts from scratch next time the
-  // dialog opens, instead of resuming the previous draft's row id.
+  // Bumped every time a session ends (cancel or publish) so the body below
+  // remounts from scratch next time the dialog opens, instead of resuming the
+  // previous package's row id.
   const [sessionId, setSessionId] = useState(0);
   const [editData, setEditData] = useState<EditData | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -504,6 +657,8 @@ export default function CreatePackageDialog({
   const handleClose = useCallback(() => {
     setOpen(false);
     setSessionId((id) => id + 1);
+    setEditData(null);
+    setEditError(null);
   }, [setOpen]);
 
   // Edit mode only has the narrow list-row projection to start from, so the
@@ -522,22 +677,25 @@ export default function CreatePackageDialog({
         formData: result.formData,
         updatedAt: result.updatedAt,
         liveGroupCount: result.liveGroupCount,
+        status: result.status,
+        pendingChange: result.pendingChange,
+        canEditSensitiveTerms: result.canEditSensitiveTerms,
       });
     });
 
     return () => {
       cancelled = true;
     };
-  }, [open, mode, packageId]);
+  }, [open, mode, packageId, sessionId]);
 
   const isEditLoading = mode === "edit" && !editData && !editError;
 
   return (
     <Dialog
       open={open}
+      // The body asks about unsaved changes itself; closing from outside (Escape, backdrop) is handled by its Cancel, so only an explicit open is honoured here.
       onOpenChange={(next) => {
         if (next) setOpen(true);
-        else handleClose();
       }}
     >
       <DialogContent
@@ -558,7 +716,10 @@ export default function CreatePackageDialog({
             initialPackageId={null}
             initialFormData={INITIAL_PACKAGE_FORM_DATA}
             initialUpdatedAt={null}
+            initialStatus="Draft"
             initialLiveGroupCount={0}
+            initialPendingChange={null}
+            canEditSensitiveTerms
             onClose={handleClose}
           />
         )}
@@ -592,7 +753,10 @@ export default function CreatePackageDialog({
             initialPackageId={packageId}
             initialFormData={editData.formData}
             initialUpdatedAt={editData.updatedAt}
+            initialStatus={editData.status}
             initialLiveGroupCount={editData.liveGroupCount}
+            initialPendingChange={editData.pendingChange}
+            canEditSensitiveTerms={editData.canEditSensitiveTerms}
             onClose={handleClose}
           />
         )}

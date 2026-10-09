@@ -5,7 +5,7 @@ import { getSessionUser } from "@/lib/dal";
 import { capabilitiesForPackages } from "@/lib/access/packages-access";
 import { loadDynamicCapabilities } from "@/lib/access/dynamic-capabilities";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
-import { listPackages } from "@/lib/data/packages-repository";
+import { listPackages, listPendingPackageChanges } from "@/lib/data/packages-repository";
 import { createClient } from "@/utils/supabase/server";
 
 import PackagesList from "./components/packages-list";
@@ -32,7 +32,11 @@ export default async function PackagesPage({
   // Fetched once, archived rows included — filtering, search, sort and
   // pagination all happen client-side against this array, the same shape as
   // the Departure Groups list.
-  const everyPackage = await listPackages(role, user?.id ?? null);
+  const [everyPackage, pendingChanges] = await Promise.all([
+    listPackages(role, user?.id ?? null),
+    // Changes to packages on sale that are waiting for approval. Row security shows each person only what they may read.
+    listPendingPackageChanges(),
+  ]);
 
   const packages = everyPackage.filter((p) => !p.archived);
   const archivedPackages = everyPackage.filter((p) => p.archived);
@@ -43,6 +47,7 @@ export default async function PackagesPage({
       archivedPackages={archivedPackages}
       can={can}
       currentUserId={user?.id ?? null}
+      pendingChanges={pendingChanges}
       autoOpenCreate={create === "1"}
     />
   );
