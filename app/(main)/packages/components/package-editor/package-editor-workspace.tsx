@@ -108,16 +108,19 @@ export function PackageEditorWorkspace({
     );
   };
 
-  // After the first step change, bring the new step's heading into view and focus it.
+  // When the step changes, show the stepper bar at the top of the screen and focus the new step's heading.
+  // Compared with the previous step rather than "is this the first run", so React Strict Mode's second
+  // effect run on load does not move focus.
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
-  const hasChangedStepRef = useRef(false);
+  const previousStepRef = useRef(steps.activeStep);
   useEffect(() => {
-    if (!hasChangedStepRef.current) {
-      hasChangedStepRef.current = true;
-      return;
-    }
-    stepHeadingRef.current?.scrollIntoView({ block: "center" });
-    stepHeadingRef.current?.focus({ preventScroll: true });
+    if (previousStepRef.current === steps.activeStep) return;
+    previousStepRef.current = steps.activeStep;
+
+    const heading = stepHeadingRef.current;
+    const stepperBar = heading?.closest<HTMLElement>('[data-slot="card"]');
+    stepperBar?.scrollIntoView({ block: "start" });
+    heading?.focus({ preventScroll: true });
   }, [steps.activeStep]);
 
   // Continue and Publish stay available on an incomplete step: pressing them shows what is missing and takes the
@@ -142,7 +145,8 @@ export function PackageEditorWorkspace({
       '[aria-invalid="true"], [role="alert"], .text-destructive',
     );
     if (!firstProblem) return;
-    firstProblem.scrollIntoView({ block: "center", behavior: "smooth" });
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    firstProblem.scrollIntoView({ block: "center", behavior: prefersReducedMotion ? "auto" : "smooth" });
     if (firstProblem.matches("input, textarea, select, button, [tabindex]")) {
       firstProblem.focus({ preventScroll: true });
     }
@@ -163,19 +167,32 @@ export function PackageEditorWorkspace({
           />
         </div>
 
-        {/* The stepper has its own bar. The step below sits directly on the page: each step already
-            builds its content out of cards, so wrapping it in another one would nest them. */}
-        <Card className="gap-0 py-4">
+        {/* One bar holds the stepper and the open step's title, so the form starts as high as it can.
+            The step's content sits directly on the page below it: each step already builds its content
+            out of cards, so wrapping it in another one would nest them. */}
+        <Card className="scroll-mt-20 gap-4 py-4">
           <HorizontalStepper
             steps={PACKAGE_EDITOR_STEPS}
             activeStep={steps.activeStep}
             onStepSelect={steps.goToStep}
             getStepState={(index) => ({
               isLocked: !steps.canOpenStep(index),
-              lockedReason: "Finish the earlier steps to unlock this one.",
+              lockedReason: steps.lockedReasonFor(index),
               isCompleted: index < steps.activeStep && steps.stepValidity[index + 1],
+              // The open step shows its problems in the footer and on its fields.
+              hasError: index !== steps.activeStep && steps.stepShowsProblem(index),
             })}
           />
+          <header className="flex flex-col gap-0.5 border-t border-border/50 pt-4">
+            <h2
+              ref={stepHeadingRef}
+              tabIndex={-1}
+              className="rounded-sm text-xl font-medium leading-tight tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              {currentStep.label}
+            </h2>
+            <p className="text-sm text-muted-foreground">{currentStep.description}</p>
+          </header>
         </Card>
 
         <motion.div
@@ -186,17 +203,6 @@ export function PackageEditorWorkspace({
           transition={{ duration: 0.18, ease: "easeOut" }}
           className="flex flex-col gap-4"
         >
-          <header className="flex flex-col gap-1 px-1">
-            <h2
-              ref={stepHeadingRef}
-              tabIndex={-1}
-              className="text-xl font-medium leading-tight tracking-tight outline-none"
-            >
-              {currentStep.label}
-            </h2>
-            <p className="text-sm text-muted-foreground">{currentStep.description}</p>
-          </header>
-
           <PackageEditorStepContent
             stepIndex={steps.activeStep}
             formData={form.formData}

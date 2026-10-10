@@ -24,43 +24,37 @@ export const PACKAGE_EDITOR_STEPS: PackageEditorStep[] = [
   {
     id: "commercial",
     label: "Commercial Identity",
-    description:
-      "Define what the agency is selling and how this package appears to sales staff, customers, and Manasik Copilot.",
+    description: "What you are selling, and how sales staff, customers and Manasik Copilot see it.",
   },
   {
     id: "pricing",
     label: "Sales Pricing Policy",
-    description: "Set the reusable payment schedule and customer-facing terms.",
+    description: "The reusable payment schedule and the terms customers see.",
   },
   {
     id: "journey",
     label: "Journey Template",
-    description:
-      "Define the standard pilgrimage journey shown to pilgrims. Exact operational dates and flight bookings are confirmed later in Departure Groups.",
+    description: "The standard pilgrim journey. Exact dates and flights are set later, in Departure Groups.",
   },
   {
     id: "service",
     label: "Service Standards",
-    description:
-      "Define what the package promises and what each Departure Group must later arrange and confirm.",
+    description: "What the package promises, and what each Departure Group must later confirm.",
   },
   {
     id: "traveller",
     label: "Traveller Requirements",
-    description:
-      "Choose the requirements automatically applied when a customer books a Departure Group.",
+    description: "Requirements applied automatically when a customer books a Departure Group.",
   },
   {
     id: "groups",
     label: "Group Creation Defaults",
-    description:
-      "Define what is copied into every real Departure Group created from this package.",
+    description: "What is copied into every Departure Group created from this package.",
   },
   {
     id: "review",
     label: "Review & Publish",
-    description:
-      "Confirm that this package template is ready for sales staff, AI Sales Agent inquiries, and group creation.",
+    description: "Check the package is ready for sales staff, AI Sales Agent inquiries and group creation.",
   },
 ];
 

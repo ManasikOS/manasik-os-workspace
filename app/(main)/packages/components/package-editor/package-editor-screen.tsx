@@ -26,10 +26,10 @@ export default function PackageEditorScreen({ mode, packageId, snapshot }: Packa
   const title = mode === "edit" ? snapshot?.formData.title.trim() || "Untitled package" : "New package";
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-6 pb-6">
+    <div className="mx-auto flex w-full flex-col gap-4 pb-6">
       <PageHeader
         title={mode === "edit" ? "Edit package" : "Create package"}
-        subTitle={mode === "edit" ? title : "Build a commercial & operational template for sales and Departure Groups."}
+        subTitle={mode === "edit" ? title : undefined}
         breadcrumb={[
           { title: "Home", link: "/dashboard" },
           { title: "Packages", link: "/packages" },

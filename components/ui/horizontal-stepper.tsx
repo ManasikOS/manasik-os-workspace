@@ -32,8 +32,12 @@ interface HorizontalStepperProps {
 
 /**
  * A row of numbered steps joined by lines, with the open step highlighted.
- * Finished steps show a check, locked ones a lock. On narrow screens it
- * becomes "Step 2 of 7 — Name" above a segmented progress bar.
+ * Finished steps show a check, locked ones a lock.
+ *
+ * What it shows depends on the width of the space it is placed in (a container
+ * query), not the screen: the app sidebar takes room, so a 1024 px screen can
+ * leave less width than a phone-sized layout would suggest. Below 48rem it
+ * becomes "Step 2 of 7 — Name" above a segmented bar whose segments are buttons.
  */
 export function HorizontalStepper({
   steps,
@@ -45,9 +49,9 @@ export function HorizontalStepper({
   const current = steps[activeStep];
 
   return (
-    <nav aria-label="Progress" className={className}>
-      {/* Narrow screens: a title and a segmented bar. */}
-      <div className="flex flex-col gap-2 md:hidden">
+    <nav aria-label="Progress" className={cn("@container", className)}>
+      {/* Narrow space: a title and a segmented bar. */}
+      <div className="flex flex-col gap-2 @3xl:hidden">
         <div className="flex items-baseline justify-between gap-3">
           <p className="min-w-0 truncate text-sm font-medium">
             <span className="text-muted-foreground">
@@ -59,25 +63,44 @@ export function HorizontalStepper({
             {activeStep + 1}/{steps.length}
           </span>
         </div>
-        <div className="flex items-center gap-1.5" aria-hidden>
-          {steps.map((step, index) => (
-            <div
-              key={step.id}
-              className={cn(
-                "h-1 rounded-full transition-all duration-300",
-                index === activeStep
-                  ? "flex-3 bg-primary"
-                  : index < activeStep
-                    ? "flex-1 bg-primary/40"
-                    : "flex-1 bg-muted-foreground/20",
-              )}
-            />
-          ))}
-        </div>
+        <ol className="flex items-center gap-1.5">
+          {steps.map((step, index) => {
+            const { isLocked, hasError = false } = getStepState(index);
+            return (
+              <li
+                key={step.id}
+                className={cn("transition-all duration-300", index === activeStep ? "flex-3" : "flex-1")}
+              >
+                <button
+                  type="button"
+                  disabled={isLocked}
+                  onClick={() => onStepSelect(index)}
+                  aria-label={`Step ${index + 1}: ${step.label}${isLocked ? " (locked)" : ""}${hasError ? " (has problems)" : ""}`}
+                  aria-current={index === activeStep ? "step" : undefined}
+                  // A tall touch target around a thin bar.
+                  className="group flex h-6 w-full items-center outline-none disabled:cursor-not-allowed"
+                >
+                  <span
+                    className={cn(
+                      "h-1 w-full rounded-full transition-colors group-focus-visible:ring-2 group-focus-visible:ring-primary/40",
+                      hasError
+                        ? "bg-destructive/70"
+                        : index === activeStep
+                          ? "bg-primary"
+                          : index < activeStep
+                            ? "bg-primary/40"
+                            : "bg-muted-foreground/20",
+                    )}
+                  />
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
-      {/* Wider screens: every step, joined by lines. */}
-      <ol className="hidden items-start md:flex">
+      {/* Wide space: every step, joined by lines. */}
+      <ol className="hidden items-start @3xl:flex">
         {steps.map((step, index) => (
           <HorizontalStepperItem
             key={step.id}
@@ -152,7 +175,7 @@ function HorizontalStepperItem({
       </span>
       <span
         className={cn(
-          "text-xs font-medium leading-tight transition-colors",
+          "text-xs font-medium leading-tight text-balance transition-colors",
           isActive
             ? "text-primary"
             : hasError
@@ -169,7 +192,7 @@ function HorizontalStepperItem({
 
   return (
     <li className={cn("flex min-w-0 items-start", isLast ? "flex-none" : "flex-1")}>
-      <div className="w-24 shrink-0 lg:w-28">
+      <div className="w-24 shrink-0 @5xl:w-28">
         {isLocked && lockedReason ? (
           <Tooltip>
             <TooltipTrigger render={<span className="block cursor-not-allowed" tabIndex={0} />}>

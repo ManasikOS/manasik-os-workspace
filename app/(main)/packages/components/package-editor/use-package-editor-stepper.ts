@@ -89,6 +89,26 @@ export function usePackageEditorStepper(formData: PackageFormData) {
     return null;
   }, [stepValidity]);
 
+  /** A step the person has been through (or was pointed at) that still has problems. The review step has no fields. */
+  const stepShowsProblem = useCallback(
+    (index: number) =>
+      index < PACKAGE_EDITOR_STEPS.length - 1 &&
+      (leftSteps.has(index) || triedSteps.has(index)) &&
+      !stepValidity[index + 1],
+    [leftSteps, triedSteps, stepValidity],
+  );
+
+  /** Why a locked step is locked: the first earlier step that is not complete, by name. */
+  const lockedReasonFor = useCallback(
+    (index: number) => {
+      for (let earlier = 0; earlier < index; earlier++) {
+        if (!stepValidity[earlier + 1]) return `Finish "${PACKAGE_EDITOR_STEPS[earlier].label}" first.`;
+      }
+      return undefined;
+    },
+    [stepValidity],
+  );
+
   const canOpenStep = useCallback(
     (targetIndex: number) => canOpenPackageEditorStep({ targetIndex, activeStep, stepValidity }),
     [activeStep, stepValidity],
@@ -108,5 +128,7 @@ export function usePackageEditorStepper(formData: PackageFormData) {
     firstStepErrorMessage,
     inlineFieldErrors,
     canOpenStep,
+    stepShowsProblem,
+    lockedReasonFor,
   };
 }
