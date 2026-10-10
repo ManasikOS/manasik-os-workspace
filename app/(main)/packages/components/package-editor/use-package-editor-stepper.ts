@@ -11,13 +11,13 @@ import { PACKAGE_EDITOR_STEPS, preloadPackageEditorStep } from "./package-editor
  * Which step is open, which steps are valid, and which messages to show.
  *
  * `activeStep` is 0-based to match `PACKAGE_EDITOR_STEPS`; the validation
- * helpers are 1-based, so we add 1 wherever they are called.
+ * helpers and the server use 1-based step numbers, so we add 1 when calling them.
  */
-export function usePackageEditorSteps(formData: PackageFormData) {
+export function usePackageEditorStepper(formData: PackageFormData) {
   const [activeStep, setActiveStep] = useState(0);
-  // The panel slide direction, decided when the person navigates (not derived from a ref read during render).
+  // The slide direction, decided when the person navigates.
   const [direction, setDirection] = useState(1);
-  // Steps already left. Inline field errors only appear on these, so a first visit never opens with a wall of red.
+  // Steps already left. Their messages show, so a first visit never opens with a wall of red.
   const [leftSteps, setLeftSteps] = useState<ReadonlySet<number>>(() => new Set());
 
   const goToStep = useCallback(
@@ -30,7 +30,13 @@ export function usePackageEditorSteps(formData: PackageFormData) {
   );
 
   /** Opens a step by its 1-based number, as the server and the review step report it. */
-  const openStepNumber = useCallback((step: number) => setActiveStep(step - 1), []);
+  const openStepNumber = useCallback(
+    (step: number) => {
+      setLeftSteps((previous) => new Set(previous).add(activeStep));
+      setActiveStep(step - 1);
+    },
+    [activeStep],
+  );
 
   // Download the neighbouring steps once the browser is idle.
   useEffect(() => {
@@ -58,7 +64,7 @@ export function usePackageEditorSteps(formData: PackageFormData) {
 
   const isCurrentStepValid = stepValidity[activeStep + 1];
 
-  // The footer always names the first problem; the step itself only shows them once it has been visited and left.
+  // The footer always names the first problem; the step itself only shows them once it has been left.
   const currentStepErrors = useMemo(() => stepFieldErrors(activeStep + 1, formData), [activeStep, formData]);
   const firstStepErrorMessage = currentStepErrors ? Object.values(currentStepErrors).flat()[0] : undefined;
   const inlineFieldErrors = leftSteps.has(activeStep) ? currentStepErrors : null;
@@ -70,6 +76,7 @@ export function usePackageEditorSteps(formData: PackageFormData) {
 
   return {
     activeStep,
+    isLastStep: activeStep === PACKAGE_EDITOR_STEPS.length - 1,
     direction,
     goToStep,
     openStepNumber,

@@ -483,7 +483,7 @@ Gaps worth adding (suggested order):
 
 | ID | Test | Steps | Expected | Pri |
 | --- | --- | --- | --- | --- |
-| PKG-EDP-01 | Layout fills the screen | Open `/packages/new` at 320 / 768 / 1024 / 1440 px, light and dark | Editor card fills the space under the heading; step panel scrolls inside; footer buttons stay visible; nothing clipped. | P0 |
+| PKG-EDP-01 | Page layout | Open `/packages/new` at 320 / 768 / 1024 / 1440 px, light and dark | Horizontal stepper across the top (compact "Step N of 7" bar below 768 px); open step at full width under it; action bar stays at the bottom; nothing clipped; no inner scrollbars. | P0 |
 | PKG-EDP-02 | Cancel with nothing changed | Open create, press Cancel | Leaves at once to `/packages`; no prompt. | P0 |
 | PKG-EDP-03 | Cancel with edits | Type a title, press Cancel | Prompt "You have unsaved changes" with Keep editing / Discard changes / Save draft and leave. | P0 |
 | PKG-EDP-04 | Prompt dismissal | With the prompt open, press Esc, then click outside | Both mean Keep editing; the form is unchanged. | P0 |
@@ -495,3 +495,6 @@ Gaps worth adding (suggested order):
 | PKG-EDP-10 | Change review sheet | Edit a price on an Open for Sale package, Save changes | A right-side sheet lists before/after, needs a reason, and does not stack on another modal; Keep editing closes it. | P0 |
 | PKG-EDP-11 | Publish | Complete all steps, Publish | Lands on the package detail page; one navigation, no flash of the list. | P0 |
 | PKG-EDP-12 | Unknown id | Open `/packages/not-a-uuid/edit` and `/packages/<random-uuid>/edit` | Both 404. | P1 |
+| PKG-EDP-13 | Stepper | Click a finished step, then a locked one | Finished step opens; locked step shows a lock and a tooltip and does not open; Continue is disabled while the step has problems and names the first one. | P0 |
+| PKG-EDP-14 | Step change | Press Continue on a tall step | The next step appears at full width; the page returns to its top; focus is on the step heading. | P0 |
+| PKG-EDP-15 | Last step | Reach step 7 on a draft; then on a package on sale | Draft: Publish package. On sale: Save changes only (no duplicate Save button). | P0 |

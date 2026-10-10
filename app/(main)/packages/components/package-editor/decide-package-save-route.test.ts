@@ -25,10 +25,6 @@ describe("canOpenPackageEditorStep", () => {
     expect(canOpenPackageEditorStep({ targetIndex: 0, activeStep: 2, stepValidity: validity })).toBe(true);
   });
 
-  it("allows the next step when every step up to it is valid", () => {
-    expect(canOpenPackageEditorStep({ targetIndex: 1, activeStep: 0, stepValidity: validity })).toBe(true);
-  });
-
   it("opens a step when every step before it is valid", () => {
     // Step 3 (index 2) only needs steps 1 and 2.
     expect(canOpenPackageEditorStep({ targetIndex: 2, activeStep: 0, stepValidity: validity })).toBe(true);

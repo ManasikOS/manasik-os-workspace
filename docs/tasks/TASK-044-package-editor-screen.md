@@ -288,3 +288,49 @@ items:
   unrelated to this task.
 
 Set this to Done, and slice 6's "docs" box to ticked, once the checklist passes.
+
+### Revision: one long page, not a stepper in a card
+The first build put the old stepper (sidebar, one step at a time, fixed-height
+box with its own scroll and footer) inside a card on the page. That is still a
+dialog layout. It was replaced with a real page:
+
+- All seven sections are on one scrolling page, each a card with its own
+  heading and description (`package-editor-sections.tsx`).
+- A sticky section nav (`package-editor-section-nav.tsx`): a list beside the form
+  on wide screens, a sticky sideways strip on narrow ones. It highlights the
+  section in view (scroll spy) and shows complete / has-problems state.
+- The actions sit in a sticky bar at the bottom of the screen
+  (`package-editor-action-bar.tsx`): Cancel, save status, "N sections need
+  attention", Save draft, Publish. Publishing an incomplete package scrolls to
+  the first section with a problem.
+- Sections no longer lock behind earlier ones; "Continue" and "Back" are gone.
+  A section shows its messages once scrolled past, or for all sections after a
+  publish attempt.
+- `use-package-editor-steps.ts` became `use-package-editor-sections.ts`; the
+  step-lock rule and its tests were removed. `SidebarStepperDialogBody` is no
+  longer used by the editor (other dialogs still use it).
+- Not changed: save rules, unsaved-changes guard, review sheet, routes.
+- Needs a look in the browser: sticky offsets (`lg:top-4`, `scroll-mt-24`)
+  against the real app header, and that each step's form reads well at page
+  width.
+
+### Revision 2: horizontal stepper, full-width step, normal page flow
+The long single page was replaced with what was actually asked for: a
+horizontal stepper component and one step at a time at full width.
+
+- New `components/ui/horizontal-stepper.tsx`: numbered steps joined by lines
+  with check / lock / warning states and a tooltip for locked steps. Below
+  `md` it becomes "Step N of 7 - name" over a segmented progress bar.
+- The open step sits in a full-width card under the stepper, in normal page
+  flow (no fixed-height box, no inner scrollbar). A tall step scrolls the page.
+- Actions are a sticky bar at the bottom: Cancel, save status, the open step's
+  first problem, Back, Save draft / Save changes, then Continue, or Publish on
+  the last step.
+- Later steps stay locked until earlier ones are valid (as before);
+  `use-package-editor-stepper.ts` and `canOpenPackageEditorStep` are back, the
+  section-based files from revision 1 are gone.
+- The stepper is a custom component because shadcn has no stepper in its core
+  set (the shadcn MCP was unavailable when this was built). It uses only
+  shadcn primitives (Tooltip) and the design tokens.
+- Needs a look in the browser: the stepper at 768 / 1024 / 1440 px (labels in
+  `w-24`/`w-28` columns) and the sticky footer offset (`bottom-4`).

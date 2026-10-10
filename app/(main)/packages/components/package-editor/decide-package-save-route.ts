@@ -9,17 +9,9 @@
  */
 export type PackageSaveRoute = "save-draft" | "review-first" | "save-directly";
 
-export function decidePackageSaveRoute(input: {
-  isLive: boolean;
-  sensitiveChangeCount: number;
-}): PackageSaveRoute {
-  if (!input.isLive) return "save-draft";
-  return input.sensitiveChangeCount > 0 ? "review-first" : "save-directly";
-}
-
 /**
- * A step can be opened when it is behind you, or when every step up to and
- * including it is valid. `stepValidity` is keyed by 1-based step number.
+ * A step can be opened when it is behind you, or when every step before it is
+ * valid. `stepValidity` is keyed by 1-based step number, `targetIndex` is 0-based.
  */
 export function canOpenPackageEditorStep(input: {
   targetIndex: number;
@@ -32,4 +24,12 @@ export function canOpenPackageEditorStep(input: {
     if (!stepValidity[step]) return false;
   }
   return true;
+}
+
+export function decidePackageSaveRoute(input: {
+  isLive: boolean;
+  sensitiveChangeCount: number;
+}): PackageSaveRoute {
+  if (!input.isLive) return "save-draft";
+  return input.sensitiveChangeCount > 0 ? "review-first" : "save-directly";
 }

@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import type { Dispatch, SetStateAction } from "react";
 
-import type { SidebarStepperStep } from "@/components/ui/sidebar-stepper-dialog-body";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import type { PackageFieldErrors } from "../../create-package/schemas";
@@ -11,11 +10,17 @@ import type { PackageFormData } from "../../create-package/types";
 
 // ---------------------------------------------------------------------------
 // The seven steps of the package editor: their labels, and their content.
-// Each step's form is only fetched when the step is opened, so the first
-// chunk the editor needs does not carry all seven forms.
+// Each section's form is its own chunk, so the first chunk the editor needs
+// does not carry all seven forms.
 // ---------------------------------------------------------------------------
 
-export const PACKAGE_EDITOR_STEPS: SidebarStepperStep[] = [
+export interface PackageEditorStep {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const PACKAGE_EDITOR_STEPS: PackageEditorStep[] = [
   {
     id: "commercial",
     label: "Commercial Identity",
@@ -69,11 +74,6 @@ const stepLoaders = [
   () => import("../../create-package/components/step-7-review-publish"),
 ] as const;
 
-/** Starts downloading a step's code ahead of time. Safe to call for a step that does not exist. */
-export function preloadPackageEditorStep(stepIndex: number) {
-  stepLoaders[stepIndex]?.();
-}
-
 function PackageEditorStepSkeleton() {
   return (
     <div className="flex flex-col gap-4 py-2">
@@ -87,6 +87,11 @@ function PackageEditorStepSkeleton() {
   );
 }
 
+/** Starts downloading a step's code ahead of time. Safe to call for a step that does not exist. */
+export function preloadPackageEditorStep(stepIndex: number) {
+  stepLoaders[stepIndex]?.();
+}
+
 const StepCommercialIdentity = dynamic(stepLoaders[0], { loading: PackageEditorStepSkeleton });
 const StepSalesOfferPricing = dynamic(stepLoaders[1], { loading: PackageEditorStepSkeleton });
 const StepJourneyTemplate = dynamic(stepLoaders[2], { loading: PackageEditorStepSkeleton });
@@ -95,31 +100,31 @@ const StepTravellerRequirements = dynamic(stepLoaders[4], { loading: PackageEdit
 const StepGroupDefaults = dynamic(stepLoaders[5], { loading: PackageEditorStepSkeleton });
 const StepReviewPublish = dynamic(stepLoaders[6], { loading: PackageEditorStepSkeleton });
 
-interface PackageEditorStepPanelProps {
+interface PackageEditorStepContentProps {
   /** 0-based, matching `PACKAGE_EDITOR_STEPS`. */
-  activeStep: number;
+  stepIndex: number;
   formData: PackageFormData;
   setFormData: Dispatch<SetStateAction<PackageFormData>>;
   /** Row id once the draft exists, so the package's own code is not reported as already used. */
   packageId: string | null;
-  /** Messages for the open step's fields; `null` until the step has been visited and left. */
+  /** Messages for this step's fields; `null` until the step has been visited and left. */
   fieldErrors: PackageFieldErrors | null;
   /** Jumps to a step from the review step. 1-based, as the review step reports it. */
   onGoToStep: (step: number) => void;
 }
 
-/** Renders only the open step. */
-export function PackageEditorStepPanel({
-  activeStep,
+/** The form fields of one step. */
+export function PackageEditorStepContent({
+  stepIndex,
   formData,
   setFormData,
   packageId,
   fieldErrors,
   onGoToStep,
-}: PackageEditorStepPanelProps) {
+}: PackageEditorStepContentProps) {
   const fieldProps = { fieldErrors, formData, setFormData };
 
-  switch (PACKAGE_EDITOR_STEPS[activeStep]?.id) {
+  switch (PACKAGE_EDITOR_STEPS[stepIndex]?.id) {
     case "commercial":
       return <StepCommercialIdentity {...fieldProps} currentPackageId={packageId} />;
     case "pricing":
