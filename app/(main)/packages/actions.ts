@@ -982,7 +982,7 @@ export async function getPackageDeleteImpactAction(packageId: string): Promise<P
 
 const deletePackageInput = z.object({
   packageId: idSchema,
-  /** The `updated_at` the person saw when they opened the dialog. */
+  /** The `updated_at` the person saw when they opened the editor. */
   expectedUpdatedAt: z.string().max(64).optional(),
   /** The package code, typed by the person. */
   confirmCode: z.string().trim().min(1).max(64),

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 import { getSessionUser } from "@/lib/dal";
@@ -16,6 +16,8 @@ export default async function PackagesPage({
   searchParams: Promise<{ create?: string }>;
 }) {
   const { create } = await searchParams;
+  // Old deep link: creating a package is now its own page (TASK-044).
+  if (create === "1") redirect("/packages/new");
   const { role, roleId } = await getCurrentStaffRole();
   const supabase = createClient(await cookies());
   // A custom role's saved overrides (Management → Roles & Permissions),
@@ -48,7 +50,6 @@ export default async function PackagesPage({
       can={can}
       currentUserId={user?.id ?? null}
       pendingChanges={pendingChanges}
-      autoOpenCreate={create === "1"}
     />
   );
 }

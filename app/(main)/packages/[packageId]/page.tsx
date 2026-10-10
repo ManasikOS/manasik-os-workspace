@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 import { getSessionUser } from "@/lib/dal";
@@ -31,6 +31,8 @@ export default async function PackageDetailPage({
 }) {
   const [{ packageId }, { tab, edit }] = await Promise.all([params, searchParams]);
   if (!isUuid(packageId)) notFound();
+  // Old deep link: editing a package is now its own page (TASK-044).
+  if (edit === "1") redirect(`/packages/${packageId}/edit`);
 
   const { role, roleId } = await getCurrentStaffRole();
 
@@ -82,7 +84,6 @@ export default async function PackageDetailPage({
       currentUserId={user?.id ?? null}
       can={can}
       initialTab={initialTab}
-      autoOpenEdit={edit === "1"}
     />
   );
 }

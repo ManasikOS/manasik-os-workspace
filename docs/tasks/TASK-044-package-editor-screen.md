@@ -226,6 +226,46 @@ Manual in the browser (after each slice):
 meant to be identical; the footer Save button and "save and leave" now both
 go through `decidePackageSaveRoute`.
 
+### Slice 4 status: code done, browser check pending
+- `/packages/new` and `/packages/[packageId]/edit` render
+  `PackageEditorScreen`; the edit page loads the package on the server via
+  `loadPackageEditSnapshot` (404 if the role cannot view it). Each has a
+  matching `loading.tsx`.
+- The editor body moved out of the dialog into
+  `package-editor/package-editor-workspace.tsx`, used by both the page and the
+  old dialog until slice 5 removes the dialog. The leave prompt is
+  `package-leave-confirm-dialog.tsx`; the review is now
+  `package-change-review-sheet.tsx`.
+- `use-unsaved-changes-guard.ts` stops link clicks (pure rule + tests in
+  `unsaved-changes-link-click.ts`) and the Back button. The Back handling
+  listens in the capture phase to run before Next's own `popstate` handler
+  (confirmed in `next/dist/client/components/app-router.js`). If that ever
+  stops working, Back leaves without asking, as before. Forward is not
+  guarded.
+- Save and publish: `onDraftSaved`, `onPublished` and `onClose` let the page
+  and the dialog differ. On the page, the first draft save puts
+  `/packages/<id>/edit` in the address with `history.replaceState` and does
+  not call `router.refresh()`, so the form is not remounted mid-edit.
+- **Deferred:** step in the URL (`?step=`). It is an extra, not needed for
+  the exit criterion; do it as a follow-up if wanted.
+- **Needs a look in the browser:** the card height
+  (`h-[calc(100dvh-13rem)]`) was chosen without seeing the real header; the
+  step panel is `absolute inset-0` and collapses if the card has no height.
+
+### Slice 5 status: code done, browser check pending
+- Packages list: "Create Package" goes to `/packages/new`, row Edit to
+  `/packages/[id]/edit`; the dialog state, `autoOpenCreate` and the stale
+  "route-based wizard also exists" comment are gone.
+- Package detail: Edit goes to `/packages/[id]/edit`; `autoOpenEdit` removed.
+- `/packages?create=1` redirects to `/packages/new`; `/packages/[id]?edit=1`
+  redirects to `/packages/[id]/edit`. Both gates are enforced by the
+  destination page.
+- `create-package-dialog.tsx` deleted. Departure Groups' "create a package"
+  link (`router.push("/packages/new")`) now lands on the editor page.
+- Remaining mentions of the dialog are in historical task docs
+  (TASK-041/042/043), the packages runbook and module plan; slice 6 updates
+  the two that describe current behaviour.
+
 ## Risks
 - In-app navigation interception is the most delicate part (App Router has
   no route-change event). Keep it in one hook with tests; do not scatter it.

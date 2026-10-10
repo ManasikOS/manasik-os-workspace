@@ -6,13 +6,13 @@ import { ShieldAlert, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { InputGroup, InputGroupAddon, InputGroupText, InputGroupTextarea } from "@/components/ui/input-group";
 import { cn } from "@/lib/utils";
 import { TONE_CLASS } from "@/lib/ui/tone";
@@ -21,7 +21,7 @@ import { groupChangesByTier, type PackageColumnChange } from "@/lib/packages/cha
 import PackageChangeDiffView from "./package-change-diff-view";
 
 /**
- * The before / after comparison shown before a change to a package that is already on sale is saved (TASK-043).
+ * The before / after comparison, in a side sheet, shown before a change to a package that is already on sale is saved (TASK-043).
  *
  * Display-only changes are listed but save at once. Payment, contract and booking changes are shown in full, need a written reason, and — unless the
  * agency has switched approval off for that kind of change — are sent to an administrator instead of going live. What this dialog says will happen is
@@ -33,11 +33,11 @@ export interface PackageApprovalPolicy {
   bookingsAndOperations: boolean;
 }
 
-interface PackageChangeReviewDialogProps {
+interface PackageChangeReviewSheetProps {
   open: boolean;
   packageTitle: string;
   changes: PackageColumnChange[];
-  /** `null` while it is still loading; the dialog then assumes approval is needed. */
+  /** `null` while it is still loading; the sheet then assumes approval is needed. */
   policy: PackageApprovalPolicy | null;
   /** Whether the person may change payment and booking terms at all (`editSensitiveTerms`). */
   canEditSensitiveTerms: boolean;
@@ -50,7 +50,7 @@ interface PackageChangeReviewDialogProps {
 
 const MAX_REASON_LENGTH = 500;
 
-export default function PackageChangeReviewDialog({
+export default function PackageChangeReviewSheet({
   open,
   packageTitle,
   changes,
@@ -60,7 +60,7 @@ export default function PackageChangeReviewDialog({
   isSaving,
   onCancel,
   onConfirm,
-}: PackageChangeReviewDialogProps) {
+}: PackageChangeReviewSheetProps) {
   const [reason, setReason] = useState("");
   const [supersedePending, setSupersedePending] = useState(false);
 
@@ -80,17 +80,20 @@ export default function PackageChangeReviewDialog({
   const canConfirm = canEditSensitiveTerms && !reasonProblem && !blockedByPending && !isSaving;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && !isSaving && onCancel()}>
-      <DialogContent className="flex max-h-[90vh] flex-col gap-0 p-0 sm:max-w-3xl">
-        <DialogHeader className="border-b border-border/50 px-5 py-4">
-          <DialogTitle>Review changes to {packageTitle || "this package"}</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={(next) => !next && !isSaving && onCancel()}>
+      <SheetContent
+        showCloseButton={false}
+        className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-3xl"
+      >
+        <SheetHeader className="border-b border-border/50 px-5 py-4">
+          <SheetTitle>Review changes to {packageTitle || "this package"}</SheetTitle>
+          <SheetDescription>
             This package is on sale. Changes to payment and booking terms are copied into every departure group created after they take effect, and they
             decide what leads and agents are quoted. Groups that already exist keep the terms they were created with.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4 custom-scroll">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4 custom-scroll">
           {sensitiveCount > 0 ? (
             <div className={cn("flex items-start gap-2 rounded-sm px-3 py-2 text-xs", needsApproval ? TONE_CLASS.warning : TONE_CLASS.info)}>
               {needsApproval ? <ShieldAlert className="mt-0.5 size-3.5 shrink-0" /> : <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />}
@@ -161,7 +164,7 @@ export default function PackageChangeReviewDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="border-t border-border/50 px-5 py-3">
+        <SheetFooter className="border-t border-border/50 px-5 py-3">
           <Button variant="outline_without_border" onClick={onCancel} disabled={isSaving}>
             Keep editing
           </Button>
@@ -171,9 +174,9 @@ export default function PackageChangeReviewDialog({
           >
             {isSaving ? "Saving…" : sensitiveCount === 0 ? "Save changes" : needsApproval ? "Send for approval" : "Confirm and apply"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
 

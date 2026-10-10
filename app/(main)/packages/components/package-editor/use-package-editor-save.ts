@@ -12,7 +12,7 @@ import {
   type SavePackageResult,
 } from "../../actions";
 import type { PackageFormData } from "../../create-package/types";
-import type { PackageApprovalPolicy } from "../package-change-review-dialog";
+import type { PackageApprovalPolicy } from "../package-change-review-sheet";
 import { decidePackageSaveRoute } from "./decide-package-save-route";
 
 interface UsePackageEditorSaveParams {
@@ -27,6 +27,10 @@ interface UsePackageEditorSaveParams {
   onOpenStepNumber: (step: number) => void;
   /** Called once the editor should actually close. */
   onClose: () => void;
+  /** Called after a draft was saved and the person stays on the form. `isFirstSave` is true when it just created the package. */
+  onDraftSaved: (input: { packageId: string; isFirstSave: boolean }) => void;
+  /** Called after the package was published. */
+  onPublished: (packageId: string) => void;
 }
 
 /**
@@ -43,6 +47,8 @@ export function usePackageEditorSave({
   onSaved,
   onOpenStepNumber,
   onClose,
+  onDraftSaved,
+  onPublished,
 }: UsePackageEditorSaveParams) {
   const router = useProgressRouter();
   const [isWorking, startWorking] = useTransition();
@@ -113,10 +119,11 @@ export function usePackageEditorSave({
 
   const saveDraft = () => {
     startWorking(async () => {
+      const isFirstSave = packageId === null;
       const result = await persist();
       if (result?.ok) {
         toast.add({ title: "Draft saved" });
-        router.refresh();
+        onDraftSaved({ packageId: result.packageId, isFirstSave });
       }
     });
   };
@@ -176,14 +183,15 @@ export function usePackageEditorSave({
         title: "Package published",
         description: formData.title.trim() || undefined,
       });
-      onClose();
-      router.push(`/packages/${result.packageId}`);
-      router.refresh();
+      onPublished(result.packageId);
     });
   };
 
-  /** "Save and leave" from the unsaved-changes prompt. `closePrompt` hides that prompt once it has done its part. */
-  const saveAndLeave = (closePrompt: () => void) => {
+  /**
+   * "Save and leave" from the unsaved-changes prompt. `closePrompt` hides that prompt once it has done its part.
+   * `continueTo` runs after a successful save; it defaults to closing the editor.
+   */
+  const saveAndLeave = (closePrompt: () => void, continueTo: () => void = onClose) => {
     startWorking(async () => {
       if (decidePackageSaveRoute({ isLive, sensitiveChangeCount }) === "review-first") {
         closePrompt();
@@ -193,7 +201,7 @@ export function usePackageEditorSave({
       const result = await persist();
       if (result?.ok) {
         closePrompt();
-        onClose();
+        continueTo();
         router.refresh();
       }
     });

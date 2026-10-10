@@ -42,7 +42,6 @@ import {
 } from "../../components/package-status-badges";
 import ConfirmPackageActionDialog from "../../components/confirm-package-action-dialog";
 import DeletePackageDialog from "../../components/delete-package-dialog";
-import CreatePackageDialog from "../../components/create-package-dialog";
 import ForceArchivePackageDialog from "../../components/force-archive-package-dialog";
 import { usePackageLifecycle } from "../../use-package-lifecycle";
 import type {
@@ -103,8 +102,6 @@ interface PackageDetailProps {
    */
   can: PackageCapabilities;
   initialTab: PackageDetailTabId;
-  /** From `?edit=1` — opens the edit dialog on mount (e.g. the redirect from `/packages/[id]/edit`). */
-  autoOpenEdit?: boolean;
 }
 
 /**
@@ -115,8 +112,8 @@ interface PackageDetailProps {
  * Every lifecycle action (publish, unpublish, reopen, feature, archive,
  * restore, delete) goes through `usePackageLifecycle()`, the same hook the
  * list uses — this menu previously had none of Archive, Restore or Delete
- * at all (finding E5). Edit navigates to the route-based wizard rather than
- * opening a dialog (findings E2/E4).
+ * at all (finding E5). Edit navigates to the full-page editor at
+ * `/packages/[id]/edit` (TASK-044).
  */
 const PackageDetail = ({
   pkg,
@@ -128,16 +125,10 @@ const PackageDetail = ({
   currentUserId,
   can,
   initialTab,
-  autoOpenEdit = false,
 }: PackageDetailProps) => {
   const router = useRouter();
   const lifecycle = usePackageLifecycle();
   const [tab, setTab] = useState<PackageDetailTabId>(initialTab);
-  // `?edit=1` opens the dialog from its very first render via lazy initial
-  // state — same reasoning as `PackagesList`'s `createOpen`.
-  const [editOpen, setEditOpen] = useState(
-    () => autoOpenEdit && can.editPackage,
-  );
 
   const lifecycleTarget = {
     id: pkg.id,
@@ -206,16 +197,6 @@ const PackageDetail = ({
         onClose={lifecycle.closeForceArchive}
         onConfirm={lifecycle.forceArchive}
       />
-      {editOpen && (
-        <CreatePackageDialog
-          open
-          setOpen={(next) => {
-            if (!next) setEditOpen(false);
-          }}
-          mode="edit"
-          packageId={pkg.id}
-        />
-      )}
 
       <PageHeader
         subTitle="Package template details."
@@ -239,7 +220,7 @@ const PackageDetail = ({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setEditOpen(true)}
+                onClick={() => router.push(`/packages/${pkg.id}/edit`)}
               >
                 <Pencil className="size-3.5" /> Edit
               </Button>
