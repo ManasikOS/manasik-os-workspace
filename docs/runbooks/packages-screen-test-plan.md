@@ -19,7 +19,7 @@ Related: [`TASK-041`](../tasks/TASK-041-packages-db-error-remediation.md) ·
 | --- | --- | --- |
 | List | `/packages` — `components/packages-list.tsx` | KPIs, saved views, search, filters, sort, paging, export, row + context menus |
 | Detail | `/packages/[packageId]` | 8 tabs, header actions, badges, facts strip |
-| Create / Edit dialog | `components/create-package-dialog.tsx` | 6 steps + review, autosave, save draft, close, publish |
+| Create / Edit editor page | `/packages/new`, `/packages/[packageId]/edit` — `components/package-editor/` | 7 steps + review, save draft, change review sheet, unsaved-changes prompt, publish (TASK-044) |
 | Lifecycle | `use-package-lifecycle.ts`, `actions.ts` | publish, unpublish, reopen, feature, duplicate, archive (+force), restore, delete |
 | Archived sheet | `components/archived-packages-sheet.tsx` | list, open, restore |
 | Deep links | `/packages/new`, `/packages/[id]/edit`, `/packages/create-package?id=` | redirects |
@@ -120,7 +120,7 @@ Priority: **P0** must pass to ship · **P1** should pass · **P2** nice to have.
 | PKG-LST-04 | Empty catalogue | New agency with no packages | Message "No packages yet. Create your first package template to start selling." KPIs all 0, "0%" occupancy. | P0 |
 | PKG-LST-05 | Loading state | Throttle network, reload | `loading.tsx` skeleton, no blank screen. | P1 |
 | PKG-LST-06 | Error state | Break `list_packages_with_usage` (rename in rolled-back env or block RPC) | `error.tsx` boundary with retry; no raw stack. | P1 |
-| PKG-LST-07 | `?create=1` | Open `/packages?create=1` as ADMIN, then as FINANCE | ADMIN: Create dialog opens on first render. FINANCE: dialog does **not** open. | P0 |
+| PKG-LST-07 | `?create=1` | Open `/packages?create=1` as ADMIN, then as FINANCE | ADMIN: redirects to `/packages/new` (the editor page). FINANCE: 404. | P0 |
 | PKG-LST-08 | Data freshness after action | Publish P1, watch table | Row status flips without manual reload (`router.refresh`). | P0 |
 
 ### C. KPI cards
@@ -273,14 +273,18 @@ Exports the **current view** (saved view + search + filters + sort), **all pages
 | PKG-EXP-08 | Role gate | MARKETING/GUIDE cannot see Export. | P0 |
 | PKG-EXP-09 | Values | Featured "Yes/No"; Updated is ISO-8601; counts match the table. | P1 |
 
-### M. Create / Edit dialog (wizard)
+### M. Create / Edit editor page (wizard)
+
+> Create and Edit are a full page since TASK-044 (they were a dialog). Rows below that mention "dialog" mean the editor page.
+> Rows that describe autosave (PKG-WIZ-04, 20, 21, 22, 24, 27, 28, 29) predate TASK-043, which removed autosave: nothing saves until
+> Save draft / Save changes / Publish. Re-derive their expected results from the TASK-043 behaviour before running them.
 
 Steps: 1 Commercial Identity · 2 Pricing · 3 Journey · 4 Services · 5 Requirements · 6 Group Defaults · 7 Review & Publish.
 
 | ID | Test | Steps | Expected | Pri |
 | --- | --- | --- | --- | --- |
-| PKG-WIZ-01 | Open create | Create Package | Dialog opens on step 1 with **blank** internal code (no hard-coded `RF-PKG-2026-UM01`). | P0 |
-| PKG-WIZ-02 | Open edit | Row menu → Edit Details / detail → Edit | Dialog loads saved values; `?edit=1` on detail opens it too (only with editPackage). | P0 |
+| PKG-WIZ-01 | Open create | Create Package | Editor page opens on step 1 with **blank** internal code (no hard-coded `RF-PKG-2026-UM01`). | P0 |
+| PKG-WIZ-02 | Open edit | Row menu → Edit Details / detail → Edit | Page loads saved values (server-loaded, no skeleton flash); `/packages/<id>?edit=1` redirects to `/packages/<id>/edit` (only with editPackage). | P0 |
 | PKG-WIZ-03 | Step 1 required | Leave title/code/overview/capacity/min size empty | Cannot proceed / publish; errors name each field ("Package name is required", "Internal code is required", "Package overview is required", "Planned capacity must be greater than 0", "Minimum group size must be greater than 0", "Days must be at least 1"). | P0 |
 | PKG-WIZ-04 | Autosave creates draft | Type a title, wait ~2 s | Sidebar label "Saving…" then "Saved"; a Draft row appears (after refresh) in the list. | P0 |
 | PKG-WIZ-05 | Duplicate code, inline | Enter a code already used | Message "Another package already uses this code" with one-click `CODE-2` suggestion; accepting fills it. No raw DB text. | P0 |
@@ -310,7 +314,7 @@ Steps: 1 Commercial Identity · 2 Pricing · 3 Journey · 4 Services · 5 Requir
 | PKG-WIZ-29 | Browser refresh mid-edit | Refresh during editing | Beforeunload prompt only while a write is pending; reopened draft has all autosaved fields. | P1 |
 | PKG-WIZ-30 | Large payload | Paste 100 KB into overview; 300 itinerary days | Handled or rejected with a clear message; app stays responsive. | P2 |
 | PKG-WIZ-31 | Edit as FINANCE/CEO/VISA | Visit `/packages/<id>/edit` | 404 (needs editPackage). Detail page has no Edit button. | P0 |
-| PKG-WIZ-32 | Keyboard & focus | Tab order, Esc, focus trap, labels on every input | Focus trapped in dialog; Esc triggers the same close warning; every input has a visible label. | P1 |
+| PKG-WIZ-32 | Keyboard & focus | Tab order, Esc, focus trap, labels on every input | Focus is trapped in the leave prompt and the review sheet and returns to the Cancel button when they close; every input has a visible label. | P1 |
 
 ### N. Detail page
 
@@ -336,8 +340,8 @@ Steps: 1 Commercial Identity · 2 Pricing · 3 Journey · 4 Services · 5 Requir
 
 | ID | Test | Expected | Pri |
 | --- | --- | --- | --- |
-| PKG-LNK-01 | `/packages/new` | Redirects to `/packages?create=1` and opens the dialog; 404 without createPackage. | P0 |
-| PKG-LNK-02 | `/packages/<id>/edit` | Redirects to `/packages/<id>?edit=1`; 404 without editPackage or if MARKETING can't view it. | P0 |
+| PKG-LNK-01 | `/packages/new` | Renders the create editor page; 404 without createPackage. `/packages?create=1` redirects here. | P0 |
+| PKG-LNK-02 | `/packages/<id>/edit` | Renders the edit editor page; 404 without editPackage or if MARKETING can't view it. `/packages/<id>?edit=1` redirects here. | P0 |
 | PKG-LNK-03 | Legacy `/packages/create-package` and `?id=<id>` | Redirect to `/packages/new` and `/packages/<id>/edit` respectively. | P1 |
 | PKG-LNK-04 | Create Departure Group | From an Open for Sale package → `/departure-groups?create=1&template=<id>` | Create sheet opens with that package preselected; an id the role cannot see is ignored. | P0 |
 | PKG-LNK-05 | Picker status gating | Departure Groups create sheet | Offers only Open for Sale by default; ADMIN-only "Include drafts" toggle shows drafts with completeness %; Archived/Sales Closed never selectable. | P0 |
@@ -380,7 +384,7 @@ Run these on staging inside rolled-back transactions or the test agency.
 | PKG-UX-03 | Keyboard only | Complete create → publish → archive → restore without a mouse. | P1 |
 | PKG-UX-04 | Screen reader | Icon buttons have names ("More actions", "Package actions"); sortable headers announce sort; toasts announced. | P1 |
 | PKG-UX-05 | Colour not sole signal | Status/completeness shown with text as well as colour. | P2 |
-| PKG-UX-06 | axe scan | `@axe-core/playwright` on list, detail, dialog, sheet | No serious/critical violations. | P1 |
+| PKG-UX-06 | axe scan | `@axe-core/playwright` on list, detail, editor page, review sheet, leave prompt | No serious/critical violations. | P1 |
 | PKG-UX-07 | Copy clarity | Every message is understandable to a non-technical user (AGENTS UI rule); no jargon or raw codes. | P1 |
 
 ### R. Performance
@@ -474,3 +478,20 @@ Gaps worth adding (suggested order):
 | Test ID | Role | Result (Pass / Fail / Blocked) | Actual result / evidence | Defect ref |
 | --- | --- | --- | --- | --- |
 |  |  |  |  |  |
+
+### M2. Editor page behaviour added by TASK-044
+
+| ID | Test | Steps | Expected | Pri |
+| --- | --- | --- | --- | --- |
+| PKG-EDP-01 | Layout fills the screen | Open `/packages/new` at 320 / 768 / 1024 / 1440 px, light and dark | Editor card fills the space under the heading; step panel scrolls inside; footer buttons stay visible; nothing clipped. | P0 |
+| PKG-EDP-02 | Cancel with nothing changed | Open create, press Cancel | Leaves at once to `/packages`; no prompt. | P0 |
+| PKG-EDP-03 | Cancel with edits | Type a title, press Cancel | Prompt "You have unsaved changes" with Keep editing / Discard changes / Save draft and leave. | P0 |
+| PKG-EDP-04 | Prompt dismissal | With the prompt open, press Esc, then click outside | Both mean Keep editing; the form is unchanged. | P0 |
+| PKG-EDP-05 | Link click while dirty | Edit a field, click a sidebar link or the Packages breadcrumb | Prompt appears; Discard continues to the clicked page; Save draft and leave saves, then continues there. | P0 |
+| PKG-EDP-06 | Modified link click | Edit a field, ctrl/cmd-click a sidebar link | Opens in a new tab with no prompt; the form is untouched. | P1 |
+| PKG-EDP-07 | Back button while dirty | Edit a field, press the browser Back | Prompt appears and the address bar still shows the editor URL; Keep editing stays; Discard goes back one page. | P0 |
+| PKG-EDP-08 | Tab close while dirty | Edit a field, close the tab | Browser's own "Leave site?" prompt. | P1 |
+| PKG-EDP-09 | First draft save | In create, fill step 1, Save draft, then refresh | URL became `/packages/<id>/edit`; refresh reopens that draft; the Packages list shows one new draft, not two. | P0 |
+| PKG-EDP-10 | Change review sheet | Edit a price on an Open for Sale package, Save changes | A right-side sheet lists before/after, needs a reason, and does not stack on another modal; Keep editing closes it. | P0 |
+| PKG-EDP-11 | Publish | Complete all steps, Publish | Lands on the package detail page; one navigation, no flash of the list. | P0 |
+| PKG-EDP-12 | Unknown id | Open `/packages/not-a-uuid/edit` and `/packages/<random-uuid>/edit` | Both 404. | P1 |

@@ -276,4 +276,15 @@ go through `decidePackageSaveRoute`.
   collapses to zero.
 
 ## Status
-Draft
+In progress: all six slices are written and the type check, lint and
+packages tests pass. **Not done until the manual checklist in "Test plan" has
+been run in a browser** (the work was built without a logged-in session). Open
+items:
+- Run the manual checklist; `PKG-EDP-01` to `PKG-EDP-12` in
+  `docs/runbooks/packages-screen-test-plan.md` cover the new behaviour.
+- Confirm the card height and the Back-button guard (see slice 4 notes).
+- Follow-up, not required: current step in the URL (`?step=`).
+- `lib/ops/gate/schema-baseline.test.ts` fails on the migration count; it is
+  unrelated to this task.
+
+Set this to Done, and slice 6's "docs" box to ticked, once the checklist passes.

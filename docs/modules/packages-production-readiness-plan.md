@@ -663,6 +663,8 @@ No new migration — this phase was entirely application-layer. All eight items 
   Departure Groups' "create a package first" flow); they redirect into the dialog via `?create=1`
   / `?edit=1` rather than rendering a second wizard shell. The `usePackageLifecycle()`
   consolidation from E5 was kept — it never depended on which UI shell handles creation.
+  **Superseded by TASK-044:** creation and editing are now a full page at `/packages/new` and
+  `/packages/[id]/edit`, and the dialog is gone — see the section at the end of this document.
 - **E3 (honest save feedback):** `use-draft-autosave.ts`'s `flush()`/`saveNow()` previously threw
   away whether a save actually succeeded. Added a `FlushOutcome` type
   (`{ok: true} | {ok: false; code?: "STALE"}`) that every branch of `flush()` now returns —
@@ -868,3 +870,28 @@ it replaces — but never executed against a real database; **run it on staging 
 packages list still renders identically (same rows, same counts) before and after switching
 `listPackages()` over to the RPC**, the same "reviewed, not exercised" caveat every prior phase's
 migration has carried.
+
+---
+
+## Packages create / edit is a page (TASK-044)
+
+Creating and editing a package is a full-page editor, not a dialog. This reverses the
+"restore the dialog" correction under Phase 4 (E2 / E4); the reasons are in
+`docs/tasks/TASK-044-package-editor-screen.md` (long multi-step forms belong on pages, a
+modal over a modal is a poor layering, and the dialog was already full-viewport).
+
+- **Routes:** `/packages/new` and `/packages/[packageId]/edit` render `PackageEditorScreen`.
+  `/packages?create=1` and `/packages/[id]?edit=1` redirect to them. The edit page loads the
+  package on the server with `loadPackageEditSnapshot` (`packages/package-edit-snapshot.ts`),
+  which also runs the object-level `canRoleViewPackage` check (finding A5).
+- **Code:** `app/(main)/packages/components/package-editor/` holds the editor. The form,
+  step-navigation and save hooks are separate; `decidePackageSaveRoute` is the single rule for
+  what Save does (draft / review first / save directly).
+- **Unsaved changes:** one prompt (`PackageLeaveConfirmDialog`) for Cancel, link clicks and the
+  Back button, driven by `useUnsavedChangesGuard`. The Back-button part relies on a
+  capture-phase `popstate` listener running before Next's own handler; if that stops working,
+  Back leaves without asking. Navigation started from code is not intercepted.
+- **Change review:** `PackageChangeReviewSheet` (a side sheet) replaces the review dialog.
+- **Shared UI fix:** the Dialog overlay is `z-50`, level with its popup, so a dialog opened over
+  another dialog dims and blurs it.
+- **Not done:** the current step is not in the URL.
