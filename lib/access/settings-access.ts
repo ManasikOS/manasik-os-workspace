@@ -51,6 +51,12 @@ export interface SettingsCapabilities {
   importData: boolean;
 
   viewDangerZone: boolean;
+
+  /**
+   * May switch on or off the second-person approval for changes to a live package's payment, contract and booking terms
+   * (Settings → Operations → Package change approval). Read by the database as well: supabase/migrations/20270120090400_packages_change_requests.sql.
+   */
+  managePackageApprovalPolicy: boolean;
 }
 
 const NONE: SettingsCapabilities = {
@@ -77,6 +83,7 @@ const NONE: SettingsCapabilities = {
   exportData: false,
   importData: false,
   viewDangerZone: false,
+  managePackageApprovalPolicy: false,
 };
 
 const CAPABILITIES: Record<StaffRole, SettingsCapabilities> = {
@@ -104,6 +111,7 @@ const CAPABILITIES: Record<StaffRole, SettingsCapabilities> = {
     exportData: true,
     importData: true,
     viewDangerZone: true,
+    managePackageApprovalPolicy: true,
   },
   // Business visibility into identity and branches, read-only. No security,
   // no finance edit, no danger zone — see the role table in the spec.

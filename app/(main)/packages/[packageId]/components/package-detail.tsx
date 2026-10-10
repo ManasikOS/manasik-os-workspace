@@ -41,7 +41,7 @@ import {
   VisibilityBadge,
 } from "../../components/package-status-badges";
 import ConfirmPackageActionDialog from "../../components/confirm-package-action-dialog";
-import CreatePackageDialog from "../../components/create-package-dialog";
+import DeletePackageDialog from "../../components/delete-package-dialog";
 import ForceArchivePackageDialog from "../../components/force-archive-package-dialog";
 import { usePackageLifecycle } from "../../use-package-lifecycle";
 import type {
@@ -49,6 +49,8 @@ import type {
   PackageUsageSummary,
 } from "@/lib/data/packages-repository";
 import type { PackageActivityLog } from "@/lib/types/packages";
+import type { PackageChangeRequest } from "@/lib/data/packages-repository";
+import PackageChangeRequestsPanel from "../../components/package-change-requests-panel";
 import ActivityTab from "./tabs/activity-tab";
 import GroupDefaultsTab from "./tabs/group-defaults-tab";
 import GroupsTab from "./tabs/groups-tab";
@@ -88,6 +90,11 @@ interface PackageDetailProps {
   usage: PackageUsageSummary;
   groups: DepartureGroupUsingPackage[];
   activity: PackageActivityLog[];
+  /** Changes to payment/contract/booking terms waiting for an administrator's approval. */
+  pendingChanges: PackageChangeRequest[];
+  /** Past reviewed changes (decided, applied, withdrawn or expired), newest first, for the Activity tab. */
+  changeHistory: PackageChangeRequest[];
+  currentUserId: string | null;
   /**
    * Resolved server-side (`[packageId]/page.tsx`) via
    * `loadDynamicCapabilities` — see `PackagesList`'s identical `can` prop
@@ -95,8 +102,6 @@ interface PackageDetailProps {
    */
   can: PackageCapabilities;
   initialTab: PackageDetailTabId;
-  /** From `?edit=1` — opens the edit dialog on mount (e.g. the redirect from `/packages/[id]/edit`). */
-  autoOpenEdit?: boolean;
 }
 
 /**
@@ -107,26 +112,23 @@ interface PackageDetailProps {
  * Every lifecycle action (publish, unpublish, reopen, feature, archive,
  * restore, delete) goes through `usePackageLifecycle()`, the same hook the
  * list uses — this menu previously had none of Archive, Restore or Delete
- * at all (finding E5). Edit navigates to the route-based wizard rather than
- * opening a dialog (findings E2/E4).
+ * at all (finding E5). Edit navigates to the full-page editor at
+ * `/packages/[id]/edit` (TASK-044).
  */
 const PackageDetail = ({
   pkg,
   usage,
   groups,
   activity,
+  pendingChanges,
+  changeHistory,
+  currentUserId,
   can,
   initialTab,
-  autoOpenEdit = false,
 }: PackageDetailProps) => {
   const router = useRouter();
   const lifecycle = usePackageLifecycle();
   const [tab, setTab] = useState<PackageDetailTabId>(initialTab);
-  // `?edit=1` opens the dialog from its very first render via lazy initial
-  // state — same reasoning as `PackagesList`'s `createOpen`.
-  const [editOpen, setEditOpen] = useState(
-    () => autoOpenEdit && can.editPackage,
-  );
 
   const lifecycleTarget = {
     id: pkg.id,
@@ -166,7 +168,7 @@ const PackageDetail = ({
       case "groups":
         return <GroupsTab groups={groups} />;
       case "activity":
-        return <ActivityTab activity={activity} />;
+        return <ActivityTab activity={activity} changeHistory={changeHistory} />;
       default:
         return null;
     }
@@ -179,22 +181,22 @@ const PackageDetail = ({
         onClose={lifecycle.closePending}
         onConfirmed={lifecycle.confirmPending}
       />
+      <DeletePackageDialog
+        key={lifecycle.deleteTarget?.id ?? "none"}
+        pkg={lifecycle.deleteTarget}
+        onClose={lifecycle.closeDelete}
+        onDeleted={() => {
+          lifecycle.closeDelete();
+          router.push("/packages");
+          router.refresh();
+        }}
+      />
       <ForceArchivePackageDialog
         pkg={lifecycle.forceArchiveTarget?.pkg ?? null}
         liveGroupCount={lifecycle.forceArchiveTarget?.liveGroupCount ?? 0}
         onClose={lifecycle.closeForceArchive}
         onConfirm={lifecycle.forceArchive}
       />
-      {editOpen && (
-        <CreatePackageDialog
-          open
-          setOpen={(next) => {
-            if (!next) setEditOpen(false);
-          }}
-          mode="edit"
-          packageId={pkg.id}
-        />
-      )}
 
       <PageHeader
         subTitle="Package template details."
@@ -218,7 +220,7 @@ const PackageDetail = ({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setEditOpen(true)}
+                onClick={() => router.push(`/packages/${pkg.id}/edit`)}
               >
                 <Pencil className="size-3.5" /> Edit
               </Button>
@@ -321,13 +323,15 @@ const PackageDetail = ({
                 {can.deletePackage && (
                   <DropdownMenuItem
                     variant="destructive"
-                    disabled={usage.groupCount > 0}
+                    disabled={usage.groupCount > 0 || (pkg.status !== "Draft" && pkg.status !== "Archived")}
                     onClick={() => lifecycle.actions.onDelete(lifecycleTarget)}
                   >
                     <Trash2 />
                     {usage.groupCount > 0
                       ? `Delete (used by ${usage.groupCount})`
-                      : "Delete Package"}
+                      : pkg.status === "Draft" || pkg.status === "Archived"
+                        ? "Delete Package"
+                        : "Delete (archive it first)"}
                   </DropdownMenuItem>
                 )}
               </DropdownMenuContent>
@@ -370,6 +374,8 @@ const PackageDetail = ({
           </span>
         )}
       </Card>
+
+      <PackageChangeRequestsPanel requests={pendingChanges} can={can} currentUserId={currentUserId} />
 
       <div>
         <Tabs

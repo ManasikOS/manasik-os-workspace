@@ -87,3 +87,56 @@ describe("listCompletenessPercent", () => {
     expect(listCompletenessPercent([1, 2])).toBe(67);
   });
 });
+
+import { INITIAL_PACKAGE_FORM_DATA } from "@/app/(main)/packages/create-package/types";
+
+import { PACKAGE_LIMITS, packageFormSchema } from "./packages";
+
+describe("packageFormSchema limits (TASK-043)", () => {
+  const valid = () => ({ ...INITIAL_PACKAGE_FORM_DATA });
+
+  it("accepts the wizard's starting form", () => {
+    expect(packageFormSchema.safeParse(valid()).success).toBe(true);
+  });
+
+  it("rejects fields the form does not have", () => {
+    expect(packageFormSchema.safeParse({ ...valid(), owner_id: "x" }).success).toBe(false);
+  });
+
+  it("caps text length", () => {
+    expect(packageFormSchema.safeParse({ ...valid(), title: "a".repeat(PACKAGE_LIMITS.title) }).success).toBe(true);
+    expect(packageFormSchema.safeParse({ ...valid(), title: "a".repeat(PACKAGE_LIMITS.title + 1) }).success).toBe(false);
+    expect(packageFormSchema.safeParse({ ...valid(), cancellationPolicy: "a".repeat(PACKAGE_LIMITS.longText + 1) }).success).toBe(false);
+    expect(packageFormSchema.safeParse({ ...valid(), internalCode: "a".repeat(PACKAGE_LIMITS.code + 1) }).success).toBe(false);
+  });
+
+  it("caps list sizes", () => {
+    expect(packageFormSchema.safeParse({ ...valid(), inclusions: Array.from({ length: PACKAGE_LIMITS.textListItems + 1 }, (_, i) => `item ${i}`) }).success).toBe(false);
+    const day = (i: number) => ({ id: `d${i}`, dayNumber: i, title: "", description: "" });
+    expect(packageFormSchema.safeParse({ ...valid(), itinerary: Array.from({ length: PACKAGE_LIMITS.itineraryDays }, (_, i) => day(i + 1)) }).success).toBe(true);
+    expect(packageFormSchema.safeParse({ ...valid(), itinerary: Array.from({ length: PACKAGE_LIMITS.itineraryDays + 1 }, (_, i) => day(i + 1)) }).success).toBe(false);
+  });
+
+  it("keeps counts whole and in range, and still lets an empty or NaN number through as empty", () => {
+    expect(packageFormSchema.safeParse({ ...valid(), defaultCapacity: 12.5 }).success).toBe(false);
+    expect(packageFormSchema.safeParse({ ...valid(), defaultCapacity: -1 }).success).toBe(false);
+    expect(packageFormSchema.safeParse({ ...valid(), defaultCapacity: 1e12 }).success).toBe(false);
+    expect(packageFormSchema.safeParse({ ...valid(), defaultCapacity: 40 }).success).toBe(true);
+    expect(packageFormSchema.safeParse({ ...valid(), defaultCapacity: "" }).success).toBe(true);
+    expect(packageFormSchema.safeParse({ ...valid(), defaultCapacity: Number.NaN }).success).toBe(true);
+  });
+
+  it("checks payment milestone amounts and dates", () => {
+    const milestone = { id: "m1", label: "Deposit", amountType: "Fixed Amount", amount: 5000, dueRule: "Fixed Date", dueDate: "2027-01-15", refundable: false };
+    expect(packageFormSchema.safeParse({ ...valid(), paymentMilestones: [milestone] }).success).toBe(true);
+    expect(packageFormSchema.safeParse({ ...valid(), paymentMilestones: [{ ...milestone, amount: -5 }] }).success).toBe(false);
+    expect(packageFormSchema.safeParse({ ...valid(), paymentMilestones: [{ ...milestone, amount: 1e12 }] }).success).toBe(false);
+    expect(packageFormSchema.safeParse({ ...valid(), paymentMilestones: [{ ...milestone, dueDate: "next week" }] }).success).toBe(false);
+    expect(packageFormSchema.safeParse({ ...valid(), paymentMilestones: [{ ...milestone, id: "" }] }).success).toBe(false);
+  });
+
+  it("requires itinerary days to be whole numbers", () => {
+    const day = { id: "d1", dayNumber: 1.5, title: "", description: "" };
+    expect(packageFormSchema.safeParse({ ...valid(), itinerary: [day] }).success).toBe(false);
+  });
+});

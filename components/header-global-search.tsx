@@ -286,7 +286,7 @@ export function HeaderGlobalSearch({
                 aria-activedescendant={
                   activeRow ? `${listboxId}-${activeIndex}` : undefined
                 }
-                autoComplete="off"
+                autoComplete="on"
                 className="h-10"
               />
             </InputGroup>

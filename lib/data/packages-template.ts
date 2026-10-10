@@ -19,6 +19,7 @@
 
 import { cookies } from "next/headers";
 
+import { PACKAGE_CONTENT_COLUMNS, packageFieldTier } from "@/lib/access/package-field-tiers";
 import { createClient } from "@/utils/supabase/server";
 
 import {
@@ -146,6 +147,27 @@ function buildAccommodationStandards(
     }));
 }
 
+/** The columns whose values were reviewed (and, if the agency requires it, approved): the payment, contract and booking terms. */
+const APPROVED_TERM_COLUMNS = PACKAGE_CONTENT_COLUMNS.filter((column) => packageFieldTier(column) > 0);
+
+/**
+ * A new departure group copies the package's payment, contract and booking terms from the package's PUBLISHED VERSION, not from whatever the live row
+ * says at that instant (TASK-043 PKG-15). A version is written in the same transaction as every publish, reopen and approved or applied change, so it
+ * is exactly the set of terms that went through the review. Display-only columns (name, wording, hotel display names, itinerary wording) come from the
+ * live row so a corrected typo is not held back until the next version.
+ *
+ * `snapshot` is the version's `to_jsonb(packages row)`. Anything that is not an object, or a column the snapshot lacks, leaves the live value alone.
+ */
+export function applyPublishedTerms(live: PackageRow, snapshot: unknown): PackageRow {
+  if (snapshot === null || typeof snapshot !== "object" || Array.isArray(snapshot)) return live;
+  const approved = snapshot as Record<string, unknown>;
+  const merged: Record<string, unknown> = { ...(live as unknown as Record<string, unknown>) };
+  for (const column of APPROVED_TERM_COLUMNS) {
+    if (Object.prototype.hasOwnProperty.call(approved, column)) merged[column] = approved[column];
+  }
+  return merged as unknown as PackageRow;
+}
+
 /**
  * Maps one `packages` row to the shape `buildPackageSnapshot()` /
  * `buildReadinessItems()` / `buildAccommodations()` / `buildTransports()`
@@ -168,7 +190,24 @@ export async function loadTemplateDefinition(
   if (error) throw error;
   if (!data) return null;
 
-  const row = data as unknown as PackageRow;
+  const liveRow = data as unknown as PackageRow;
+
+  // The terms come from the published version when there is one and it can be read; otherwise (a draft, or a version this caller may not read) the live row.
+  let row = liveRow;
+  let versionId: string | null = null;
+  if (liveRow.published_version_id) {
+    const { data: version } = await supabase
+      .from("package_versions")
+      .select("id, snapshot")
+      .eq("id", liveRow.published_version_id)
+      .maybeSingle();
+    if (version) {
+      row = applyPublishedTerms(liveRow, (version as { snapshot: unknown }).snapshot);
+      versionId = (version as { id: string }).id;
+    } else {
+      console.warn(`[packages] version ${liveRow.published_version_id} of package ${liveRow.id} could not be read; the live row is used for its terms`);
+    }
+  }
 
   const paymentMilestones = (row.payment_milestones ?? []) as PaymentMilestone[];
 
@@ -211,6 +250,6 @@ export async function loadTemplateDefinition(
     includedServices: row.included_services ?? [],
     seatReservationRule: row.seat_reservation_rule,
     communicationTemplates: row.selected_communication_templates ?? [],
-    publishedVersionId: row.published_version_id ?? null,
+    publishedVersionId: versionId,
   };
 }

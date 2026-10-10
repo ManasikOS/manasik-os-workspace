@@ -97,7 +97,7 @@ function visibleMessageText(content: string, hasMedia: boolean): boolean {
 }
 
 const ROLE_STYLE: Record<InboxMessage["role"], string> = {
-  user: "bg-card! border-none self-start",
+  user: "  self-start",
   // Copilot's replies are outlined, not filled, so they never read as something a colleague typed.
   assistant: "bg-muted! text-foreground border self-end",
   staff:
@@ -460,7 +460,7 @@ export default function ConversationPanel({
 
   return (
     <div
-      className="flex h-full min-w-0 w-full flex-col"
+      className="flex h-full min-w-0 w-full  flex-col"
       data-inbox-conversation-open=""
     >
       <header className="flex flex-row items-center justify-between gap-x-3 gap-y-2 border-b border-muted px-5 py-3">
@@ -623,6 +623,7 @@ export default function ConversationPanel({
                       )}
                     >
                       <Card
+                        variant="md-shadow"
                         title={format(new Date(entry.item.created_at), "HH:mm")}
                         className={cn(
                           "flex max-w-[88%] flex-col gap-1 rounded-sm p-0 sm:max-w-[76%]",
@@ -735,7 +736,7 @@ export default function ConversationPanel({
                       entry.status !== "FAILED" && "opacity-80",
                     )}
                   >
-                    <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-primary-foreground">
+                    <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-primary">
                       {entry.content}
                     </p>
                   </Card>

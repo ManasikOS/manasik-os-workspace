@@ -1283,6 +1283,7 @@ const CreateDepartureGroupDialog = ({
                   </Card>
 
                   <Card
+                    variant="md-shadow"
                     className={cn(
                       "p-4 gap-3 dark:bg-transparent",
                       TONE_STAT_CARD.warning,
@@ -1356,7 +1357,7 @@ const CreateDepartureGroupDialog = ({
                   </Card>
 
                   {copyOptions.flights ? (
-                    <Card className="p-4 gap-3">
+                    <Card variant="md-shadow" className="p-4 gap-3">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium text-foreground">
                           Flight routing
