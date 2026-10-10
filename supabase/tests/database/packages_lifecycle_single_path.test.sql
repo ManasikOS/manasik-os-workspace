@@ -73,7 +73,7 @@ select is((select count(*)::int from public.packages where title = 'Stale'), 0, 
 
 -- publish_package_with_content: a new package, end to end -----------------------------------------------------------------------------------
 select lives_ok(
-  $select set_config('test.pub_id', (public.publish_package_with_content(null, '{"title":"Brand new","internal_code":"PS-NEW-1","days":5,"nights":4}'::jsonb)).id::text, true)$,
+  $$select set_config('test.pub_id', (public.publish_package_with_content(null, '{"title":"Brand new","internal_code":"PS-NEW-1","days":5,"nights":4}'::jsonb)).id::text, true)$$,
   'An ADMIN can create and publish a package in one call');
 select is((select status from public.packages where id = current_setting('test.pub_id')::uuid), 'Open for Sale', 'The new package is Open for Sale');
 select is((select internal_code from public.packages where id = current_setting('test.pub_id')::uuid), 'PS-NEW-1', 'The allow-listed content was written');

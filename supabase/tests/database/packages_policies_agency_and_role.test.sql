@@ -5,7 +5,7 @@ begin;
 -- MARKETING can only create an unfeatured Draft; an ADMIN can still do the whole normal job. One transaction, rolled back. Expect zero rows from finish().
 
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(23);
 
 insert into public.agencies (id, name, slug, status) values
   ('e0000000-0000-4000-8000-0000000000a1', 'Pkg Policy Agency A', 'pkg-policy-agency-a', 'ACTIVE'),
@@ -86,15 +86,19 @@ select throws_ok($$insert into public.packages (id, agency_id, owner_id, title, 
 set local "request.jwt.claims" = '{"sub":"e1000000-0000-4000-8000-0000000000a1","role":"authenticated"}';
 select is(public.zz_rows_changed($$delete from public.packages where id = 'e9000000-0000-4000-8000-0000000000a2'$$), 0, 'ADMIN cannot delete a package by writing to the table: delete_package() is the only way (20270120090600)');
 
--- The policies themselves: each of the four names an agency check and a role check ---------------------------------------------------------------------
+-- The policies themselves: each of the three names an agency check and a role check. There is no delete policy: packages are removed only through
+-- delete_package() (20270120090600_packages_controlled_delete.sql), which is asserted below. -----------------------------------------------------------
 reset role;
 select is(
   (select count(*)::int from pg_policy
     where polrelid = 'public.packages'::regclass
-      and polname in ('staff read packages', 'staff insert packages', 'staff update packages', 'staff delete packages')
+      and polname in ('staff read packages', 'staff insert packages', 'staff update packages')
       and pg_get_expr(coalesce(polwithcheck, polqual), polrelid) like '%current_agency_id%'
       and pg_get_expr(coalesce(polwithcheck, polqual), polrelid) like '%staff_role_in%'),
-  4, 'All four staff policies check the agency and the role');
+  3, 'All three staff policies check the agency and the role');
+select is(
+  (select count(*)::int from pg_policy where polrelid = 'public.packages'::regclass and polcmd in ('d', '*')),
+  0, 'No policy lets a signed-in user delete from packages directly');
 select is(
   (select count(*)::int from pg_policy where polrelid = 'public.packages'::regclass and polname = 'staff update packages'
       and pg_get_expr(polqual, polrelid) like '%current_agency_id%' and pg_get_expr(polwithcheck, polrelid) like '%current_agency_id%'),

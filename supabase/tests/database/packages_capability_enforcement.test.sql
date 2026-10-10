@@ -7,7 +7,7 @@ begin;
 -- One transaction, rolled back. Expect zero rows from finish() when every assertion passes.
 
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(15);
 
 insert into public.agencies (id, name, slug, status) values
   ('80000000-0000-4000-8000-0000000000a1', 'Pkg Capability Agency', 'pkg-capability', 'ACTIVE');

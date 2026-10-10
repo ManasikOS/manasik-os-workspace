@@ -77,6 +77,9 @@ as $$
 declare
   v_agency uuid := public.current_agency_id();
   v_status text;
+  v_website_content bigint := 0;
+  v_table text;
+  v_rows bigint;
 begin
   if not coalesce(public.staff_role_in('ADMIN'), false)
      or not coalesce(public.has_package_capability('deletePackage'), false) then
@@ -91,6 +94,15 @@ begin
     raise exception 'That package no longer exists.' using errcode = 'P0002';
   end if;
 
+  -- The website-content tables (public.package_content, public.package_faqs, public.package_media, public.package_seo_analyses) exist on staging but
+  -- no migration creates them, so a database built from the migrations does not have them. Count each one only when it is there.
+  foreach v_table in array array['public.package_content', 'public.package_faqs', 'public.package_media', 'public.package_seo_analyses'] loop
+    if to_regclass(v_table) is not null then
+      execute format('select count(*) from %s where package_id = $1', v_table::regclass) into v_rows using p_package_id;
+      v_website_content := v_website_content + v_rows;
+    end if;
+  end loop;
+
   return jsonb_build_object(
     'status', v_status,
     'departureGroups', (select count(*) from public.departure_groups where package_template_id = p_package_id),
@@ -100,11 +112,7 @@ begin
     'leadsPreferringIt', (select count(*) from public.leads where desired_package_id = p_package_id),
     'campaigns', (select count(*) from public.campaigns where linked_package_id = p_package_id),
     'agentAllocations', (select count(*) from public.agent_package_allocations where package_id = p_package_id),
-    'websiteContent',
-      (select count(*) from public.package_content where package_id = p_package_id)
-      + (select count(*) from public.package_faqs where package_id = p_package_id)
-      + (select count(*) from public.package_media where package_id = p_package_id)
-      + (select count(*) from public.package_seo_analyses where package_id = p_package_id),
+    'websiteContent', v_website_content,
     'pendingChanges', (select count(*) from public.package_change_requests where package_id = p_package_id and status = 'PENDING')
   );
 end;
