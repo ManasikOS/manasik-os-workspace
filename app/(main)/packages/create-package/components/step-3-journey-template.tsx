@@ -373,7 +373,7 @@ export const StepJourneyTemplate: React.FC<StepJourneyTemplateProps> = ({
   return (
     <div className="flex flex-col gap-5">
       {/* GROUP: day-by-day itinerary */}
-      <Card className="px-5 py-5" variant="md-shadow">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Day-by-day itinerary</CardTitle>
           <CardDescription>

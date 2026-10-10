@@ -224,7 +224,7 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
   return (
     <div className="flex flex-col gap-5">
       {/* GROUP 1: service inclusion checklist */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Included services</CardTitle>
           <CardDescription>
@@ -263,7 +263,7 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
       </Card>
 
       {/* GROUP 2: accommodation standards, one collapsible section per city */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Accommodation standards</CardTitle>
           <CardDescription>
@@ -475,7 +475,7 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
       </Card>
 
       {/* GROUP 3: transport requirements */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Default transport requirements</CardTitle>
           <CardDescription>
@@ -623,7 +623,7 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
       </Card>
 
       {/* GROUP 4: customer-facing inclusions */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Customer-facing inclusions</CardTitle>
           <CardDescription>
@@ -690,7 +690,7 @@ export const StepServiceStandards: React.FC<StepServiceStandardsProps> = ({
       </Card>
 
       {/* GROUP 5: customer-facing exclusions */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Customer-facing exclusions</CardTitle>
           <CardDescription>

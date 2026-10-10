@@ -154,7 +154,7 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
   return (
     <div className="flex flex-col gap-5">
       {/* GROUP 1: what the package is called and how it is described */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Package identity</CardTitle>
           <CardDescription>
@@ -200,20 +200,20 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
                 />
               </InputGroup>
               {packageCodeError && !typedPackageCode ? (
-            <p className="text-xs text-destructive">
-              {packageCodeError}{" "}
-              <Button
-                type="button"
-                variant="link"
-                size="sm"
-                className="h-auto cursor-pointer p-0 text-xs"
-                onClick={() => setPackageCodeRetry((count) => count + 1)}
-              >
-                Try again
-              </Button>
-            </p>
-          ) : null}
-          {packageCodeSuggestion ? (
+                <p className="text-xs text-destructive">
+                  {packageCodeError}{" "}
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto cursor-pointer p-0 text-xs"
+                    onClick={() => setPackageCodeRetry((count) => count + 1)}
+                  >
+                    Try again
+                  </Button>
+                </p>
+              ) : null}
+              {packageCodeSuggestion ? (
                 <p className="text-xs text-destructive">
                   Another package already uses this code. Each package needs its
                   own code.{" "}
@@ -260,7 +260,7 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
       </Card>
 
       {/* GROUP 2: journey type, length and category */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Journey &amp; classification</CardTitle>
           <CardDescription>
@@ -415,7 +415,7 @@ export const StepCommercialIdentity: React.FC<StepCommercialIdentityProps> = ({
       </Card>
 
       {/* GROUP 3: default group sizing */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Group capacity &amp; sizing</CardTitle>
           <CardDescription>

@@ -112,7 +112,7 @@ export const StepGroupDefaults: React.FC<StepGroupDefaultsProps> = ({
   return (
     <div className="flex flex-col gap-5">
       {/* GROUP 1: default group settings */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Default group settings</CardTitle>
           <CardDescription>
@@ -211,7 +211,7 @@ export const StepGroupDefaults: React.FC<StepGroupDefaultsProps> = ({
       </Card>
 
       {/* GROUP 2: departure group readiness checklist template */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Departure group readiness checklist</CardTitle>
           <CardDescription>

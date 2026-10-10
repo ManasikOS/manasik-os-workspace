@@ -142,7 +142,7 @@ export const StepTravellerRequirements: React.FC<
   return (
     <div className="flex flex-col gap-5">
       {/* GROUP 1: document requirements */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Document requirements</CardTitle>
           <CardDescription>
@@ -312,7 +312,7 @@ export const StepTravellerRequirements: React.FC<
       </Card>
 
       {/* GROUP 2: seat reservation rule */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>
             Seat reservation rule <span className="text-destructive">*</span>
@@ -350,7 +350,7 @@ export const StepTravellerRequirements: React.FC<
       </Card>
 
       {/* GROUP 3: communication templates */}
-      <Card variant="md-shadow" className="px-5 py-5">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Automated communication templates</CardTitle>
           <CardDescription>

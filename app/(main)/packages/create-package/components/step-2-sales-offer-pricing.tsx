@@ -105,7 +105,7 @@ export const StepSalesOfferPricing: React.FC<StepSalesOfferPricingProps> = ({
   return (
     <div className="flex flex-col gap-5">
       {/* GROUP 1: payment schedule (milestone builder) */}
-      <Card className="px-5 py-5" variant="md-shadow">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Payment schedule</CardTitle>
           <CardDescription>
@@ -382,7 +382,7 @@ export const StepSalesOfferPricing: React.FC<StepSalesOfferPricingProps> = ({
       </Card>
 
       {/* GROUP 2: customer-facing terms */}
-      <Card className="px-5 py-5" variant="md-shadow">
+      <Card className="px-5 py-5">
         <CardHeader>
           <CardTitle>Customer-facing terms</CardTitle>
           <CardDescription>
