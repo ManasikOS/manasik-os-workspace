@@ -216,6 +216,16 @@ Manual in the browser (after each slice):
    from list, detail and Departure Groups.
 6. **Docs**: update `docs/modules/` packages doc and set this task to Done.
 
+### Slice 3 status: code done, browser check pending
+`create-package-dialog.tsx` went from 842 to about 376 lines. The new files in
+`components/package-editor/` are `decide-package-save-route.ts` (+ test),
+`use-package-editor-form.ts`, `use-package-editor-steps.ts`,
+`use-package-editor-save.ts`, `use-unsaved-changes-guard.ts` (only the
+`beforeunload` part so far; slice 4 adds link and Back-button interception),
+`package-editor-steps.tsx` and `package-editor-notices.tsx`. Behaviour is
+meant to be identical; the footer Save button and "save and leave" now both
+go through `decidePackageSaveRoute`.
+
 ## Risks
 - In-app navigation interception is the most delicate part (App Router has
   no route-change event). Keep it in one hook with tests; do not scatter it.
