@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { TONE_TEXT } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 
+const STEP_PROBLEM_ID = "package-editor-step-problem";
+
 interface PackageEditorFooterProps {
   isLive: boolean;
   isDirty: boolean;
@@ -14,7 +16,7 @@ interface PackageEditorFooterProps {
   isWorking: boolean;
   isFirstStep: boolean;
   isLastStep: boolean;
-  /** The open step is complete, so Continue and Publish may be used. */
+  /** The open step is complete. When it is not, Continue and Publish still work: they show what is missing. */
   isStepValid: boolean;
   /** The first message about the open step, shown while it is incomplete. */
   stepProblem: string | undefined;
@@ -68,7 +70,11 @@ export function PackageEditorFooter({
 
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
         {!isStepValid ? (
-          <span role="status" className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-destructive">
+          <span
+            id={STEP_PROBLEM_ID}
+            role="status"
+            className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-destructive"
+          >
             <AlertCircle className="size-3.5 shrink-0" aria-hidden />
             <span className="line-clamp-2">{stepProblem ?? "Complete the required fields to continue"}</span>
           </span>
@@ -87,7 +93,11 @@ export function PackageEditorFooter({
         )}
 
         {!isLastStep ? (
-          <Button type="button" disabled={!isStepValid} onClick={onContinue}>
+          <Button
+            type="button"
+            onClick={onContinue}
+            aria-describedby={isStepValid ? undefined : STEP_PROBLEM_ID}
+          >
             Continue
           </Button>
         ) : isLive ? (
@@ -95,7 +105,12 @@ export function PackageEditorFooter({
             {isWorking ? "Saving…" : "Save changes"}
           </Button>
         ) : (
-          <Button type="button" disabled={isWorking || !isStepValid} onClick={onPublish}>
+          <Button
+            type="button"
+            disabled={isWorking}
+            onClick={onPublish}
+            aria-describedby={isStepValid ? undefined : STEP_PROBLEM_ID}
+          >
             {isWorking ? "Publishing…" : "Publish package"}
           </Button>
         )}

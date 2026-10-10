@@ -498,3 +498,5 @@ Gaps worth adding (suggested order):
 | PKG-EDP-13 | Stepper | Click a finished step, then a locked one | Finished step opens; locked step shows a lock and a tooltip and does not open; Continue is disabled while the step has problems and names the first one. | P0 |
 | PKG-EDP-14 | Step change | Press Continue on a tall step | The next step appears at full width; the page returns to its top; focus is on the step heading. | P0 |
 | PKG-EDP-15 | Last step | Reach step 7 on a draft; then on a package on sale | Draft: Publish package. On sale: Save changes only (no duplicate Save button). | P0 |
+| PKG-EDP-16 | Continue on an incomplete step | Leave a required field empty on step 1, press Continue | Continue is not disabled; the step shows each field message, scrolls to the first problem and focuses it if it is a field; the step does not change. | P0 |
+| PKG-EDP-17 | Publish with an earlier step incomplete | In edit mode, clear a required field on step 2, go to step 7, press Publish | Nothing is sent; the page opens step 2 with its messages showing and scrolls to the first one. | P0 |

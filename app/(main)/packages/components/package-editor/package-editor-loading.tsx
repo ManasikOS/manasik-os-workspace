@@ -9,7 +9,7 @@ export default function PackageEditorLoading() {
         <Skeleton className="h-4 w-48" />
         <Skeleton className="h-8 w-56" />
       </div>
-      <Card className="gap-6">
+      <Card className="gap-0 py-4">
         <div className="hidden items-start justify-between gap-2 md:flex">
           {Array.from({ length: 7 }).map((_, index) => (
             <div key={index} className="flex w-24 flex-col items-center gap-2">
@@ -19,13 +19,16 @@ export default function PackageEditorLoading() {
           ))}
         </div>
         <Skeleton className="h-8 w-full md:hidden" />
-        <div className="flex flex-col gap-4 border-t border-border/50 pt-6">
-          <Skeleton className="h-6 w-64" />
-          <Skeleton className="h-4 w-96 max-w-full" />
-          <div className="mt-2 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Skeleton className="h-24 w-full" />
-            <Skeleton className="h-24 w-full" />
-          </div>
+      </Card>
+      <div className="flex flex-col gap-1 px-1">
+        <Skeleton className="h-6 w-64" />
+        <Skeleton className="h-4 w-96 max-w-full" />
+      </div>
+      <Card className="gap-4">
+        <Skeleton className="h-5 w-48" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
         </div>
       </Card>
     </div>

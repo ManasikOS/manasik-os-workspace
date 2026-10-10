@@ -120,6 +120,34 @@ export function PackageEditorWorkspace({
     stepHeadingRef.current?.focus({ preventScroll: true });
   }, [steps.activeStep]);
 
+  // Continue and Publish stay available on an incomplete step: pressing them shows what is missing and takes the
+  // person to the first problem, instead of leaving a greyed-out button to puzzle over.
+  const stepContentRef = useRef<HTMLDivElement>(null);
+  const attemptContinue = () => {
+    if (steps.isCurrentStepValid) return steps.goToStep(steps.activeStep + 1);
+    steps.revealCurrentStepErrors();
+  };
+  const attemptPublish = () => {
+    if (steps.isCurrentStepValid) return saving.publish();
+    // On the review step the problem is on an earlier step, so go there.
+    if (steps.firstIncompleteStepNumber !== null) return steps.openStepNumber(steps.firstIncompleteStepNumber);
+    steps.revealCurrentStepErrors();
+  };
+
+  // Once the messages have rendered, scroll to the first one and, when it is a field, focus it.
+  // Declared after the step-change effect above so this wins when both run.
+  useEffect(() => {
+    if (steps.revealCount === 0) return;
+    const firstProblem = stepContentRef.current?.querySelector<HTMLElement>(
+      '[aria-invalid="true"], [role="alert"], .text-destructive',
+    );
+    if (!firstProblem) return;
+    firstProblem.scrollIntoView({ block: "center", behavior: "smooth" });
+    if (firstProblem.matches("input, textarea, select, button, [tabindex]")) {
+      firstProblem.focus({ preventScroll: true });
+    }
+  }, [steps.revealCount]);
+
   const currentStep = PACKAGE_EDITOR_STEPS[steps.activeStep];
 
   return (
@@ -135,7 +163,9 @@ export function PackageEditorWorkspace({
           />
         </div>
 
-        <Card className="gap-6">
+        {/* The stepper has its own bar. The step below sits directly on the page: each step already
+            builds its content out of cards, so wrapping it in another one would nest them. */}
+        <Card className="gap-0 py-4">
           <HorizontalStepper
             steps={PACKAGE_EDITOR_STEPS}
             activeStep={steps.activeStep}
@@ -146,35 +176,36 @@ export function PackageEditorWorkspace({
               isCompleted: index < steps.activeStep && steps.stepValidity[index + 1],
             })}
           />
-
-          <motion.div
-            key={steps.activeStep}
-            initial={{ opacity: 0, x: steps.direction >= 0 ? 16 : -16 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="flex flex-col gap-5 border-t border-border/50 pt-6"
-          >
-            <header className="flex flex-col gap-1">
-              <h2
-                ref={stepHeadingRef}
-                tabIndex={-1}
-                className="text-xl font-semibold leading-tight tracking-tight outline-none"
-              >
-                {currentStep.label}
-              </h2>
-              <p className="text-sm text-muted-foreground">{currentStep.description}</p>
-            </header>
-
-            <PackageEditorStepContent
-              stepIndex={steps.activeStep}
-              formData={form.formData}
-              setFormData={form.setFormData}
-              packageId={saving.packageId}
-              fieldErrors={steps.inlineFieldErrors}
-              onGoToStep={steps.openStepNumber}
-            />
-          </motion.div>
         </Card>
+
+        <motion.div
+          ref={stepContentRef}
+          key={steps.activeStep}
+          initial={{ opacity: 0, x: steps.direction >= 0 ? 16 : -16 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          className="flex flex-col gap-4"
+        >
+          <header className="flex flex-col gap-1 px-1">
+            <h2
+              ref={stepHeadingRef}
+              tabIndex={-1}
+              className="text-xl font-medium leading-tight tracking-tight outline-none"
+            >
+              {currentStep.label}
+            </h2>
+            <p className="text-sm text-muted-foreground">{currentStep.description}</p>
+          </header>
+
+          <PackageEditorStepContent
+            stepIndex={steps.activeStep}
+            formData={form.formData}
+            setFormData={form.setFormData}
+            packageId={saving.packageId}
+            fieldErrors={steps.inlineFieldErrors}
+            onGoToStep={steps.openStepNumber}
+          />
+        </motion.div>
 
         <PackageEditorFooter
           isLive={isLive}
@@ -187,9 +218,9 @@ export function PackageEditorWorkspace({
           stepProblem={steps.firstStepErrorMessage}
           onCancel={attemptCancel}
           onBack={() => steps.goToStep(steps.activeStep - 1)}
-          onContinue={() => steps.goToStep(steps.activeStep + 1)}
+          onContinue={attemptContinue}
           onSave={saving.save}
-          onPublish={saving.publish}
+          onPublish={attemptPublish}
         />
 
         <PackageChangeReviewSheet

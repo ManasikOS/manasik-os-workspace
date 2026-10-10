@@ -19,6 +19,10 @@ export function usePackageEditorStepper(formData: PackageFormData) {
   const [direction, setDirection] = useState(1);
   // Steps already left. Their messages show, so a first visit never opens with a wall of red.
   const [leftSteps, setLeftSteps] = useState<ReadonlySet<number>>(() => new Set());
+  // Steps where the person pressed Continue or Publish while they had problems, or that a save error pointed at.
+  const [triedSteps, setTriedSteps] = useState<ReadonlySet<number>>(() => new Set());
+  // Bumped each time messages are asked for, so the page can scroll to the first one once it has rendered.
+  const [revealCount, setRevealCount] = useState(0);
 
   const goToStep = useCallback(
     (index: number) => {
@@ -29,10 +33,18 @@ export function usePackageEditorStepper(formData: PackageFormData) {
     [activeStep],
   );
 
-  /** Opens a step by its 1-based number, as the server and the review step report it. */
+  /** Shows the open step's messages now, instead of waiting until it is left. */
+  const revealCurrentStepErrors = useCallback(() => {
+    setTriedSteps((previous) => new Set(previous).add(activeStep));
+    setRevealCount((count) => count + 1);
+  }, [activeStep]);
+
+  /** Opens a step by its 1-based number, as the server and the review step report it, with its messages showing. */
   const openStepNumber = useCallback(
     (step: number) => {
       setLeftSteps((previous) => new Set(previous).add(activeStep));
+      setTriedSteps((previous) => new Set(previous).add(step - 1));
+      setRevealCount((count) => count + 1);
       setActiveStep(step - 1);
     },
     [activeStep],
@@ -67,7 +79,15 @@ export function usePackageEditorStepper(formData: PackageFormData) {
   // The footer always names the first problem; the step itself only shows them once it has been left.
   const currentStepErrors = useMemo(() => stepFieldErrors(activeStep + 1, formData), [activeStep, formData]);
   const firstStepErrorMessage = currentStepErrors ? Object.values(currentStepErrors).flat()[0] : undefined;
-  const inlineFieldErrors = leftSteps.has(activeStep) ? currentStepErrors : null;
+  const inlineFieldErrors = leftSteps.has(activeStep) || triedSteps.has(activeStep) ? currentStepErrors : null;
+
+  // The first earlier step that is incomplete, by its 1-based number. The review step uses it to say where to go.
+  const firstIncompleteStepNumber = useMemo(() => {
+    for (let step = 1; step < PACKAGE_EDITOR_STEPS.length; step++) {
+      if (!stepValidity[step]) return step;
+    }
+    return null;
+  }, [stepValidity]);
 
   const canOpenStep = useCallback(
     (targetIndex: number) => canOpenPackageEditorStep({ targetIndex, activeStep, stepValidity }),
@@ -80,6 +100,9 @@ export function usePackageEditorStepper(formData: PackageFormData) {
     direction,
     goToStep,
     openStepNumber,
+    revealCurrentStepErrors,
+    revealCount,
+    firstIncompleteStepNumber,
     stepValidity,
     isCurrentStepValid,
     firstStepErrorMessage,
