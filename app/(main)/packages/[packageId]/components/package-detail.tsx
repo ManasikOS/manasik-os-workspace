@@ -26,6 +26,7 @@ import {
   Copy,
   MoreVertical,
   Pencil,
+  Plus,
   PlusCircle,
   Send,
   Star,
@@ -73,7 +74,7 @@ export type PackageDetailTabId =
 
 const TABS: { id: PackageDetailTabId; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "pricing", label: "Pricing & Payments" },
+  { id: "pricing", label: "Pricing Policy" },
   // Flight routing moved to Departure Group creation — this tab is the
   // reusable journey template only, never flights. See
   // docs/modules/packages-production-readiness-plan.md, finding E8.
@@ -168,7 +169,9 @@ const PackageDetail = ({
       case "groups":
         return <GroupsTab groups={groups} />;
       case "activity":
-        return <ActivityTab activity={activity} changeHistory={changeHistory} />;
+        return (
+          <ActivityTab activity={activity} changeHistory={changeHistory} />
+        );
       default:
         return null;
     }
@@ -208,21 +211,14 @@ const PackageDetail = ({
         ]}
         action={
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline_without_border"
-              size="sm"
-              onClick={() => router.push("/packages")}
-              className="gap-1.5 text-xs font-medium bg-transparent! shadow-none!"
-            >
-              <ArrowLeft className="size-3.5" /> Back to Packages
-            </Button>
-            {can.editPackage && (
+            {can.createGroupFromPackage && pkg.status === "Open for Sale" && (
               <Button
                 variant="secondary"
-                size="sm"
-                onClick={() => router.push(`/packages/${pkg.id}/edit`)}
+                onClick={() =>
+                  router.push(`/departure-groups?create=1&template=${pkg.id}`)
+                }
               >
-                <Pencil className="size-3.5" /> Edit
+                <Plus className="size-3.5" /> Create Departue Group
               </Button>
             )}
             <DropdownMenu>
@@ -238,6 +234,17 @@ const PackageDetail = ({
                 }
               />
               <DropdownMenuContent align="end">
+                {can.editPackage && (
+                  <DropdownMenuItem
+                    onClick={() =>
+                      router.push(
+                        `/departure-groups?create=1&template=${pkg.id}`,
+                      )
+                    }
+                  >
+                    <Pencil className="size-3.5" /> Edit
+                  </DropdownMenuItem>
+                )}
                 {can.duplicatePackage && (
                   <DropdownMenuItem
                     onClick={() =>
@@ -247,18 +254,7 @@ const PackageDetail = ({
                     <Copy /> Duplicate
                   </DropdownMenuItem>
                 )}
-                {can.createGroupFromPackage &&
-                  pkg.status === "Open for Sale" && (
-                    <DropdownMenuItem
-                      onClick={() =>
-                        router.push(
-                          `/departure-groups?create=1&template=${pkg.id}`,
-                        )
-                      }
-                    >
-                      <PlusCircle /> Create Departure Group
-                    </DropdownMenuItem>
-                  )}
+
                 {can.toggleFeatured && (
                   <DropdownMenuItem
                     onClick={() =>
@@ -323,7 +319,10 @@ const PackageDetail = ({
                 {can.deletePackage && (
                   <DropdownMenuItem
                     variant="destructive"
-                    disabled={usage.groupCount > 0 || (pkg.status !== "Draft" && pkg.status !== "Archived")}
+                    disabled={
+                      usage.groupCount > 0 ||
+                      (pkg.status !== "Draft" && pkg.status !== "Archived")
+                    }
                     onClick={() => lifecycle.actions.onDelete(lifecycleTarget)}
                   >
                     <Trash2 />
@@ -375,7 +374,11 @@ const PackageDetail = ({
         )}
       </Card>
 
-      <PackageChangeRequestsPanel requests={pendingChanges} can={can} currentUserId={currentUserId} />
+      <PackageChangeRequestsPanel
+        requests={pendingChanges}
+        can={can}
+        currentUserId={currentUserId}
+      />
 
       <div>
         <Tabs

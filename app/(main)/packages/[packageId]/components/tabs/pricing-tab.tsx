@@ -29,6 +29,7 @@ export default function PricingTab({ pkg }: { pkg: PackageRow }) {
             {pkg.payment_milestones.map((m) => (
               <Card
                 key={m.id}
+                variant="md-shadow"
                 className="flex flex-row items-center justify-between rounded-sm border border-border/40 px-4 py-3 text-sm"
               >
                 <div>

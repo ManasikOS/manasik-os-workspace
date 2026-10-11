@@ -37,6 +37,7 @@ export default function GroupDefaultsTab({ pkg }: { pkg: PackageRow }) {
           <div className="flex flex-col gap-2">
             {pkg.group_readiness_checklist.map((r) => (
               <Card
+                variant="md-shadow"
                 key={r.id}
                 className="flex flex-row items-center justify-between px-4 py-3 text-sm"
               >

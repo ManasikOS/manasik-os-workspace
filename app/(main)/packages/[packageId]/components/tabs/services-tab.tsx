@@ -71,7 +71,11 @@ export default function ServicesTab({ pkg }: { pkg: PackageRow }) {
         ) : (
           <div className="flex flex-col gap-2 mt-3">
             {pkg.transport_requirements.map((t) => (
-              <Card key={t.id} className="gap-2 px-4 py-3 text-sm">
+              <Card
+                key={t.id}
+                variant="md-shadow"
+                className="gap-2 px-4 py-3 text-sm"
+              >
                 <p className="font-medium text-foreground">{t.routeLabel}</p>
                 <p className="text-xs text-muted-foreground">
                   {t.startLocation} → {t.destination} · {t.vehicleStandard}
@@ -96,7 +100,12 @@ export default function ServicesTab({ pkg }: { pkg: PackageRow }) {
                   key={i}
                   className="text-sm text-foreground flex items-start gap-2"
                 >
-                  <CheckCircle2 className={cn("size-3.5 mt-0.5 shrink-0", TONE_TEXT.success)} />{" "}
+                  <CheckCircle2
+                    className={cn(
+                      "size-3.5 mt-0.5 shrink-0",
+                      TONE_TEXT.success,
+                    )}
+                  />{" "}
                   {i}
                 </li>
               ))}
