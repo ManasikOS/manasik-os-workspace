@@ -31,7 +31,6 @@ import {
   type MutationOutcome,
 } from "@/lib/data/leads";
 import type { LeadStore } from "@/lib/data/leads-repository";
-import { findDuplicateLead } from "@/lib/data/leads";
 import type { FollowUpType, LeadLostReason, LeadRow, LeadStage, StaffRow } from "@/lib/types/leads";
 import type { CampaignOption } from "@/lib/data/campaigns-repository";
 
@@ -40,12 +39,10 @@ import {
   assignLeadsAction,
   changeStageAction,
   completeFollowUpAction,
-  createLeadAction,
   importLeadsAction,
   logContactAction,
   selectDepartureGroupAction,
   setFollowUpAction,
-  type CreateLeadActionResult,
 } from "./actions";
 
 interface LeadsContextValue {
@@ -64,8 +61,6 @@ interface LeadsContextValue {
   /** True while a Server Action is in flight — disables optimistic double-submits. */
   isPending: boolean;
 
-  /** Submits the Add Lead sheet. Server-validated; returns field errors on failure. */
-  createLead: (input: unknown) => Promise<CreateLeadActionResult>;
   changeStage: (
     leadIds: string[],
     stage: LeadStage,
@@ -87,11 +82,6 @@ interface LeadsContextValue {
     groupLabel: string;
   }) => Promise<MutationOutcome>;
   importLeads: (rows: CreateLeadInput[]) => Promise<{ created: number; failures: string[] }>;
-  /** Duplicate lookup against the last-loaded store — good enough for instant UI feedback. */
-  findDuplicate: (
-    mobile: string,
-    email: string,
-  ) => { lead: LeadListItem; matchedOn: "mobile" | "email" } | null;
 }
 
 /** Fields shown instantly for a single-lead change while the server confirms it. */
@@ -201,15 +191,6 @@ export function LeadsProvider({
     }
   }, []);
 
-  const createLead = useCallback<LeadsContextValue["createLead"]>(
-    async (input) => {
-      const result = await trackInFlight(() => createLeadAction(input));
-      if (result.ok) refresh();
-      return result;
-    },
-    [refresh, trackInFlight],
-  );
-
   const changeStage = useCallback<LeadsContextValue["changeStage"]>(
     async (leadIds, stage, options) => {
       // Single-lead changes show instantly; a bulk change can partly fail, so
@@ -293,16 +274,6 @@ export function LeadsProvider({
     [refresh, trackInFlight],
   );
 
-  const findDuplicate = useCallback<LeadsContextValue["findDuplicate"]>(
-    (mobile, email) => {
-      const match = findDuplicateLead(initialStore.leads, mobile, email);
-      if (!match) return null;
-      const view = leads.find((lead) => lead.id === match.lead.id);
-      return view ? { lead: view, matchedOn: match.matchedOn } : null;
-    },
-    [leads, initialStore],
-  );
-
   const value = useMemo<LeadsContextValue>(
     () => ({
       leads,
@@ -315,7 +286,6 @@ export function LeadsProvider({
       staffOptions,
       campaignOptions,
       isPending,
-      createLead,
       changeStage,
       assignLeads,
       logContact,
@@ -324,7 +294,6 @@ export function LeadsProvider({
       completeFollowUp,
       selectDepartureGroup,
       importLeads,
-      findDuplicate,
     }),
     [
       leads,
@@ -337,7 +306,6 @@ export function LeadsProvider({
       staffOptions,
       campaignOptions,
       isPending,
-      createLead,
       changeStage,
       assignLeads,
       logContact,
@@ -346,7 +314,6 @@ export function LeadsProvider({
       completeFollowUp,
       selectDepartureGroup,
       importLeads,
-      findDuplicate,
     ],
   );
 

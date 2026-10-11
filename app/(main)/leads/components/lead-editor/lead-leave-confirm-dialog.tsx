@@ -12,17 +12,17 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
-interface DiscardConfirmDialogProps {
+interface LeadLeaveConfirmDialogProps {
   open: boolean;
   onKeepEditing: () => void;
   onConfirmDiscard: () => void;
 }
 
-export default function DiscardConfirmDialog({
+export default function LeadLeaveConfirmDialog({
   open,
   onKeepEditing,
   onConfirmDiscard,
-}: DiscardConfirmDialogProps) {
+}: LeadLeaveConfirmDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onKeepEditing()}>
       <DialogContent className="sm:max-w-md">

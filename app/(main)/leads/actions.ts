@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 
 import { capabilitiesForLeads } from "@/lib/access/leads-access";
@@ -11,27 +12,31 @@ import {
   changeLeadStageInStore,
   completeFollowUpInStore,
   createLeadInStore,
-  findDuplicateLead,
+  normaliseMobile,
   logContactInStore,
   markLeadBookedInStore,
   recordQuoteInStore,
   selectDepartureGroupInStore,
   setFollowUpInStore,
-  toLeadListItem,
   updateLeadConsentInStore,
   updateQuoteStatusInStore,
   type CreateLeadInput,
-  type LeadListItem,
   type LogContactInput,
   type MutationOutcome,
 } from "@/lib/data/leads";
 import type { QuoteStatus } from "@/lib/copilot/sales/types";
 import type { ConsentChannel, ConsentStatus } from "@/lib/types/consent";
 import {
+  isLeadDuplicateResolved,
+  LEAD_DUPLICATE_BLOCKED_MESSAGE,
+} from "@/lib/data/lead-duplicate-gate";
+import {
+  findDuplicateLeadSummary,
   loadAssignableStaff,
   loadLeadStore,
   persistLeadStore,
   snapshotLeadStore,
+  type DuplicateLeadSummary,
   type LeadStore,
 } from "@/lib/data/leads-repository";
 import { requireUser } from "@/lib/dal";
@@ -80,6 +85,8 @@ function revalidateLeads() {
 
 export interface CreateLeadActionResult extends MutationOutcome {
   reference?: string;
+  /** The new lead's id, so the screen can open it on the Leads page. */
+  leadId?: string;
   fieldErrors?: Partial<Record<keyof CreateLeadFormInput, string>>;
 }
 
@@ -104,6 +111,22 @@ export async function createLeadAction(
   const data = parsed.data;
 
   const supabase = await db();
+
+  // The server is the real gate for duplicates: the form's warning is a
+  // convenience and can be skipped by calling the action directly.
+  const duplicate = await findDuplicateLeadSummary(
+    supabase,
+    normaliseMobile(data.mobile),
+    data.email,
+  );
+  if (!isLeadDuplicateResolved(duplicate !== null, data)) {
+    return {
+      ok: false,
+      error: LEAD_DUPLICATE_BLOCKED_MESSAGE,
+      fieldErrors: { duplicateReason: LEAD_DUPLICATE_BLOCKED_MESSAGE },
+    };
+  }
+
   const store = await loadLeadStore(supabase);
   const before = snapshotLeadStore(store);
 
@@ -151,7 +174,7 @@ export async function createLeadAction(
 
   await persistLeadStore(supabase, before, store);
   revalidateLeads();
-  return { ok: true, reference: outcome.lead?.reference };
+  return { ok: true, reference: outcome.lead?.reference, leadId: outcome.lead?.id };
 }
 
 /** Bulk create for the CSV import dialog. Best-effort — one bad row does not stop the rest. */
@@ -187,16 +210,41 @@ export async function importLeadsAction(
 
 /* ── Duplicate check ──────────────────────────────────────────────────────── */
 
-export async function findDuplicateLeadAction(
-  mobile: string,
-  email: string,
-): Promise<{ lead: LeadListItem; matchedOn: "mobile" | "email" } | null> {
+export type CheckLeadDuplicateResult =
+  | { ok: true; duplicate: { lead: DuplicateLeadSummary; matchedOn: "mobile" | "email" } | null }
+  | { ok: false; error: string };
+
+const checkLeadDuplicateSchema = z.object({
+  mobile: z.string().max(40),
+  email: z.string().max(320),
+});
+
+/**
+ * Looks for an existing lead with this mobile or email, for the Add Lead
+ * screen's warning. Reads two narrow rows rather than the whole store, and only
+ * for roles that may create leads (the answer reveals another lead's details).
+ */
+export async function checkLeadDuplicateAction(
+  input: unknown,
+): Promise<CheckLeadDuplicateResult> {
   await requireUser();
+  const { role } = await getCurrentStaffRole();
+  if (!capabilitiesForLeads(role).createLead) {
+    return { ok: false, error: "Your role cannot create leads." };
+  }
+
+  const parsed = checkLeadDuplicateSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Enter a mobile number or email to check." };
+  }
+
   const supabase = await db();
-  const store = await loadLeadStore(supabase);
-  const match = findDuplicateLead(store.leads, mobile, email);
-  if (!match) return null;
-  return { lead: toLeadListItem(match.lead, store, new Date().toISOString()), matchedOn: match.matchedOn };
+  const duplicate = await findDuplicateLeadSummary(
+    supabase,
+    normaliseMobile(parsed.data.mobile),
+    parsed.data.email,
+  );
+  return { ok: true, duplicate };
 }
 
 /* ── Stage / assignment ───────────────────────────────────────────────────── */

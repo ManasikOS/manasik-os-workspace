@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 /**
- * Single validation source for the Add Lead sheet, shared by the client (for
- * instant feedback) and `leadCreateAction` (the real gate). Mirrors the
+ * Single validation source for the Add Lead screen, shared by the client (for
+ * instant feedback) and `createLeadAction` (the real gate). Mirrors the
  * pattern in `lib/validations/packages.ts` / `lib/validations/departure-groups.ts`.
  *
  * The spec's five hard requirements — owner, next follow-up, source, mobile,
@@ -90,7 +90,7 @@ export const createLeadSchema = z.object({
 
 export type CreateLeadFormInput = z.infer<typeof createLeadSchema>;
 
-/** Field-level errors keyed the same way the Add Lead sheet renders them. */
+/** Field-level errors keyed the same way the Add Lead screen renders them. */
 export function toLeadFieldErrors(
   error: z.ZodError,
 ): Partial<Record<keyof CreateLeadFormInput, string>> {

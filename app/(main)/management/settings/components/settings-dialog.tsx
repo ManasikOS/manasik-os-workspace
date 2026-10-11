@@ -3,8 +3,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 /**
  * SaaS-style settings dialog — sidebar + content inside a `Dialog`, same
- * large-dialog shell as `AddNewLead`. Plain local
- * `open` state, exactly like it — no route, no navigation, no
+ * large-dialog shell as the other full-size dialogs. Plain local
+ * `open` state — no route, no navigation, no
  * intercepting-route round trip per click.
  *
  * Each section's data is fetched once, lazily, via a Server Action in

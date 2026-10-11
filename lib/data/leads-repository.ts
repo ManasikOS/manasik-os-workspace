@@ -254,6 +254,63 @@ export async function loadAssignableStaff(db: Db): Promise<StaffRow[]> {
   }));
 }
 
+/** What the duplicate warning shows about an existing lead. */
+export interface DuplicateLeadSummary {
+  id: string;
+  reference: string;
+  name: string;
+  mobile: string;
+  email: string | null;
+  stage: LeadRow["stage"];
+  assignedToName: string;
+  interestedIn: string;
+}
+
+/** Escapes `%`, `_` and `\` so an email is matched as typed, not as a pattern. */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+}
+
+/**
+ * Finds one existing lead for the same person with two narrow reads, instead of
+ * loading every lead. `normalisedMobile` is the nine-digit subscriber number
+ * (`normaliseMobile`), which is how `leads.mobile` is stored. Mobile wins over
+ * email, as in `findDuplicateLead`. Reads go through the caller's client, so
+ * row-level security keeps this to the agency's own leads.
+ */
+export async function findDuplicateLeadSummary(
+  db: Db,
+  normalisedMobile: string,
+  email: string,
+): Promise<{ lead: DuplicateLeadSummary; matchedOn: "mobile" | "email" } | null> {
+  const columns = "id, reference, full_name, mobile, email, stage, assigned_to_name, interested_in";
+  const toSummary = (row: Row): DuplicateLeadSummary => ({
+    id: row.id,
+    reference: row.reference,
+    name: row.full_name,
+    mobile: row.mobile,
+    email: row.email ?? null,
+    stage: row.stage,
+    assignedToName: row.assigned_to_name ?? "Unassigned",
+    interestedIn: row.interested_in ?? "",
+  });
+
+  if (normalisedMobile.length >= 9) {
+    const { data, error } = await db.from("leads").select(columns).eq("mobile", normalisedMobile).limit(1);
+    if (error) throw new LeadPersistenceError("leads", "select", error);
+    if (data && data.length > 0) return { lead: toSummary(data[0] as Row), matchedOn: "mobile" };
+  }
+
+  const cleanEmail = email.trim();
+  if (cleanEmail) {
+    const { data, error } = await db.from("leads").select(columns).ilike("email", escapeLikePattern(cleanEmail)).limit(1);
+    if (error) throw new LeadPersistenceError("leads", "select", error);
+    if (data && data.length > 0) return { lead: toSummary(data[0] as Row), matchedOn: "email" };
+  }
+
+  return null;
+}
+
 export async function loadLeadStore(
   db: Db,
   options: LoadLeadStoreOptions = {},

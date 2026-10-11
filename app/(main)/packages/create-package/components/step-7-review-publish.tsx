@@ -116,7 +116,7 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
   return (
     <div className="flex flex-col gap-5">
       {/* Review Cards Grid */}
-      <div className="grid px-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
+      <div className="grid  grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
         {/* 1. Commercial Identity Summary */}
         <Card
           variant="md-shadow"
@@ -393,7 +393,7 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
       </div>
 
       {/* Warnings & Checks Section */}
-      <div className="px-2 flex flex-col  gap-5">
+      <div className=" flex flex-col  gap-5">
         <SectionHeading title=" Readiness Checks" />
 
         <div className="space-y-3 pb-5">

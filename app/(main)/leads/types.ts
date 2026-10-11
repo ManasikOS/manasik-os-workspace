@@ -135,7 +135,6 @@ export interface AddLeadFormData {
   nextFollowUpAt: string;
   followUpType: FollowUpType;
   followUpOwnerId: string;
-  createFollowUpTask: boolean;
   notes: string;
 
   /** Set only when an operator overrides the duplicate warning. */

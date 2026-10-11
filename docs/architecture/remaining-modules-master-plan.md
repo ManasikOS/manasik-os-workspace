@@ -47,7 +47,7 @@ design system, never fork an existing table into a parallel one.
 Fully built — treat as fixed integration points:
 
 - `/dashboard` — attention feed, pace, layout (`lib/data/dashboard-*.ts`)
-- `/leads` (+ `add-new-lead`, copilot) — `lib/data/leads*.ts`
+- `/leads` (+ `/leads/new`, copilot) — `lib/data/leads*.ts`
 - `/pilgrims`, `/pilgrims/[pilgrimId]`
 - `/packages` (+ versions, snapshots, lifecycle, `packages_list_with_usage` RPC)
 - `/departure-groups/[groupId]` — the deepest module: bookings, pilgrims,

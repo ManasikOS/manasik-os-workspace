@@ -366,6 +366,9 @@ The table's own `emptyMessage` prop stays as-is — `DataTable` handles that cas
 
 ### C1 — The Add Lead sheet is near-full-screen; every other sheet is a panel
 
+> **Superseded (TASK-045).** Add Lead is now a page at `/leads/new`, so C1 and C2 no longer
+> apply and the paths below no longer exist. Kept as the record of the finding.
+
 `app/(main)/leads/add-new-lead/add-new-lead.tsx:345-346`
 
 ```tsx
@@ -446,7 +449,7 @@ overrides `DialogTitle`'s own type scale, so Leads' dialog titles are heavier th
 everything else's. Affected: `convert-to-booking-dialog.tsx:99`,
 `import-leads-dialog.tsx:111`, `log-contact-dialog.tsx:111`, `mark-lost-dialog.tsx:79`,
 `set-follow-up-dialog.tsx:68`, `manage-lead-sources-sheet.tsx:71`,
-`send-quote-sheet.tsx:112`, `add-new-lead/components/discard-confirm-dialog.tsx:28`.
+`send-quote-sheet.tsx:112`, `components/lead-editor/lead-leave-confirm-dialog.tsx` (was `add-new-lead/components/discard-confirm-dialog.tsx:28`).
 
 **Fix.** Flatten all eight to the canonical form. Where the leading icon is worth keeping
 (the destructive dialogs — `mark-lost`, `discard-confirm`), put it inside `DialogTitle`
@@ -609,7 +612,7 @@ Pilgrims KPI row onto `onSelect`. Replace both inline saved-view blocks with
 
 **Phase 5 — page shell and overlay chrome.**
 All of D (container classes, `bg-white` in four files, More Filters button, secondary
-filter row, DG count wording). All of C (Add Lead sheet width and scroll container,
+filter row, DG count wording). All of C (Add Lead sheet width and scroll container — superseded by TASK-045,
 drawer scroll container, eight dialog headers, four sheet widths).
 _Verify:_ the Add Lead form at `max-w-3xl` — this is the one change in the plan that
 requires re-laying-out a real form, not just swapping classes. Budget time for it.

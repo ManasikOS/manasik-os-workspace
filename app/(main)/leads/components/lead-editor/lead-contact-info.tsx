@@ -93,11 +93,11 @@ export default function LeadContactInfo({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-1">
         <div className="flex flex-col gap-1">
           <InputGroup
-          // className={
-          //   errors.fullName
-          //     ? "border-destructive ring-1 ring-destructive/30"
-          //     : ""
-          // }
+            className={
+              errors.fullName
+                ? "border-destructive ring-1 ring-destructive/30"
+                : ""
+            }
           >
             <InputGroupAddon align={"block-start"}>
               <InputGroupText>Full Name</InputGroupText>
@@ -109,20 +109,28 @@ export default function LeadContactInfo({
               placeholder="e.g. Mohamed Afras"
               value={fullName}
               onChange={(event) => onFullNameChange(event.target.value)}
-              // aria-invalid={Boolean(errors.fullName)}
-              // aria-describedby={errors.fullName ? "lead-name-error" : undefined}
+              aria-invalid={Boolean(errors.fullName)}
+              aria-describedby={errors.fullName ? "lead-name-error" : undefined}
               className="text-sm"
             />
           </InputGroup>
+          {errors.fullName && (
+            <span
+              id="lead-name-error"
+              className="text-[11px] text-destructive font-medium"
+            >
+              {errors.fullName}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
           <InputGroup
-          // className={
-          //   errors.mobile
-          //     ? "border-destructive ring-1 ring-destructive/30"
-          //     : ""
-          // }
+            className={
+              errors.mobile
+                ? "border-destructive ring-1 ring-destructive/30"
+                : ""
+            }
           >
             <InputGroupAddon align="block-start">
               <InputGroupText>
@@ -141,29 +149,31 @@ export default function LeadContactInfo({
                 placeholder="77 123 4567"
                 value={mobile}
                 onChange={(event) => onMobileChange(event.target.value)}
-                // aria-invalid={Boolean(errors.mobile)}
-                // aria-describedby={errors.mobile ? "lead-mobile-error" : undefined}
+                aria-invalid={Boolean(errors.mobile)}
+                aria-describedby={
+                  errors.mobile ? "lead-mobile-error" : undefined
+                }
                 className="text-sm tabular-nums flex-6"
               />
             </ButtonGroup>
           </InputGroup>
-          {/* {errors.mobile && (
+          {errors.mobile && (
             <span
               id="lead-mobile-error"
               className="text-[11px] text-destructive font-medium"
             >
               {errors.mobile}
             </span>
-          )} */}
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
           <InputGroup
-          // className={
-          //   errors.email
-          //     ? "border-destructive ring-1 ring-destructive/30"
-          //     : ""
-          // }
+            className={
+              errors.email
+                ? "border-destructive ring-1 ring-destructive/30"
+                : ""
+            }
           >
             <InputGroupAddon align="block-start">
               <InputGroupText> Email Address</InputGroupText>
@@ -175,18 +185,18 @@ export default function LeadContactInfo({
               placeholder="e.g. afras@gmail.com"
               value={email}
               onChange={(event) => onEmailChange(event.target.value)}
-              // aria-invalid={Boolean(errors.email)}
-              // aria-describedby={errors.email ? "lead-email-error" : undefined}
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "lead-email-error" : undefined}
             />
           </InputGroup>
-          {/* {errors.email && (
+          {errors.email && (
             <span
               id="lead-email-error"
               className="text-[11px] text-destructive font-medium"
             >
               {errors.email}
             </span>
-          )} */}
+          )}
         </div>
 
         <div className="flex flex-col gap-1">

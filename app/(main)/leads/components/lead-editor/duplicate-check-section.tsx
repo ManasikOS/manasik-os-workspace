@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
-import type { LeadListItem } from "../../types";
+import type { DuplicateLeadSummary } from "@/lib/data/leads-repository";
 import { STAGE_LABELS } from "../../utils";
 import {
   TONE_BADGE_BORDER,
@@ -31,12 +31,20 @@ import { ButtonGroup } from "@/components/ui/button-group";
 interface DuplicateCheckSectionProps {
   mobile: string;
   onMobileChange: (value: string) => void;
-  /** Resolved upstream against the live store, so the whole form sees it. */
-  duplicate: { lead: LeadListItem; matchedOn: "mobile" | "email" } | null;
+  /** The existing lead that shares this mobile or email, resolved by the caller. */
+  duplicate: {
+    lead: DuplicateLeadSummary;
+    matchedOn: "mobile" | "email";
+  } | null;
   duplicateReason: string;
   onDuplicateReasonChange: (value: string) => void;
   createAnyway: boolean;
   onCreateAnywayChange: (value: boolean) => void;
+  /**
+   * Where the lookup stands, when the caller looks the lead up asynchronously.
+   * Left out when `duplicate` is already known synchronously.
+   */
+  checkStatus?: "idle" | "checking" | "clear" | "found" | "failed";
 }
 
 const DUPLICATE_REASONS = [
@@ -57,9 +65,13 @@ export default function DuplicateCheckSection({
   onDuplicateReasonChange,
   createAnyway,
   onCreateAnywayChange,
+  checkStatus,
 }: DuplicateCheckSectionProps) {
   const digits = mobile.replace(/\D/g, "");
   const checked = digits.length >= 9;
+  const isChecking = checkStatus === "checking";
+  const checkFailed = checkStatus === "failed";
+  const showClear = checked && !duplicate && !isChecking && !checkFailed;
 
   return (
     <div className="flex flex-col gap-3">
@@ -99,16 +111,22 @@ export default function DuplicateCheckSection({
           aria-live="polite"
           className={cn(
             "text-xs flex items-center gap-1.5",
-            checked && !duplicate
+            showClear
               ? cn("font-medium", TONE_TEXT.success)
-              : "text-muted-foreground",
+              : checkFailed
+                ? cn("font-medium", TONE_TEXT.warning)
+                : "text-muted-foreground",
           )}
         >
-          {checked && !duplicate ? (
+          {showClear ? (
             <>
               <CheckCircle2 className="size-3.5" /> No existing lead uses this
               number. You can continue.
             </>
+          ) : isChecking ? (
+            "Checking for an existing lead…"
+          ) : checkFailed ? (
+            "We could not check just now. You can continue; the check runs again when you create the lead."
           ) : !checked ? (
             "Enter the mobile number to check whether this person is already in the CRM."
           ) : null}

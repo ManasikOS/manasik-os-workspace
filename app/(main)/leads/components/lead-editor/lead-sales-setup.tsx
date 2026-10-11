@@ -16,7 +16,7 @@ import { Flame, Tag } from "lucide-react";
 import React from "react";
 
 import type { LeadSource, LeadStage, LeadTemperature } from "../../types";
-import { useLeads } from "../../leads-store";
+import type { StaffRow } from "@/lib/types/leads";
 import {
   ACTIVE_STAGE_ORDER,
   SOURCE_LABELS,
@@ -28,6 +28,8 @@ import { TONE_BADGE_BORDER, TONE_CLASS, TONE_TEXT } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 
 interface LeadSalesSetupProps {
+  /** Who a lead can be assigned to. */
+  staffOptions: StaffRow[];
   source: LeadSource;
   onSourceChange: (value: LeadSource) => void;
   campaignReference: string;
@@ -75,6 +77,7 @@ const TEMPERATURE_EMOJI: Record<LeadTemperature, string> = {
 };
 
 export default function LeadSalesSetup({
+  staffOptions,
   source,
   onSourceChange,
   campaignReference,
@@ -88,7 +91,6 @@ export default function LeadSalesSetup({
   temperature,
   onTemperatureChange,
 }: LeadSalesSetupProps) {
-  const { staffOptions } = useLeads();
   return (
     <div className="">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-1">

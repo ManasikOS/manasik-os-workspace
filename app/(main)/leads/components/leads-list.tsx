@@ -27,6 +27,7 @@ import {
   TrendingUp,
   UserCheck,
 } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import React, { useMemo, useState } from "react";
 
@@ -40,7 +41,6 @@ import {
 import { KpiCard, KpiRow } from "@/components/data-table/kpi-card";
 import { SavedViewBar } from "@/components/data-table/saved-view-bar";
 
-import AddNewLead from "../add-new-lead/add-new-lead";
 import { downloadTextFile, leadsToCsv, timestampedFilename } from "../csv";
 import { useLeads } from "../leads-store";
 import {
@@ -120,7 +120,6 @@ const LeadsList = () => {
   const [savedView, setSavedView] = useState<LeadSavedView>("All Leads");
   const [quickFilter, setQuickFilter] = useState<QuickFilter | null>(null);
 
-  const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   // Deep link from other modules — e.g. /quotes links to `/leads?open=<id>`
@@ -337,8 +336,6 @@ const LeadsList = () => {
 
   return (
     <>
-      <AddNewLead open={addOpen} setOpen={setAddOpen} />
-
       <ImportLeadsDialog
         open={importOpen}
         onOpenChange={setImportOpen}
@@ -394,7 +391,7 @@ const LeadsList = () => {
           action={
             <div className="flex items-center gap-2">
               {can.createLead && (
-                <Button onClick={() => setAddOpen(true)}>
+                <Button render={<Link href="/leads/new" />}>
                   <Plus /> Add Lead
                 </Button>
               )}
