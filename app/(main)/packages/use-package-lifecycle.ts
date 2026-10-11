@@ -3,11 +3,10 @@
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import { useState, useTransition } from "react";
 
-import { toast } from "@/components/ui/toast";
+import { runWithLoadingToast } from "@/components/ui/toast";
 
 import {
   archivePackageAction,
-  deletePackageAction,
   duplicatePackageAction,
   publishExistingPackageAction,
   reopenPackageAction,
@@ -58,6 +57,8 @@ export function usePackageLifecycle() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [pending, setPending] = useState<PendingPackageAction | null>(null);
+  // Deleting is its own dialog (type the code, say why, see what it touches): delete-package-dialog.tsx.
+  const [deleteTarget, setDeleteTarget] = useState<PackageLifecycleTarget | null>(null);
   const [forceArchiveTarget, setForceArchiveTarget] = useState<{
     pkg: PackageLifecycleTarget;
     liveGroupCount: number;
@@ -66,50 +67,52 @@ export function usePackageLifecycle() {
   const runAction = (
     label: string,
     run: () => Promise<{ ok: boolean; error?: string }>,
+    messages: { loading: string; success: string },
   ) => {
     startTransition(async () => {
-      const res = await run();
-      if (!res.ok) {
-        toast.add({ title: `Could not ${label}`, description: res.error });
-        return;
-      }
-      toast.add({ title: `${label[0].toUpperCase()}${label.slice(1)} succeeded` });
-      router.refresh();
+      const res = await runWithLoadingToast(run, {
+        loadingTitle: messages.loading,
+        successTitle: messages.success,
+        errorTitle: `Could not ${label}`,
+        getFailureMessage: (result) => (result.ok ? undefined : result.error),
+      });
+      if (res?.ok) router.refresh();
     });
   };
 
   const confirmPending = (action: PendingPackageAction) => {
     if (action.type === "ARCHIVE") {
       startTransition(async () => {
-        const res = await archivePackageAction(action.pkg.id);
-        if (!res.ok) {
-          if (res.code === "LIVE_GROUPS") {
+        const res = await runWithLoadingToast(
+          () => archivePackageAction(action.pkg.id),
+          {
+            loadingTitle: "Archiving package…",
+            successTitle: "Package archived",
+            errorTitle: "Could not archive package",
             // Not a failure to just toast — offer the ADMIN-only
             // force-archive-with-a-reason path instead. The actual ADMIN
             // requirement is enforced server-side when it is submitted.
+            shouldDismissSilently: (result) =>
+              !result.ok && result.code === "LIVE_GROUPS",
+            getFailureMessage: (result) => (result.ok ? undefined : result.error),
+          },
+        );
+        if (!res) return;
+        if (!res.ok) {
+          if (res.code === "LIVE_GROUPS") {
             setForceArchiveTarget({
               pkg: action.pkg,
               liveGroupCount: res.liveGroupCount,
             });
-            return;
           }
-          toast.add({ title: "Could not archive package", description: res.error });
           return;
         }
-        toast.add({ title: "Archive package succeeded" });
         router.refresh();
       });
     } else if (action.type === "UNPUBLISH") {
-      runAction("unpublish package", () => unpublishPackageAction(action.pkg.id));
-    } else if (action.type === "DELETE") {
-      startTransition(async () => {
-        const res = await deletePackageAction(action.pkg.id);
-        if (!res.ok) {
-          toast.add({ title: "Could not delete package", description: res.error });
-          return;
-        }
-        toast.add({ title: "Deleted", description: `${action.pkg.title} was deleted.` });
-        router.refresh();
+      runAction("unpublish package", () => unpublishPackageAction(action.pkg.id), {
+        loading: "Unpublishing package…",
+        success: "Package unpublished",
       });
     }
   };
@@ -118,30 +121,52 @@ export function usePackageLifecycle() {
     const target = forceArchiveTarget;
     if (!target) return;
     startTransition(async () => {
-      const res = await archivePackageAction(target.pkg.id, { force: true, reason });
-      if (!res.ok) {
-        toast.add({ title: "Could not archive package", description: res.error });
-        return;
-      }
-      toast.add({ title: "Package archived" });
-      router.refresh();
+      const res = await runWithLoadingToast(
+        () => archivePackageAction(target.pkg.id, { force: true, reason }),
+        {
+          loadingTitle: "Archiving package…",
+          successTitle: "Package archived",
+          errorTitle: "Could not archive package",
+          getFailureMessage: (result) => (result.ok ? undefined : result.error),
+        },
+      );
+      if (res?.ok) router.refresh();
     });
   };
 
   const actions = {
     onPublish: (pkg: PackageLifecycleTarget) =>
-      runAction("publish package", () => publishExistingPackageAction(pkg.id)),
+      runAction("publish package", () => publishExistingPackageAction(pkg.id), {
+        loading: "Publishing package…",
+        success: "Package published",
+      }),
     onUnpublish: (pkg: PackageLifecycleTarget) => setPending({ type: "UNPUBLISH", pkg }),
     onReopen: (pkg: PackageLifecycleTarget) =>
-      runAction("reopen package", () => reopenPackageAction(pkg.id)),
+      runAction("reopen package", () => reopenPackageAction(pkg.id), {
+        loading: "Reopening package for sale…",
+        success: "Package reopened for sale",
+      }),
     onToggleFeatured: (pkg: PackageLifecycleTarget) =>
-      runAction("update package", () => setPackageFeaturedAction(pkg.id, !pkg.featured)),
+      runAction(
+        "update package",
+        () => setPackageFeaturedAction(pkg.id, !pkg.featured),
+        {
+          loading: pkg.featured ? "Removing from featured…" : "Marking as featured…",
+          success: pkg.featured ? "Removed from featured" : "Marked as featured",
+        },
+      ),
     onDuplicate: (pkg: PackageLifecycleTarget) =>
-      runAction("duplicate package", () => duplicatePackageAction(pkg.id)),
+      runAction("duplicate package", () => duplicatePackageAction(pkg.id), {
+        loading: "Duplicating package…",
+        success: "Package duplicated",
+      }),
     onArchive: (pkg: PackageLifecycleTarget) => setPending({ type: "ARCHIVE", pkg }),
     onRestore: (pkg: PackageLifecycleTarget) =>
-      runAction("restore package", () => restorePackageAction(pkg.id)),
-    onDelete: (pkg: PackageLifecycleTarget) => setPending({ type: "DELETE", pkg }),
+      runAction("restore package", () => restorePackageAction(pkg.id), {
+        loading: "Restoring package…",
+        success: "Package restored",
+      }),
+    onDelete: (pkg: PackageLifecycleTarget) => setDeleteTarget(pkg),
   };
 
   return {
@@ -149,6 +174,12 @@ export function usePackageLifecycle() {
     actions,
     pending,
     closePending: () => setPending(null),
+    deleteTarget,
+    closeDelete: () => setDeleteTarget(null),
+    finishDelete: () => {
+      setDeleteTarget(null);
+      router.refresh();
+    },
     confirmPending,
     forceArchiveTarget,
     closeForceArchive: () => setForceArchiveTarget(null),

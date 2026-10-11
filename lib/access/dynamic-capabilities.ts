@@ -31,11 +31,26 @@ export async function loadDynamicCapabilities<T extends object>(
     .eq("module", module)
     .maybeSingle();
 
-  // Best-effort: a missing row (brand-new role with no override for this
-  // module yet) or a read error both fall back to the code-level default
-  // rather than denying everything — the same posture `getCurrentStaffRole()`
-  // takes on its own failure modes.
-  if (error || !data) return fallback;
+  // A read error is NOT the same as "no override saved". With no row (a brand-new role with nothing set for this module) the base role's default
+  // applies. With an error we cannot know whether this role was restricted, and falling back to the defaults would hand a restricted custom role its
+  // base role's full set for as long as the database hiccups — so everything is denied for that request instead (TASK-043 PKG-04).
+  if (error) {
+    console.error(`[access] could not read the "${module}" permissions for role ${roleId}; denying all capabilities for this request: ${error.message}`);
+    return Object.fromEntries(Object.entries(fallback).map(([key, value]) => [key, typeof value === "boolean" ? false : value])) as T;
+  }
+  if (!data) return fallback;
 
-  return { ...fallback, ...(data.capabilities as Partial<T>) };
+  // Only a saved boolean counts, and only for a capability this module knows. A string, a number or an unknown key in the stored JSON never grants
+  // anything (the database applies the same rule: only JSON `true` grants).
+  const saved = data.capabilities;
+  if (saved === null || typeof saved !== "object" || Array.isArray(saved)) return fallback;
+
+  const merged: Record<string, unknown> = { ...(fallback as Record<string, unknown>) };
+  for (const [key, defaultValue] of Object.entries(fallback)) {
+    if (!Object.prototype.hasOwnProperty.call(saved, key)) continue;
+    const value = (saved as Record<string, unknown>)[key];
+    // Capabilities are booleans; a non-boolean saved for one is read as "not granted". Any other kind of field keeps the old merge.
+    merged[key] = typeof defaultValue === "boolean" ? value === true : value;
+  }
+  return merged as T;
 }

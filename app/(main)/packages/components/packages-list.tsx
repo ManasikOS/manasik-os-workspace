@@ -12,7 +12,8 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/ui/toast";
+import { runWithLoadingToast, toast } from "@/components/ui/toast";
+import { ToneBadge } from "@/components/ui/tone-badge";
 import {
   DataTable,
   type DataTableSort,
@@ -25,7 +26,8 @@ import {
   type PackageListItem,
   type PackageSavedView,
 } from "@/lib/types/packages";
-import { Archive, Download, MoreVertical, Plus } from "lucide-react";
+import { Archive, Download, MoreVertical, Plus, ShieldAlert } from "lucide-react";
+import type { PackageChangeRequest } from "@/lib/data/packages-repository";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 import React, { useMemo, useState } from "react";
 
@@ -46,10 +48,12 @@ import {
   sortPackages,
   type PackageSort,
 } from "../utils";
+import { authorisePackageExportAction } from "../actions";
 import { usePackageLifecycle } from "../use-package-lifecycle";
 import ArchivedPackagesSheet from "./archived-packages-sheet";
 import ConfirmPackageActionDialog from "./confirm-package-action-dialog";
-import CreatePackageDialog from "./create-package-dialog";
+import DeletePackageDialog from "./delete-package-dialog";
+import PackageChangeQueueSheet from "./package-change-queue-sheet";
 import ForceArchivePackageDialog from "./force-archive-package-dialog";
 import {
   buildPackageColumns,
@@ -88,8 +92,8 @@ interface PackagesListProps {
    */
   can: PackageCapabilities;
   currentUserId: string | null;
-  /** From `?create=1` — opens the create dialog on mount (e.g. the redirect from `/packages/new`, or a deep link from another module). */
-  autoOpenCreate?: boolean;
+  /** Changes to packages on sale that are waiting for approval (TASK-043). */
+  pendingChanges: PackageChangeRequest[];
 }
 
 /**
@@ -99,17 +103,15 @@ interface PackagesListProps {
  * mutations (archive, publish, ...) do, and those refresh via
  * `router.refresh()` afterwards.
  *
- * Create and Edit both open `CreatePackageDialog` — the dialog is the one
- * package-creation surface (a separate route-based wizard also exists at
- * `/packages/new` / `/packages/[id]/edit` for direct-link/bookmark use, but
- * this list intentionally opens the dialog rather than routing there).
+ * Create and Edit go to the full-page editor at `/packages/new` and
+ * `/packages/[id]/edit` (TASK-044).
  */
 const PackagesList = ({
   packages,
   archivedPackages,
   can,
   currentUserId,
-  autoOpenCreate = false,
+  pendingChanges,
 }: PackagesListProps) => {
   const router = useRouter();
   const lifecycle = usePackageLifecycle();
@@ -119,13 +121,9 @@ const PackagesList = ({
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [sort, setSort] = useState<PackageSort>(DEFAULT_PACKAGE_SORT);
   const [archivedOpen, setArchivedOpen] = useState(false);
-  // `?create=1` opens the dialog from its very first render via lazy
-  // initial state, not a mount effect — see the identical pattern (and its
-  // own reasoning) in `DepartureGroupsList`'s `createOpen`.
-  const [createOpen, setCreateOpen] = useState(
-    () => autoOpenCreate && can.createPackage,
-  );
-  const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
+  const [queueOpen, setQueueOpen] = useState(false);
+  // Which packages have a change waiting, so the table can mark them.
+  const pendingPackageIds = useMemo(() => new Set(pendingChanges.map((request) => request.packageId)), [pendingChanges]);
 
   const setFilter = (key: keyof Filters, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -163,7 +161,7 @@ const PackagesList = ({
    * sort — built straight from the array already in the browser, so this is
    * instant and needs no server round trip.
    */
-  const exportPackages = (format: "csv" | "xlsx") => {
+  const exportPackages = async (format: "csv" | "xlsx") => {
     if (sorted.length === 0) {
       toast.add({
         title: "Nothing to export",
@@ -171,6 +169,23 @@ const PackagesList = ({
       });
       return;
     }
+
+    // One tiny server call checks permission, applies the hourly limit and records the export. The file is then built here from the list already
+    // loaded, so there is no second download. If this fails, nothing is exported.
+    const filtersUsed: Record<string, string> = { view: savedView };
+    if (search.trim()) filtersUsed.search = search.trim().slice(0, 80);
+    for (const [key, value] of Object.entries(filters)) if (value !== ALL) filtersUsed[key] = value.slice(0, 80);
+    const authorised = await runWithLoadingToast(
+      () => authorisePackageExportAction({ format, rowCount: sorted.length, filters: filtersUsed }),
+      {
+        loadingTitle: "Preparing export…",
+        successTitle: "Export ready",
+        errorTitle: "Could not export packages",
+        getFailureMessage: (response) => (response.ok ? undefined : response.error),
+        shouldDismissSilently: (response) => response.ok,
+      },
+    );
+    if (!authorised?.ok) return;
 
     if (format === "xlsx") {
       downloadBinaryFile(
@@ -193,7 +208,7 @@ const PackagesList = ({
   const rowActions = {
     ...lifecycle.actions,
     onOpen: (p: PackageListItem) => router.push(`/packages/${p.id}`),
-    onEdit: (p: PackageListItem) => setEditingPackageId(p.id),
+    onEdit: (p: PackageListItem) => router.push(`/packages/${p.id}/edit`),
     onCreateGroup: (p: PackageListItem) =>
       router.push(`/departure-groups?create=1&template=${p.id}`),
   };
@@ -209,9 +224,10 @@ const PackagesList = ({
             field: next.field as PackageSort["field"],
             direction: next.direction,
           }),
+        pendingPackageIds,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [can, router, sort.field, sort.direction, lifecycle.actions],
+    [can, router, sort.field, sort.direction, lifecycle.actions, pendingPackageIds],
   );
 
   return (
@@ -222,11 +238,17 @@ const PackagesList = ({
         onConfirmed={lifecycle.confirmPending}
       />
       <ForceArchivePackageDialog
-        key={lifecycle.forceArchiveTarget?.pkg.id ?? "none"}
+        key={`force-archive-${lifecycle.forceArchiveTarget?.pkg.id ?? "none"}`}
         pkg={lifecycle.forceArchiveTarget?.pkg ?? null}
         liveGroupCount={lifecycle.forceArchiveTarget?.liveGroupCount ?? 0}
         onClose={lifecycle.closeForceArchive}
         onConfirm={lifecycle.forceArchive}
+      />
+      <DeletePackageDialog
+        key={`delete-${lifecycle.deleteTarget?.id ?? "none"}`}
+        pkg={lifecycle.deleteTarget}
+        onClose={lifecycle.closeDelete}
+        onDeleted={lifecycle.finishDelete}
       />
       <ArchivedPackagesSheet
         open={archivedOpen}
@@ -234,18 +256,13 @@ const PackagesList = ({
         packages={archivedPackages}
         canRestore={can.archiveOrRestorePackage}
       />
-      <CreatePackageDialog open={createOpen} setOpen={setCreateOpen} />
-      {editingPackageId && (
-        <CreatePackageDialog
-          key={editingPackageId}
-          open
-          setOpen={(next) => {
-            if (!next) setEditingPackageId(null);
-          }}
-          mode="edit"
-          packageId={editingPackageId}
-        />
-      )}
+      <PackageChangeQueueSheet
+        open={queueOpen}
+        onOpenChange={setQueueOpen}
+        requests={pendingChanges}
+        can={can}
+        currentUserId={currentUserId}
+      />
 
       <div className="flex flex-col gap-6 w-full mx-auto pb-10">
         <PageHeader
@@ -257,8 +274,14 @@ const PackagesList = ({
           ]}
           action={
             <div className="flex items-center gap-4">
+              {pendingChanges.length > 0 && (
+                <Button variant="outline_without_border" onClick={() => setQueueOpen(true)}>
+                  <ShieldAlert /> Awaiting approval
+                  <ToneBadge tone="warning" label={String(pendingChanges.length)} className="ml-1 px-1.5 py-0.5 text-[10px] tabular-nums" />
+                </Button>
+              )}
               {can.createPackage && (
-                <Button onClick={() => setCreateOpen(true)}>
+                <Button onClick={() => router.push("/packages/new")}>
                   <Plus /> Create Package
                 </Button>
               )}
@@ -280,13 +303,13 @@ const PackagesList = ({
                         <Download /> Export Packages
                       </DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => exportPackages("csv")}>
+                          CSV (.csv) — smallest, opens anywhere
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => exportPackages("xlsx")}
                         >
                           Excel (.xlsx)
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => exportPackages("csv")}>
-                          CSV (.csv)
                         </DropdownMenuItem>
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>

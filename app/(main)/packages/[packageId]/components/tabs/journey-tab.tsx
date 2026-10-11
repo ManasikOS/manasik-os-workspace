@@ -41,7 +41,11 @@ export default function JourneyTab({ pkg }: { pkg: PackageRow }) {
               .slice()
               .sort((a, b) => a.dayNumber - b.dayNumber)
               .map((day) => (
-                <Card key={day.id} className="px-4 py-3 gap-2">
+                <Card
+                  key={day.id}
+                  variant="md-shadow"
+                  className="px-4 py-3 gap-2"
+                >
                   <div className="flex items-center gap-2">
                     <Badge
                       variant="outline"

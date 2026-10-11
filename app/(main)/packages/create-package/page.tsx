@@ -1,4 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+
+import { isUuid } from "@/lib/utils";
 
 /**
  * `/packages/create-package(?id=)` is kept as a redirect for one release so
@@ -11,5 +13,7 @@ export default async function CreatePackageRedirect({
   searchParams: Promise<{ id?: string }>;
 }) {
   const { id } = await searchParams;
+  // The id comes straight from the URL: only a real package id is followed.
+  if (id !== undefined && !isUuid(id)) notFound();
   redirect(id ? `/packages/${id}/edit` : "/packages/new");
 }

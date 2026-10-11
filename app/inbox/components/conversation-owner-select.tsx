@@ -1,9 +1,17 @@
 "use client";
 
 import { useTransition } from "react";
-import { UserRound } from "lucide-react";
+import { ChevronDown, UserRound } from "lucide-react";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toast";
 
 import { assignConversationAction } from "../actions";
@@ -38,11 +46,13 @@ export function ConversationOwnerSelect({
     ? staff
     : [{ id: assignedToId, name: assignedToName || "Current owner" }, ...staff];
 
-  // The trigger shows the label of the chosen item; without the items list it would show the raw staff id until the menu had been opened.
+  // The trigger shows the label of the chosen person rather than their raw staff id.
   const ownerItems = [
     { value: NO_OWNER, label: "Unassigned" },
     ...options.map((person) => ({ value: person.id, label: person.id === currentStaffId ? `${person.name} (you)` : person.name })),
   ];
+  const selectedOwnerValue = assignedToId ?? NO_OWNER;
+  const selectedOwnerLabel = ownerItems.find((item) => item.value === selectedOwnerValue)?.label ?? "Unassigned";
 
   function change(value: string | null) {
     const assigneeId = !value || value === NO_OWNER ? null : value;
@@ -59,25 +69,29 @@ export function ConversationOwnerSelect({
   }
 
   return (
-    <Select items={ownerItems} value={assignedToId ?? NO_OWNER} onValueChange={change} disabled={isPending}>
-      <SelectTrigger
-        size="sm"
-        className="w-44"
-        aria-label="Conversation owner"
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={isPending}
+        aria-label={`Conversation owner: ${selectedOwnerLabel}`}
         data-inbox-shortcut-trigger="OPEN_ASSIGNMENT"
         aria-keyshortcuts="a"
+        render={<Button type="button" variant="outline" size="sm" className="w-44 justify-start px-2.5" />}
       >
         <UserRound className="size-3.5" aria-hidden="true" />
-        <SelectValue placeholder="Unassigned" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value={NO_OWNER}>Unassigned</SelectItem>
-        {options.map((person) => (
-          <SelectItem key={person.id} value={person.id}>
-            {person.id === currentStaffId ? `${person.name} (you)` : person.name}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+        <span className="min-w-0 flex-1 truncate text-start">{selectedOwnerLabel}</span>
+        <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        <DropdownMenuRadioGroup value={selectedOwnerValue} onValueChange={(value: string) => change(value)}>
+          <DropdownMenuRadioItem value={NO_OWNER}>Unassigned</DropdownMenuRadioItem>
+          {options.length > 0 && <DropdownMenuSeparator />}
+          {options.map((person) => (
+            <DropdownMenuRadioItem key={person.id} value={person.id}>
+              <span className="truncate">{person.id === currentStaffId ? `${person.name} (you)` : person.name}</span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

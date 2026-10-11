@@ -106,6 +106,15 @@ and the visual reference in [`docs/architecture/design-tokens.md`](docs/architec
 - Make every text have clarity, understandable for everyone.
 - Do not use any generic names as components or functions, always make the
   names unique.
+- Any user-triggered function that waits on the server or other slow work
+  (Server Action calls from a menu, button or row action — publish, archive,
+  duplicate, delete, export, etc.) must show a loading toast immediately,
+  then turn it into a success or error toast when it settles. Use
+  `runWithLoadingToast` from `@/components/ui/toast` — never a silent wait,
+  and never a success/error-only toast that appears after the delay. Use
+  specific titles ("Publishing package…" → "Package published"), and pass
+  `getFailureMessage` for actions that return `{ ok: false, error }`. See
+  `app/(main)/packages/use-package-lifecycle.ts` for the reference usage.
 - For UI, refer to the images from `/doc/ui` from root, and to
   [`docs/architecture/design-tokens.md`](docs/architecture/design-tokens.md)
   for the type scale and table conventions. Don't change any color — just

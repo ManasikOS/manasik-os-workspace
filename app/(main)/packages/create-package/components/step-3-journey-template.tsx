@@ -8,11 +8,17 @@ import {
   MoveDown,
   Calendar,
   Sparkles,
-  ChevronUp,
-  Edit2,
+  ChevronDown,
   MapPin,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,14 +28,16 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import InputFormHeader from "@/components/ui/input-form-header";
 import { PackageFormData, ItineraryItem } from "../types";
+import type { PackageFieldErrors } from "../schemas";
 import { cn } from "@/lib/utils";
-import { TONE_STAT_CARD, TONE_TEXT } from "@/lib/ui/tone";
+import { TONE_TEXT } from "@/lib/ui/tone";
 
 interface StepJourneyTemplateProps {
   formData: PackageFormData;
   setFormData: React.Dispatch<React.SetStateAction<PackageFormData>>;
+  /** Messages for this step's fields; only passed once the step has been visited and left. */
+  fieldErrors?: PackageFieldErrors | null;
 }
 
 /* eslint-disable no-restricted-syntax -- fixed 10-way itinerary-category
@@ -67,6 +75,7 @@ const CATEGORY_OPTIONS: NonNullable<ItineraryItem["category"]>[] = [
 export const StepJourneyTemplate: React.FC<StepJourneyTemplateProps> = ({
   formData,
   setFormData,
+  fieldErrors = null,
 }) => {
   const [expandedDayId, setExpandedDayId] = useState<string | null>(
     formData.itinerary[0]?.id || null,
@@ -358,278 +367,314 @@ export const StepJourneyTemplate: React.FC<StepJourneyTemplateProps> = ({
     setExpandedDayId(items[0]?.id || null);
   };
 
+  const itineraryListError =
+    fieldErrors?.itinerary?.[0] ?? fieldErrors?.duration?.[0];
+
   return (
     <div className="flex flex-col gap-5">
-      {/* SECTION C: Day-by-Day Itinerary */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-primary mt-3">
-            Itinerary coverage: {formData.itinerary.length} of {formData.days}{" "}
-            days configured
-          </p>
-        </div>
+      {/* GROUP: day-by-day itinerary */}
+      <Card className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Day-by-day itinerary</CardTitle>
+          <CardDescription>
+            {formData.itinerary.length} of {formData.days} days configured.
+            Exact operational dates are confirmed later in Departure Groups.
+          </CardDescription>
+        </CardHeader>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {formData.journeyType === "Hajj" ? (
-            <Button
-              type="button"
-              variant="outline_without_border"
-              onClick={generateStandardHajj}
-            >
-              <Sparkles className="size-3 text-primary" />
-              Generate Hajj Itinerary
-            </Button>
-          ) : formData.journeyType === "Early Registration" ? (
-            <Button
-              type="button"
-              variant="outline_without_border"
-              onClick={generateStandardUmrah}
-            >
-              Add Indicative Itinerary
-            </Button>
-          ) : (
-            <>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {formData.journeyType === "Hajj" ? (
+              <Button
+                type="button"
+                variant="outline_without_border"
+                onClick={generateStandardHajj}
+              >
+                <Sparkles className="size-3 text-primary" />
+                Generate Hajj Itinerary
+              </Button>
+            ) : formData.journeyType === "Early Registration" ? (
               <Button
                 type="button"
                 variant="outline_without_border"
                 onClick={generateStandardUmrah}
               >
-                <Sparkles className="size-3 text-primary" />
-                Standard Umrah
+                Add Indicative Itinerary
               </Button>
-              <Button
-                type="button"
-                variant="outline_without_border"
-                onClick={generateRamadanUmrah}
-              >
-                <Sparkles className="size-3 text-primary" />
-                Ramadan Umrah
-              </Button>
-            </>
-          )}
-
-          <Button type="button" variant="default" onClick={addItineraryDay}>
-            <Plus className="size-3.5" /> Add Day
-          </Button>
-        </div>
-      </div>
-
-      {/* Configured Days Summary Cards */}
-      <div className="flex flex-col gap-3 pb-10 px-2">
-        {formData.itinerary.length === 0 ? (
-          <div className="text-center py-8 border border-dashed rounded-lg space-y-2">
-            <Calendar className="size-8 mx-auto text-muted-foreground/40" />
-            <p className="text-xs font-medium text-muted-foreground">
-              No itinerary days added yet. Click &quot;+ Add Day&quot; or choose
-              a generator above.
-            </p>
-          </div>
-        ) : (
-          formData.itinerary.map((item, idx) => {
-            const isExpanded = expandedDayId === item.id;
-            const colorClass =
-              CATEGORY_COLORS[item.category || "Other"] ||
-              CATEGORY_COLORS.Other;
-
-            return (
-              <Card
-                key={item.id}
-                className={`transition-all duration-300 h-auto ${
-                  isExpanded ? "bg-card/10 p-4" : "bg-card/50 p-4 hover:bg-card"
-                }`}
-              >
-                {/* Collapsed Header View */}
-                <div
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => setExpandedDayId(isExpanded ? null : item.id)}
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline_without_border"
+                  onClick={generateStandardUmrah}
                 >
-                  <div className="flex items-center gap-3">
-                    <Badge
-                      variant="outline"
-                      className="font-bold text-xs bg-primary/10 text-primary px-3 py-1"
-                    >
-                      Day {item.dayNumber}
-                    </Badge>
-                    <span className="text-sm font-medium text-foreground">
-                      {item.title}
-                    </span>
-                    {item.location && (
-                      <span className="text-[11px] text-muted-foreground hidden sm:flex items-center gap-1">
-                        <MapPin className="size-3" /> {item.location}
-                      </span>
-                    )}
-                    <Badge
-                      variant="outline"
-                      className={`text-xs border-none px-2.5 py-1 ${colorClass}`}
-                    >
-                      {item.category || "Ziyarah"}
-                    </Badge>
-                  </div>
+                  <Sparkles className="size-3 text-primary" />
+                  Standard Umrah
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline_without_border"
+                  onClick={generateRamadanUmrah}
+                >
+                  <Sparkles className="size-3 text-primary" />
+                  Ramadan Umrah
+                </Button>
+              </>
+            )}
 
-                  <div
-                    className="flex items-center gap-2"
-                    onClick={(e) => e.stopPropagation()}
+            <Button
+              type="button"
+              variant="default"
+              className="sm:ml-auto"
+              onClick={addItineraryDay}
+            >
+              <Plus className="size-3.5" /> Add Day
+            </Button>
+          </div>
+
+          {itineraryListError ? (
+            <p className="text-xs text-destructive">{itineraryListError}</p>
+          ) : null}
+
+          {formData.itinerary.length === 0 ? (
+            <div
+              role="status"
+              className="flex flex-col items-center gap-2 rounded-md border border-dashed py-8 text-center"
+            >
+              <Calendar className="size-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">
+                No itinerary days yet. Choose a generator above or add a day.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {formData.itinerary.map((item, idx) => {
+                const isExpanded = expandedDayId === item.id;
+                const colorClass =
+                  CATEGORY_COLORS[item.category || "Other"] ||
+                  CATEGORY_COLORS.Other;
+                const dayCount = formData.itinerary.length;
+
+                return (
+                  <Card
+                    key={item.id}
+                    variant="md-shadow"
+                    className={cn(
+                      "gap-4 px-5 py-5",
+                      !isExpanded && " hover:bg-card",
+                    )}
                   >
-                    <button
-                      type="button"
-                      onClick={() => moveItineraryDay(idx, "up")}
-                      disabled={idx === 0}
-                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                    >
-                      <MoveUp className="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveItineraryDay(idx, "down")}
-                      disabled={idx === formData.itinerary.length - 1}
-                      className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                    >
-                      <MoveDown className="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
+                    {/* Collapsed header: the whole row toggles for mouse
+                        users; the chevron button is the keyboard path. */}
+                    <CardHeader
+                      className="cursor-pointer"
                       onClick={() =>
                         setExpandedDayId(isExpanded ? null : item.id)
                       }
-                      className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
                     >
-                      {isExpanded ? (
-                        <ChevronUp className="size-4" />
-                      ) : (
-                        <Edit2 className="size-3.5" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeItineraryDay(idx)}
-                      className="p-1 text-muted-foreground hover:text-destructive cursor-pointer ml-1"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Expanded Edit Card */}
-                {isExpanded && (
-                  <div className="mt-4 space-y-7">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <div className="md:col-span-2 space-y-1">
-                        <InputGroup>
-                          <InputGroupAddon align="block-start">
-                            <InputGroupText>Title *</InputGroupText>
-                          </InputGroupAddon>
-                          <InputGroupInput
-                            value={item.title}
-                            onChange={(e) =>
-                              updateItineraryItem(idx, {
-                                title: e.target.value,
-                              })
-                            }
-                          />
-                        </InputGroup>
-                      </div>
-
-                      <div className="space-y-1">
-                        <InputGroup>
-                          <InputGroupAddon align="block-start">
-                            <InputGroupText className="text-xs">
-                              Location *
-                            </InputGroupText>
-                          </InputGroupAddon>
-                          <InputGroupInput
-                            value={item.location || ""}
-                            onChange={(e) =>
-                              updateItineraryItem(idx, {
-                                location: e.target.value,
-                              })
-                            }
-                            placeholder="e.g. Makkah"
-                            className="text-xs"
-                          />
-                        </InputGroup>
-                      </div>
-                    </div>
-
-                    {/* Category Tag Selection */}
-                    <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Category Tag *
-                      </span>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {CATEGORY_OPTIONS.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant={
-                              item.category === tag ? "default" : "outline"
-                            }
-                            onClick={() =>
-                              updateItineraryItem(idx, {
-                                category: tag,
-                              })
-                            }
-                            className="cursor-pointer py-3 text-md px-4"
-                          >
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Descriptions */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
-                      <div className="space-y-1">
-                        <InputGroup className="h-auto">
-                          <InputGroupAddon align="block-start">
-                            <InputGroupText>
-                              Pilgrim-facing Description *
-                            </InputGroupText>
-                          </InputGroupAddon>
-                          <InputGroupTextarea
-                            rows={3}
-                            placeholder="Detailed activities, assembly points, guided tours..."
-                            value={item.description}
-                            onChange={(e) =>
-                              updateItineraryItem(idx, {
-                                description: e.target.value,
-                              })
-                            }
-                            className="text-xs"
-                          />
-                        </InputGroup>
-                      </div>
-
-                      <div className="space-y-1">
-                        <InputGroup
-                          className={cn("h-auto", TONE_STAT_CARD.warning)}
+                      <CardTitle className="text-sm">{item.title}</CardTitle>
+                      <CardDescription className="flex flex-wrap items-center gap-2 text-xs">
+                        <span>Day {item.dayNumber}</span>
+                        {item.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="size-3" /> {item.location}
+                          </span>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className={cn("border-none", colorClass)}
                         >
-                          <InputGroupAddon align="block-start">
-                            <InputGroupText
-                              className={cn("font-medium", TONE_TEXT.warning)}
-                            >
-                              Internal Operations Note (Hidden from Pilgrims)
-                            </InputGroupText>
-                          </InputGroupAddon>
-                          <InputGroupTextarea
-                            rows={3}
-                            placeholder="Bus pickup timings, guide assignments, luggage handling instructions..."
-                            value={item.internalNotes || ""}
-                            onChange={(e) =>
-                              updateItineraryItem(idx, {
-                                internalNotes: e.target.value,
-                              })
-                            }
-                            className="text-xs"
+                          {item.category || "Ziyarah"}
+                        </Badge>
+                      </CardDescription>
+                      <CardAction
+                        className="flex items-center gap-0.5"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className="min-h-0 px-0"
+                          aria-label={`Move day ${item.dayNumber} up`}
+                          onClick={() => moveItineraryDay(idx, "up")}
+                          disabled={idx === 0}
+                        >
+                          <MoveUp />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className="min-h-0 px-0"
+                          aria-label={`Move day ${item.dayNumber} down`}
+                          onClick={() => moveItineraryDay(idx, "down")}
+                          disabled={idx === dayCount - 1}
+                        >
+                          <MoveDown />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className="min-h-0 px-0 hover:text-destructive"
+                          aria-label={`Delete day ${item.dayNumber}`}
+                          onClick={() => removeItineraryDay(idx)}
+                        >
+                          <Trash2 />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className="min-h-0 px-0"
+                          aria-expanded={isExpanded}
+                          aria-label={
+                            isExpanded
+                              ? `Collapse day ${item.dayNumber}`
+                              : `Edit day ${item.dayNumber}`
+                          }
+                          onClick={() =>
+                            setExpandedDayId(isExpanded ? null : item.id)
+                          }
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "transition-transform",
+                              isExpanded && "rotate-180",
+                            )}
                           />
-                        </InputGroup>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </Card>
-            );
-          })
-        )}
-      </div>
+                        </Button>
+                      </CardAction>
+                    </CardHeader>
+
+                    {isExpanded && (
+                      <CardContent className="flex flex-col gap-4">
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                          <div className="md:col-span-2">
+                            <InputGroup>
+                              <InputGroupAddon align="block-start">
+                                <InputGroupText>
+                                  Title{" "}
+                                  <span className="text-destructive">*</span>
+                                </InputGroupText>
+                              </InputGroupAddon>
+                              <InputGroupInput
+                                value={item.title}
+                                onChange={(e) =>
+                                  updateItineraryItem(idx, {
+                                    title: e.target.value,
+                                  })
+                                }
+                              />
+                            </InputGroup>
+                          </div>
+
+                          <InputGroup>
+                            <InputGroupAddon align="block-start">
+                              <InputGroupText>
+                                Location{" "}
+                                <span className="text-destructive">*</span>
+                              </InputGroupText>
+                            </InputGroupAddon>
+                            <InputGroupInput
+                              value={item.location || ""}
+                              onChange={(e) =>
+                                updateItineraryItem(idx, {
+                                  location: e.target.value,
+                                })
+                              }
+                              placeholder="e.g. Makkah"
+                              className="text-xs"
+                            />
+                          </InputGroup>
+                        </div>
+
+                        {/* Category tag selection */}
+                        <div
+                          role="group"
+                          aria-label={`Category for day ${item.dayNumber}`}
+                          className="flex flex-col mt-2 gap-2"
+                        >
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Category Tag{" "}
+                            <span className="text-destructive">*</span>
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {CATEGORY_OPTIONS.map((tag) => (
+                              <Button
+                                key={tag}
+                                type="button"
+                                size="sm"
+                                className="min-h-0"
+                                variant={
+                                  item.category === tag
+                                    ? "default"
+                                    : "outline_without_border"
+                                }
+                                aria-pressed={item.category === tag}
+                                onClick={() =>
+                                  updateItineraryItem(idx, { category: tag })
+                                }
+                              >
+                                {tag}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Descriptions */}
+                        <div className="grid grid-cols-1 mt-4 gap-3 md:grid-cols-2">
+                          <InputGroup className="h-auto">
+                            <InputGroupAddon align="block-start">
+                              <InputGroupText>
+                                Pilgrim-facing Description{" "}
+                                <span className="text-destructive">*</span>
+                              </InputGroupText>
+                            </InputGroupAddon>
+                            <InputGroupTextarea
+                              rows={3}
+                              placeholder="Detailed activities, assembly points, guided tours..."
+                              value={item.description}
+                              onChange={(e) =>
+                                updateItineraryItem(idx, {
+                                  description: e.target.value,
+                                })
+                              }
+                              className="text-xs"
+                            />
+                          </InputGroup>
+
+                          <InputGroup className={cn("h-auto")}>
+                            <InputGroupAddon align="block-start">
+                              <InputGroupText
+                                className={cn("font-medium", TONE_TEXT.warning)}
+                              >
+                                Internal Operations Note (Hidden from Pilgrims)
+                              </InputGroupText>
+                            </InputGroupAddon>
+                            <InputGroupTextarea
+                              rows={3}
+                              placeholder="Bus pickup timings, guide assignments, luggage handling instructions..."
+                              value={item.internalNotes || ""}
+                              onChange={(e) =>
+                                updateItineraryItem(idx, {
+                                  internalNotes: e.target.value,
+                                })
+                              }
+                              className="text-xs"
+                            />
+                          </InputGroup>
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

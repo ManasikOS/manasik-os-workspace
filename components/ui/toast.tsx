@@ -210,6 +210,87 @@ function Toaster({
   );
 }
 
+interface RunWithLoadingToastOptions<TaskResult> {
+  /** Shown immediately, with a spinner, while the task is running. */
+  loadingTitle: string;
+  loadingDescription?: string;
+  /** Shown when the task finishes without failing. */
+  successTitle: string;
+  successDescription?: string;
+  /** Title of the error toast, used when the task fails or throws. */
+  errorTitle: string;
+  /**
+   * For server actions that report failure in their return value (e.g.
+   * `{ ok: false, error }`) instead of throwing: return the failure message
+   * to show the error toast, or `undefined` when the task succeeded.
+   */
+  getFailureMessage?: (result: TaskResult) => string | undefined;
+  /**
+   * Return true when the outcome is handled elsewhere (e.g. it opens a
+   * follow-up dialog) so the loading toast should just disappear.
+   */
+  shouldDismissSilently?: (result: TaskResult) => boolean;
+}
+
+const LOADING_TOAST_RESULT_VISIBLE_MS = 5000;
+
+/**
+ * Shows a toast with a spinner the moment a slow task starts, then turns
+ * that same toast into a success or error toast when the task settles — so
+ * the user gets instant feedback instead of a silent wait.
+ *
+ * Resolves with the task's result, or `undefined` if the task threw (the
+ * error is already shown to the user, so callers need no extra try/catch).
+ */
+async function runWithLoadingToast<TaskResult>(
+  task: () => Promise<TaskResult>,
+  options: RunWithLoadingToastOptions<TaskResult>,
+): Promise<TaskResult | undefined> {
+  const loadingToastId = toast.add({
+    type: "loading",
+    title: options.loadingTitle,
+    description: options.loadingDescription,
+    // 0 = never auto-dismiss while the task is still running.
+    timeout: 0,
+  });
+
+  const showFailure = (message: string | undefined) =>
+    toast.update(loadingToastId, {
+      type: "error",
+      title: options.errorTitle,
+      description: message,
+      timeout: LOADING_TOAST_RESULT_VISIBLE_MS,
+    });
+
+  try {
+    const result = await task();
+
+    if (options.shouldDismissSilently?.(result)) {
+      toast.close(loadingToastId);
+      return result;
+    }
+
+    const failureMessage = options.getFailureMessage?.(result);
+
+    if (failureMessage !== undefined) {
+      showFailure(failureMessage);
+    } else {
+      toast.update(loadingToastId, {
+        type: "success",
+        title: options.successTitle,
+        description: options.successDescription,
+        timeout: LOADING_TOAST_RESULT_VISIBLE_MS,
+      });
+    }
+    return result;
+  } catch (error) {
+    showFailure(
+      error instanceof Error ? error.message : "Something went wrong.",
+    );
+    return undefined;
+  }
+}
+
 const createToastManager = ToastPrimitive.createToastManager;
 const useToastManager = ToastPrimitive.useToastManager;
 
@@ -225,6 +306,7 @@ export {
   ToastTitle,
   ToastViewport,
   createToastManager,
+  runWithLoadingToast,
   toast,
   useToastManager,
 };

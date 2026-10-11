@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 import { getSessionUser } from "@/lib/dal";
@@ -13,6 +13,8 @@ import {
   getPackageDetail,
   getPackageUsage,
   listDepartureGroupsForPackage,
+  listPackageChangeHistory,
+  listPendingPackageChanges,
 } from "@/lib/data/packages-repository";
 import { isUuid } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/server";
@@ -29,6 +31,8 @@ export default async function PackageDetailPage({
 }) {
   const [{ packageId }, { tab, edit }] = await Promise.all([params, searchParams]);
   if (!isUuid(packageId)) notFound();
+  // Old deep link: editing a package is now its own page (TASK-044).
+  if (edit === "1") redirect(`/packages/${packageId}/edit`);
 
   const { role, roleId } = await getCurrentStaffRole();
 
@@ -46,10 +50,13 @@ export default async function PackageDetailPage({
     notFound();
   }
 
-  const [usage, groups, activity] = await Promise.all([
+  const [usage, groups, activity, pendingChanges, changeHistory] = await Promise.all([
     getPackageUsage(packageId),
-    listDepartureGroupsForPackage(packageId),
+    // Revenue is fetched only for roles that may see finance figures (TASK-043 PKG-12).
+    listDepartureGroupsForPackage(packageId, can.viewInternalFinance),
     getPackageActivity(packageId),
+    listPendingPackageChanges(packageId),
+    listPackageChangeHistory(packageId),
   ]);
 
   const validTabs: PackageDetailTabId[] = [
@@ -72,9 +79,11 @@ export default async function PackageDetailPage({
       usage={usage}
       groups={groups}
       activity={activity}
+      pendingChanges={pendingChanges}
+      changeHistory={changeHistory}
+      currentUserId={user?.id ?? null}
       can={can}
       initialTab={initialTab}
-      autoOpenEdit={edit === "1"}
     />
   );
 }

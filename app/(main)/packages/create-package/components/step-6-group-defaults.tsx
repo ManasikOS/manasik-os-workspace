@@ -1,19 +1,16 @@
 "use client";
 
 import React from "react";
+import { Plus, Trash2, MoveUp, MoveDown, ChevronDown } from "lucide-react";
 import {
-  CheckSquare,
-  Users,
-  Plus,
-  Trash2,
-  MoveUp,
-  MoveDown,
-  Info,
-  ChevronDown,
-} from "lucide-react";
-import { Card } from "@/components/ui/card";
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   InputGroup,
@@ -21,7 +18,6 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
-import InputFormHeader from "@/components/ui/input-form-header";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,11 +25,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PackageFormData, GroupReadinessRequirement } from "../types";
-import SectionHeading from "@/components/section-heading";
+import type { PackageFieldErrors } from "../schemas";
 
 interface StepGroupDefaultsProps {
   formData: PackageFormData;
   setFormData: React.Dispatch<React.SetStateAction<PackageFormData>>;
+  /** Messages for this step's fields; only passed once the step has been visited and left. */
+  fieldErrors?: PackageFieldErrors | null;
 }
 
 const ROLES = ["Operations", "Visa", "Finance", "Guide", "Admin"] as const;
@@ -50,6 +48,7 @@ const TIMINGS = [
 export const StepGroupDefaults: React.FC<StepGroupDefaultsProps> = ({
   formData,
   setFormData,
+  fieldErrors = null,
 }) => {
   const updateField = <K extends keyof PackageFormData>(
     field: K,
@@ -106,180 +105,209 @@ export const StepGroupDefaults: React.FC<StepGroupDefaultsProps> = ({
     updateField("groupReadinessChecklist", list);
   };
 
+  const taskCount = formData.groupReadinessChecklist.length;
+  const capacityError = fieldErrors?.defaultGroupCapacity?.[0];
+  const checklistError = fieldErrors?.groupReadinessChecklist?.[0];
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="flex flex-col gap-5">
+      {/* GROUP 1: default group settings */}
+      <Card className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Default group settings</CardTitle>
+          <CardDescription>
+            Starting values for every Departure Group created from this package.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex flex-col gap-1.5">
+              <InputGroup>
+                <InputGroupAddon align="block-start">
+                  <InputGroupText>
+                    Capacity <span className="text-destructive">*</span>
+                  </InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput
+                  type="number"
+                  value={formData.defaultGroupCapacity}
+                  aria-invalid={capacityError ? true : undefined}
+                  onChange={(e) =>
+                    updateField(
+                      "defaultGroupCapacity",
+                      parseCount(e.target.value),
+                    )
+                  }
+                  className="text-xs font-semibold"
+                />
+              </InputGroup>
+              {capacityError ? (
+                <p className="text-xs text-destructive">{capacityError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Pilgrims per group
+                </p>
+              )}
+            </div>
 
-      {/* SECTION A: Default Group Settings */}
-      <div className="flex flex-col gap-4">
-        <SectionHeading title="Default Group Settings" />
+            <div className="flex flex-col gap-1.5">
+              <InputGroup>
+                <InputGroupAddon align="block-start">
+                  <InputGroupText>Min Group Size</InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput
+                  type="number"
+                  value={formData.minGroupSize}
+                  onChange={(e) =>
+                    updateField("minGroupSize", parseCount(e.target.value))
+                  }
+                  className="text-xs"
+                />
+              </InputGroup>
+              <p className="text-xs text-muted-foreground">
+                Min required to operate
+              </p>
+            </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="">
-            <InputGroup>
-              <InputGroupAddon align="block-start">
-                <InputGroupText className="text-xs">Capacity *</InputGroupText>
-              </InputGroupAddon>
-              <InputGroupInput
-                type="number"
-                value={formData.defaultGroupCapacity}
-                onChange={(e) =>
-                  updateField(
-                    "defaultGroupCapacity",
-                    parseCount(e.target.value),
-                  )
-                }
-                className="text-xs font-semibold"
-              />
-            </InputGroup>
-            <p className="text-xs mt-1.5 text-muted-foreground">
-              Pilgrims per group
-            </p>
+            <div className="flex flex-col gap-1.5">
+              <InputGroup>
+                <InputGroupAddon align="block-start">
+                  <InputGroupText>Default Status</InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput
+                  readOnly
+                  value={formData.defaultGroupStatus}
+                  className="cursor-not-allowed bg-muted/40 text-xs font-semibold text-primary"
+                />
+              </InputGroup>
+              <p className="text-xs text-muted-foreground">
+                Initial state upon creation
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <InputGroup>
+                <InputGroupAddon align="block-start">
+                  <InputGroupText>Guide Ratio</InputGroupText>
+                </InputGroupAddon>
+                <InputGroupInput
+                  type="number"
+                  value={formData.suggestedGuideRatio}
+                  onChange={(e) =>
+                    updateField(
+                      "suggestedGuideRatio",
+                      parseCount(e.target.value),
+                    )
+                  }
+                  className="text-xs"
+                />
+              </InputGroup>
+              <p className="text-xs text-muted-foreground">
+                1 Guide per {formData.suggestedGuideRatio} pilgrims
+              </p>
+            </div>
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="">
-            <InputGroup>
-              <InputGroupAddon align="block-start">
-                <InputGroupText className="text-xs">
-                  Min Group Size
-                </InputGroupText>
-              </InputGroupAddon>
-              <InputGroupInput
-                type="number"
-                value={formData.minGroupSize}
-                onChange={(e) =>
-                  updateField("minGroupSize", parseCount(e.target.value))
-                }
-                className="text-xs"
-              />
-            </InputGroup>
-            <p className="text-xs mt-1.5 text-muted-foreground">
-              Min required to operate
-            </p>
-          </div>
+      {/* GROUP 2: departure group readiness checklist template */}
+      <Card className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Departure group readiness checklist</CardTitle>
+          <CardDescription>
+            These requirements are copied to each Departure Group and become its
+            live readiness checklist.
+          </CardDescription>
+          <CardAction>
+            <Button
+              type="button"
+              variant="outline_without_border"
+              size="sm"
+              onClick={addReadinessReq}
+            >
+              <Plus /> Add Readiness Requirement
+            </Button>
+          </CardAction>
+        </CardHeader>
 
-          <div className="">
-            <InputGroup>
-              <InputGroupAddon align="block-start">
-                <InputGroupText className="text-xs">
-                  Default Status
-                </InputGroupText>
-              </InputGroupAddon>
-              <InputGroupInput
-                readOnly
-                value={formData.defaultGroupStatus}
-                className="text-xs font-semibold text-primary bg-muted/40"
-              />
-            </InputGroup>
-            <p className="text-xs mt-1.5 text-muted-foreground">
-              Initial state upon creation
-            </p>
-          </div>
-
-          <div className="">
-            <InputGroup>
-              <InputGroupAddon align="block-start">
-                <InputGroupText className="text-xs">Guide Ratio</InputGroupText>
-              </InputGroupAddon>
-              <InputGroupInput
-                type="number"
-                value={formData.suggestedGuideRatio}
-                onChange={(e) =>
-                  updateField("suggestedGuideRatio", parseCount(e.target.value))
-                }
-                className="text-xs"
-              />
-            </InputGroup>
-            <p className="text-xs mt-1.5 text-muted-foreground">
-              1 Guide per {formData.suggestedGuideRatio} pilgrims
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION B: Departure Group Readiness Template */}
-      <div className="flex flex-col gap-5">
-        <div>
-          <SectionHeading
-            description="These requirements are copied to each Departure Group and become
-              its live readiness checklist."
-            title="Departure Group Readiness Checklist Template"
-          />
-        </div>
-
-        <div className="flex flex-col gap-5 px-2">
+        <CardContent className="flex flex-col gap-3">
           {formData.groupReadinessChecklist.map((gr, idx) => (
-            <Card key={gr.id} className="p-5 gap-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className="text-xs bg-primary/10 text-primary font-semibold"
-                  >
-                    Task {idx + 1}
-                  </Badge>
-                  <span className="text-sm font-medium text-foreground">
-                    {gr.label}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <button
+            <Card variant="md-shadow" key={gr.id} className="gap-4 p-4">
+              <CardHeader>
+                <CardTitle className="text-sm">
+                  {gr.label || `Task ${idx + 1}`}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Task {idx + 1} of {taskCount}
+                </CardDescription>
+                <CardAction className="flex items-center gap-0.5">
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0"
+                    aria-label={`Move task ${idx + 1} up`}
                     onClick={() => moveReadinessReq(idx, "up")}
                     disabled={idx === 0}
-                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
                   >
-                    <MoveUp className="size-3.5" />
-                  </button>
-                  <button
+                    <MoveUp />
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0"
+                    aria-label={`Move task ${idx + 1} down`}
                     onClick={() => moveReadinessReq(idx, "down")}
-                    disabled={
-                      idx === formData.groupReadinessChecklist.length - 1
-                    }
-                    className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
+                    disabled={idx === taskCount - 1}
                   >
-                    <MoveDown className="size-3.5" />
-                  </button>
-                  <button
+                    <MoveDown />
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0 hover:text-destructive"
+                    aria-label={`Delete task ${idx + 1}`}
                     onClick={() => removeReadinessReq(idx)}
-                    disabled={formData.groupReadinessChecklist.length <= 1}
-                    className="p-1 text-muted-foreground hover:text-destructive disabled:opacity-30 cursor-pointer ml-1"
+                    disabled={taskCount <= 1}
                   >
-                    <Trash2 className="size-3.5" />
-                  </button>
-                </div>
-              </div>
+                    <Trash2 />
+                  </Button>
+                </CardAction>
+              </CardHeader>
 
-              <div className="flex gap-3">
-                <div className="flex-3">
-                  <InputGroup>
-                    <InputGroupAddon align={"block-start"}>
-                      <InputGroupText> Requirement Label *</InputGroupText>
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      value={gr.label}
-                      onChange={(e) =>
-                        updateReadinessReq(idx, { label: e.target.value })
-                      }
-                      className=" font-medium"
-                    />
-                  </InputGroup>
-                </div>
+              <CardContent className="flex flex-col gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                  <div className="md:col-span-2">
+                    <InputGroup>
+                      <InputGroupAddon align="block-start">
+                        <InputGroupText>
+                          Requirement Label{" "}
+                          <span className="text-destructive">*</span>
+                        </InputGroupText>
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        value={gr.label}
+                        onChange={(e) =>
+                          updateReadinessReq(idx, { label: e.target.value })
+                        }
+                        className="font-medium"
+                      />
+                    </InputGroup>
+                  </div>
 
-                <div className="flex-1">
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="w-full text-start cursor-pointer">
+                    <DropdownMenuTrigger className="w-full cursor-pointer text-start">
                       <InputGroup>
-                        <InputGroupAddon align={"block-start"}>
-                          <InputGroupText> Responsible Role</InputGroupText>
+                        <InputGroupAddon align="block-start">
+                          <InputGroupText>Responsible Role</InputGroupText>
+                          <ChevronDown className="ml-auto mr-2 size-3.5 text-muted-foreground" />
                         </InputGroupAddon>
                         <InputGroupInput
                           readOnly
                           value={gr.responsibleRole}
-                          className="text-xs cursor-pointer"
+                          className="cursor-pointer text-xs"
                         />
                       </InputGroup>
                     </DropdownMenuTrigger>
@@ -296,19 +324,18 @@ export const StepGroupDefaults: React.FC<StepGroupDefaultsProps> = ({
                       ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </div>
 
-                <div className="flex-1">
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="w-full text-start cursor-pointer">
+                    <DropdownMenuTrigger className="w-full cursor-pointer text-start">
                       <InputGroup>
-                        <InputGroupAddon align={"block-start"}>
-                          <InputGroupText> Due Timing</InputGroupText>
+                        <InputGroupAddon align="block-start">
+                          <InputGroupText>Due Timing</InputGroupText>
+                          <ChevronDown className="ml-auto mr-2 size-3.5 text-muted-foreground" />
                         </InputGroupAddon>
                         <InputGroupInput
                           readOnly
                           value={gr.dueTiming}
-                          className="text-xs cursor-pointer"
+                          className="cursor-pointer text-xs"
                         />
                       </InputGroup>
                     </DropdownMenuTrigger>
@@ -326,29 +353,25 @@ export const StepGroupDefaults: React.FC<StepGroupDefaultsProps> = ({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between pt-2  text-xs text-muted-foreground">
-                <span>Mandatory for Group Readiness:</span>
-                <Switch
-                  checked={gr.required}
-                  onCheckedChange={(chk) =>
-                    updateReadinessReq(idx, { required: chk })
-                  }
-                />
-              </div>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Switch
+                    checked={gr.required}
+                    onCheckedChange={(chk) =>
+                      updateReadinessReq(idx, { required: chk })
+                    }
+                  />
+                  Mandatory for Group Readiness
+                </label>
+              </CardContent>
             </Card>
           ))}
-          <Button
-            type="button"
-            variant="outline_without_border"
-            onClick={addReadinessReq}
-            className="gap-1.5 mt-3 cursor-pointer"
-          >
-            <Plus className="size-3.5" /> Add Readiness Requirement
-          </Button>
-        </div>
-      </div>
+
+          {checklistError ? (
+            <p className="text-xs text-destructive">{checklistError}</p>
+          ) : null}
+        </CardContent>
+      </Card>
     </div>
   );
 };

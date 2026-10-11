@@ -1,28 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import { Plus, Trash2, MoveUp, MoveDown, ChevronDown } from "lucide-react";
 import {
-  FileCheck2,
-  Plus,
-  Trash2,
-  MoveUp,
-  MoveDown,
-  Lock,
-  MessageSquare,
-  ChevronDown,
-} from "lucide-react";
-import { Card } from "@/components/ui/card";
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
-import InputFormHeader from "@/components/ui/input-form-header";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,11 +27,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PackageFormData, DocumentRequirement } from "../types";
-import SectionHeading from "@/components/section-heading";
+import type { PackageFieldErrors } from "../schemas";
 
 interface StepTravellerRequirementsProps {
   formData: PackageFormData;
   setFormData: React.Dispatch<React.SetStateAction<PackageFormData>>;
+  /** Messages for this step's fields; only passed once the step has been visited and left. */
+  fieldErrors?: PackageFieldErrors | null;
 }
 
 const CATEGORIES = [
@@ -52,7 +51,6 @@ const STAGES = [
   "Before Final Payment",
   "Before Departure",
 ] as const;
-const ROLES = ["Admin", "Operations", "Visa", "Finance"] as const;
 
 const SEAT_RULES = [
   "Deposit must be received before a group seat is reserved",
@@ -71,7 +69,7 @@ const COMM_TEMPLATES = [
 
 export const StepTravellerRequirements: React.FC<
   StepTravellerRequirementsProps
-> = ({ formData, setFormData }) => {
+> = ({ formData, setFormData, fieldErrors = null }) => {
   const updateField = <K extends keyof PackageFormData>(
     field: K,
     value: PackageFormData[K],
@@ -137,60 +135,85 @@ export const StepTravellerRequirements: React.FC<
     }
   };
 
+  const docCount = formData.documentRequirements.length;
+  const docListError = fieldErrors?.documentRequirements?.[0];
+  const seatRuleError = fieldErrors?.seatReservationRule?.[0];
+
   return (
-    <div className="flex flex-col gap-6">
-      {/* Header */}
+    <div className="flex flex-col gap-5">
+      {/* GROUP 1: document requirements */}
+      <Card className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Document requirements</CardTitle>
+          <CardDescription>
+            Documents each traveller must provide, and by when.
+          </CardDescription>
+          <CardAction>
+            <Button
+              type="button"
+              variant="outline_without_border"
+              size="sm"
+              onClick={addDocReq}
+            >
+              <Plus /> Add Requirement
+            </Button>
+          </CardAction>
+        </CardHeader>
 
-      {/* SECTION A: Document Requirement Template */}
-      <div className="flex flex-col gap-5 px-2">
-        {formData.documentRequirements.map((doc, idx) => (
-          <Card key={doc.id} className="p-5 gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className="text-xs px-3 py-3 bg-primary/10 text-primary font-semibold"
-                >
-                  Rule {idx + 1}
-                </Badge>
-                <span className="text-sm font-medium text-foreground">
-                  {doc.name}
-                </span>
-              </div>
+        <CardContent className="flex flex-col gap-3">
+          {formData.documentRequirements.map((doc, idx) => (
+            <Card variant="md-shadow" key={doc.id} className="gap-4 p-4">
+              <CardHeader>
+                <CardTitle className="text-sm">
+                  {doc.name || `Requirement ${idx + 1}`}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Requirement {idx + 1} of {docCount}
+                </CardDescription>
+                <CardAction className="flex items-center gap-0.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0"
+                    aria-label={`Move requirement ${idx + 1} up`}
+                    onClick={() => moveDocReq(idx, "up")}
+                    disabled={idx === 0}
+                  >
+                    <MoveUp />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0"
+                    aria-label={`Move requirement ${idx + 1} down`}
+                    onClick={() => moveDocReq(idx, "down")}
+                    disabled={idx === docCount - 1}
+                  >
+                    <MoveDown />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className="min-h-0 px-0 hover:text-destructive"
+                    aria-label={`Delete requirement ${idx + 1}`}
+                    onClick={() => removeDocReq(idx)}
+                    disabled={docCount <= 1}
+                  >
+                    <Trash2 />
+                  </Button>
+                </CardAction>
+              </CardHeader>
 
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => moveDocReq(idx, "up")}
-                  disabled={idx === 0}
-                  className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                >
-                  <MoveUp className="size-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => moveDocReq(idx, "down")}
-                  disabled={idx === formData.documentRequirements.length - 1}
-                  className="p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 cursor-pointer"
-                >
-                  <MoveDown className="size-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeDocReq(idx)}
-                  disabled={formData.documentRequirements.length <= 1}
-                  className="p-1 text-muted-foreground hover:text-destructive disabled:opacity-30 cursor-pointer ml-1"
-                >
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-3">
-              <div className="flex-4">
+              <CardContent className="flex flex-col gap-4">
                 <InputGroup>
-                  <InputGroupAddon align={"block-start"}>
-                    <InputGroupText>Requirement Name *</InputGroupText>
+                  <InputGroupAddon align="block-start">
+                    <InputGroupText>
+                      Requirement Name{" "}
+                      <span className="text-destructive">*</span>
+                    </InputGroupText>
                   </InputGroupAddon>
                   <InputGroupInput
                     value={doc.name}
@@ -200,156 +223,168 @@ export const StepTravellerRequirements: React.FC<
                     className="text-xs font-medium"
                   />
                 </InputGroup>
-              </div>
-            </div>
 
-            <div className="flex gap-5 items-end justify-between pt-2  text-muted-foreground">
-              <div className="flex-1">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="w-full text-start cursor-pointer">
-                    <InputGroup>
-                      <InputGroupAddon align={"block-start"}>
-                        <InputGroupText> Required By Stage</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        readOnly
-                        value={doc.requiredByStage}
-                        className="text-xs cursor-pointer"
-                      />
-                    </InputGroup>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {STAGES.map((s) => (
-                      <DropdownMenuItem
-                        key={s}
-                        onClick={() =>
-                          updateDocReq(idx, { requiredByStage: s })
-                        }
-                      >
-                        {s}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="flex-1">
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="w-full text-start cursor-pointer">
-                    <InputGroup>
-                      <InputGroupAddon align={"block-start"}>
-                        <InputGroupText>Category</InputGroupText>
-                      </InputGroupAddon>
-                      <InputGroupInput
-                        readOnly
-                        value={doc.category}
-                        className="text-xs cursor-pointer"
-                      />
-                    </InputGroup>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {CATEGORIES.map((c) => (
-                      <DropdownMenuItem
-                        key={c}
-                        onClick={() => updateDocReq(idx, { category: c })}
-                      >
-                        {c}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="flex items-center text-xs gap-5 ml-5">
-                <div className="flex items-center gap-2">
-                  <span>Required Mandatory:</span>
-                  <Switch
-                    checked={doc.required}
-                    onCheckedChange={(chk) =>
-                      updateDocReq(idx, { required: chk })
-                    }
-                  />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="w-full cursor-pointer text-start">
+                      <InputGroup>
+                        <InputGroupAddon align="block-start">
+                          <InputGroupText>Required By Stage</InputGroupText>
+                          <ChevronDown className="ml-auto mr-2 size-3.5 text-muted-foreground" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          readOnly
+                          value={doc.requiredByStage}
+                          className="cursor-pointer text-xs"
+                        />
+                      </InputGroup>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {STAGES.map((s) => (
+                        <DropdownMenuItem
+                          key={s}
+                          onClick={() =>
+                            updateDocReq(idx, { requiredByStage: s })
+                          }
+                        >
+                          {s}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="w-full cursor-pointer text-start">
+                      <InputGroup>
+                        <InputGroupAddon align="block-start">
+                          <InputGroupText>Category</InputGroupText>
+                          <ChevronDown className="ml-auto mr-2 size-3.5 text-muted-foreground" />
+                        </InputGroupAddon>
+                        <InputGroupInput
+                          readOnly
+                          value={doc.category}
+                          className="cursor-pointer text-xs"
+                        />
+                      </InputGroup>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {CATEGORIES.map((c) => (
+                        <DropdownMenuItem
+                          key={c}
+                          onClick={() => updateDocReq(idx, { category: c })}
+                        >
+                          {c}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span>Visible in Pilgrim Portal:</span>
-                  <Switch
-                    checked={doc.visibleInPortal}
-                    onCheckedChange={(chk) =>
-                      updateDocReq(idx, { visibleInPortal: chk })
-                    }
-                  />
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+                  <label className="flex items-center gap-2">
+                    <Switch
+                      checked={doc.required}
+                      onCheckedChange={(chk) =>
+                        updateDocReq(idx, { required: chk })
+                      }
+                    />
+                    Mandatory
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <Switch
+                      checked={doc.visibleInPortal}
+                      onCheckedChange={(chk) =>
+                        updateDocReq(idx, { visibleInPortal: chk })
+                      }
+                    />
+                    Visible in Pilgrim Portal
+                  </label>
                 </div>
-              </div>
-            </div>
-          </Card>
-        ))}
-        <Button
-          type="button"
-          variant="outline_without_border"
-          size="sm"
-          onClick={addDocReq}
-          className="gap-1.5 w-full text-xs h-7 cursor-pointer mt-3"
-        >
-          <Plus className="size-3.5" /> Add Requirement
-        </Button>
-      </div>
-
-      {/* SECTION B & C: Seat Reservation Rule & Communication Templates */}
-      <div className="flex flex-col gap-5">
-        <SectionHeading title="Seat Reservation Rule" />
-
-        <div className="flex flex-col gap-3 px-2">
-          {SEAT_RULES.map((rule) => (
-            <Card
-              key={rule}
-              onClick={() => updateField("seatReservationRule", rule)}
-              className={`p-3 dark:shadow-xl flex-row  rounded-sm cursor-pointer transition flex items-center gap-3 text-sm ${
-                formData.seatReservationRule === rule
-                  ? "bg-primary/10 border-primary/50 text-primary font-medium"
-                  : "bg-card/40 hover:bg-card text-muted-foreground"
-              }`}
-            >
-              <div
-                className={`size-4 rounded-full  flex items-center justify-center ${
-                  formData.seatReservationRule === rule
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-muted-foreground"
-                }`}
-              >
-                {formData.seatReservationRule === rule && (
-                  <div className="size-1.5 bg-white rounded-full" />
-                )}
-              </div>
-              <span>{rule}</span>
+              </CardContent>
             </Card>
           ))}
-        </div>
-      </div>
 
-      {/* SECTION C: Communication Templates */}
-      <div className="flex flex-col gap-5 pb-10">
-        <SectionHeading title="Automated Communication Templates" />
+          {docListError ? (
+            <p className="text-xs text-destructive">{docListError}</p>
+          ) : null}
+        </CardContent>
+      </Card>
 
-        <div className="flex flex-col gap-3 px-2">
+      {/* GROUP 2: seat reservation rule */}
+      <Card className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>
+            Seat reservation rule <span className="text-destructive">*</span>
+          </CardTitle>
+          <CardDescription>
+            When a customer&apos;s seat on a Departure Group is secured.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <RadioGroup
+            aria-label="Seat reservation rule"
+            value={formData.seatReservationRule}
+            onValueChange={(value) =>
+              updateField("seatReservationRule", String(value))
+            }
+          >
+            {SEAT_RULES.map((rule) => (
+              <Card
+                key={rule}
+                size="sm"
+                variant="md-shadow"
+                className="rounded-sm bg-card/40 p-0 hover:bg-card has-data-checked:border-primary/50 has-data-checked:bg-primary/10"
+              >
+                <label className="flex w-full cursor-pointer items-center gap-3 px-3 py-3 text-sm">
+                  <RadioGroupItem value={rule} />
+                  <span>{rule}</span>
+                </label>
+              </Card>
+            ))}
+          </RadioGroup>
+          {seatRuleError ? (
+            <p className="text-xs text-destructive">{seatRuleError}</p>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {/* GROUP 3: communication templates */}
+      <Card className="px-5 py-5">
+        <CardHeader>
+          <CardTitle>Automated communication templates</CardTitle>
+          <CardDescription>
+            Messages sent automatically to travellers on this package.{" "}
+            {formData.selectedCommunicationTemplates.length} selected.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
           {COMM_TEMPLATES.map((tpl) => {
             const isChecked =
               formData.selectedCommunicationTemplates.includes(tpl);
             return (
               <Card
                 key={tpl}
-                onClick={() => toggleCommTemplate(tpl)}
-                className={`p-3  dark:shadow-xl flex-row  rounded-sm cursor-pointer transition flex items-center gap-3 text-sm ${
+                size="sm"
+                variant="md-shadow"
+                className={
                   isChecked
-                    ? "bg-primary/10  text-primary font-medium"
-                    : "bg-card/40 hover:bg-card text-muted-foreground"
-                }`}
+                    ? "rounded-sm bg-primary/10 p-0"
+                    : "rounded-sm bg-card/40 p-0 hover:bg-card"
+                }
               >
-                <Checkbox checked={isChecked} />
-                <span>{tpl}</span>
+                <label className="flex w-full cursor-pointer items-center gap-3 px-3 py-3 text-sm">
+                  <Checkbox
+                    checked={isChecked}
+                    onCheckedChange={() => toggleCommTemplate(tpl)}
+                  />
+                  <span>{tpl}</span>
+                </label>
               </Card>
             );
           })}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

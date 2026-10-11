@@ -5,8 +5,12 @@ import { CalendarDays, Eye, Users } from "lucide-react";
 import { useProgressRouter as useRouter } from "@/hooks/use-progress-router";
 
 import { Button } from "@/components/ui/button";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/animate-ui/components/animate/tabs";
 import { ToneBadge, ProgressBar, EmptyState } from "@/components/ui/tone-badge";
-import { cn } from "@/lib/utils";
 import type { DepartureGroupUsingPackage } from "@/lib/data/packages-repository";
 import {
   GROUP_STATUS_LABELS,
@@ -20,6 +24,7 @@ import type {
   DepartureGroupStatus,
   GroupSalesStatus,
 } from "@/app/(main)/departure-groups/types";
+import { Card } from "@/components/ui/card";
 
 /**
  * Every group falls into exactly one bucket — `archived` wins over status,
@@ -84,25 +89,22 @@ export default function GroupsTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {FILTERS.map(({ key, label }) => {
-          const count = key === "all" ? groups.length : counts[key];
-          const selected = filter === key;
-          return (
-            <Button
-              key={key}
-              variant={selected ? "secondary" : "ghost"}
-              size="sm"
-              aria-pressed={selected}
-              onClick={() => setFilter(key)}
-              className={cn(!selected && "text-muted-foreground")}
-            >
-              {label}
-              <span className="ml-1 tabular-nums opacity-70">{count}</span>
-            </Button>
-          );
-        })}
-      </div>
+      <Tabs
+        value={filter}
+        onValueChange={(value) => setFilter(value as GroupBucket | "all")}
+      >
+        <TabsList>
+          {FILTERS.map(({ key, label }) => {
+            const count = key === "all" ? groups.length : counts[key];
+            return (
+              <TabsTrigger key={key} value={key}>
+                {label}
+                <span className="tabular-nums opacity-70">{count}</span>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
 
       {filtered.length === 0 ? (
         <p className="text-sm text-muted-foreground py-8 text-center">
@@ -118,9 +120,10 @@ export default function GroupsTab({
                 ? Math.round((g.bookedSeats / g.capacity) * 100)
                 : 0;
             return (
-              <div
+              <Card
+                variant="md-shadow"
                 key={g.id}
-                className="flex items-center justify-between gap-4 rounded-md border border-border/40 bg-card/50 px-4 py-3"
+                className="flex flex-row px-5 py-3"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -159,12 +162,14 @@ export default function GroupsTab({
                   />
                 </div>
 
-                <div className="w-28 text-right">
-                  <p className="text-xs tabular-nums text-foreground">
-                    {formatCurrency(g.expectedRevenue)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">revenue</p>
-                </div>
+                {g.expectedRevenue !== null && (
+                  <div className="w-28 text-right">
+                    <p className="text-xs tabular-nums text-foreground">
+                      {formatCurrency(g.expectedRevenue)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">revenue</p>
+                  </div>
+                )}
 
                 <Button
                   variant="ghost"
@@ -173,7 +178,7 @@ export default function GroupsTab({
                 >
                   <Eye className="size-3.5" /> Open
                 </Button>
-              </div>
+              </Card>
             );
           })}
         </div>

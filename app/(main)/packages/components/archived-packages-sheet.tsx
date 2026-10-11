@@ -17,6 +17,7 @@ import React, { useState, useTransition } from "react";
 import type { PackageListItem } from "@/lib/types/packages";
 import { restorePackageAction } from "../actions";
 import { JourneyTypeBadge, PackageStatusBadge } from "./package-status-badges";
+import { Card } from "@/components/ui/card";
 
 interface ArchivedPackagesSheetProps {
   open: boolean;
@@ -55,7 +56,7 @@ const ArchivedPackagesSheet = ({
 
       toast.add({
         title: "Package restored",
-        description: `${pkg.title} is back on the active list as a draft.`,
+        description: `${pkg.title} is back on the active list with the status it had before it was archived.`,
       });
       if (packages.length <= 1) onOpenChange(false);
     });
@@ -71,7 +72,8 @@ const ArchivedPackagesSheet = ({
           <SheetTitle>Archived Packages</SheetTitle>
           <SheetDescription className="mt-1">
             Retired package templates that have been filed away. They stay
-            readable and can be restored to the active catalogue as a draft.
+            readable and can be restored to the active catalogue with the
+            status they had before they were archived.
           </SheetDescription>
         </SheetHeader>
 
@@ -89,9 +91,10 @@ const ArchivedPackagesSheet = ({
           ) : (
             <div className="flex flex-col gap-2">
               {packages.map((pkg) => (
-                <div
+                <Card
                   key={pkg.id}
-                  className="rounded-md border border-border/50 bg-card/50 px-3 py-3"
+                  variant="md-shadow"
+                  className="gap-0 px-3 py-3"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-foreground truncate">
@@ -112,28 +115,24 @@ const ArchivedPackagesSheet = ({
                   <div className="flex items-center justify-end gap-2 mt-3">
                     <Button
                       variant="ghost"
-                      size="sm"
                       onClick={() => router.push(`/packages/${pkg.id}`)}
                     >
-                      <Eye /> Open
+                      Open
                     </Button>
                     {canRestore && (
                       <Button
                         variant="secondary"
-                        size="sm"
                         disabled={isPending && restoringId === pkg.id}
                         onClick={() => restore(pkg)}
                       >
-                        {isPending && restoringId === pkg.id ? (
+                        {isPending && restoringId === pkg.id && (
                           <Loader2 className="animate-spin" />
-                        ) : (
-                          <ArchiveRestore />
                         )}
                         Restore
                       </Button>
                     )}
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}

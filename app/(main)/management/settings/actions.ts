@@ -38,6 +38,7 @@ import {
   financeDefaultsSchema,
   messageTemplateSchema,
   operationalDefaultsSchema,
+  packageApprovalPolicySchema,
   organisationSettingsSchema,
   requestFullExportSchema,
   resetAgencyDataSchema,
@@ -173,6 +174,43 @@ export async function updateOperationalDefaultsAction(input: unknown): Promise<S
 
   const supabase = await db();
   await updateOperationalDefaults(supabase, parsed.data, actor);
+
+  revalidateSettings();
+  return { ok: true };
+}
+
+/* ── Package change approval (TASK-043) ────────────────────────────────────── */
+
+/**
+ * Whether a change to a live package's payment/contract terms (Tier 1) or booking/operations terms (Tier 2) needs a second person's approval.
+ * The database refuses anyone but an administrator whose permissions do not withhold `managePackageApprovalPolicy`, and logs every change.
+ */
+export async function updatePackageApprovalPolicyAction(input: unknown): Promise<SettingsActionResult> {
+  const { role } = await currentActor();
+  const can = capabilitiesForSettings(role);
+  if (!can.managePackageApprovalPolicy) return { ok: false, error: "Your role cannot change the package approval policy." };
+
+  const parsed = packageApprovalPolicySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Choose on or off for each kind of change." };
+
+  const { agencyId } = await getCurrentStaffRole();
+  if (!agencyId) return { ok: false, error: "Your session has no active agency." };
+
+  const supabase = await db();
+  const { data, error } = await supabase
+    .from("agency_settings")
+    .update({
+      package_approval_money_contract: parsed.data.moneyAndContract,
+      package_approval_bookings_ops: parsed.data.bookingsAndOperations,
+    })
+    .eq("agency_id", agencyId)
+    .select("agency_id")
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: error.code === "42501" ? "Your role cannot change the package approval policy." : "The policy could not be saved. Please try again." };
+  }
+  if (!data) return { ok: false, error: "Your agency's settings could not be found." };
 
   revalidateSettings();
   return { ok: true };

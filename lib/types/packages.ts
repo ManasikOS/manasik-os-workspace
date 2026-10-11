@@ -164,7 +164,7 @@ export interface PackageListItem {
 export interface PackageActivityLog {
   id: string;
   actorName: string;
-  actionType: "PUBLISHED" | "SALES_CLOSED" | "REOPENED" | "ARCHIVED" | "RESTORED";
+  actionType: "PUBLISHED" | "SALES_CLOSED" | "REOPENED" | "ARCHIVED" | "RESTORED" | "CHANGE_APPLIED";
   beforeStatus: PackageStatus | null;
   afterStatus: PackageStatus;
   reason: string | null;

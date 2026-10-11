@@ -14,7 +14,7 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="input-group"
       role="group"
       className={cn(
-        " relative flex h-8 w-full min-w-0 items-center transition-colors outline-none in-data-[slot=combobox-content]:focus-within:border-inherit in-data-[slot=combobox-content]:focus-within:ring-0   has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-0 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50 has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-0 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 has-[[data-slot][aria-invalid=true]]:bg-destructive! has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>textarea]:h-auto dark:has-disabled:bg-transparent dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40 dark:has-[[data-slot][aria-invalid=true]]:bg-destructive has-[>[data-align=block-end]]:[&>input]:pt-3 has-[>[data-align=block-start]]:[&>input]:pb-3 has-[>[data-align=inline-end]]:[&>input]:pr-1.5 has-[>[data-align=inline-start]]:[&>input]:pl-1.5",
+        " relative flex h-8 w-full min-w-0 items-center transition-colors outline-none in-data-[slot=combobox-content]:focus-within:border-inherit in-data-[slot=combobox-content]:focus-within:ring-0   has-[[data-slot=input-group-control]:focus-visible]:border-ring has-[[data-slot=input-group-control]:focus-visible]:ring-0 has-[[data-slot=input-group-control]:focus-visible]:ring-ring/50 has-[[data-slot][aria-invalid=true]]:border-destructive has-[[data-slot][aria-invalid=true]]:ring-0 has-[[data-slot][aria-invalid=true]]:ring-destructive/20 has-[[data-slot][aria-invalid=true]]:bg-destructive! has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>textarea]:h-auto dark:has-disabled:bg-transparent dark:has-[[data-slot][aria-invalid=true]]:ring-destructive/40 dark:has-[[data-slot][aria-invalid=true]]:bg-destructive/1! has-[>[data-align=block-end]]:[&>input]:pt-3 has-[>[data-align=block-start]]:[&>input]:pb-3 has-[>[data-align=inline-end]]:[&>input]:pr-1.5 has-[>[data-align=inline-start]]:[&>input]:pl-1.5",
         className,
       )}
       {...props}
@@ -123,7 +123,7 @@ const InputGroupInput = React.forwardRef<
       ref={ref}
       data-slot="input-group-control"
       className={cn(
-        "autofill-transparent autofill-transparent aria-[invalid]:bg-destructive/5 border focus:border-gray-200/70! dark:focus:border-gray-200/10! border-gray-200/30 dark:border-card/40 shadow-xs group/input-group bg-card/70 dark:bg-gray-100/3 rounded-sm flex-1 h-auto px-2 py-3 ring-0 focus-visible:ring-1 disabled:bg-transparent aria-invalid:ring-0  [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+        "autofill-transparent autofill-transparent aria-[invalid]:bg-destructive/5 border focus:border-gray-200/70! dark:focus:border-gray-200/1! border-gray-200/30 dark:border-card/40 shadow-xs group/input-group bg-card/70 dark:bg-gray-100/3 rounded-sm flex-1 h-auto px-2 py-3 ring-0 focus-visible:ring-1 disabled:bg-transparent aria-invalid:ring-0  [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
         className,
       )}
       {...props}

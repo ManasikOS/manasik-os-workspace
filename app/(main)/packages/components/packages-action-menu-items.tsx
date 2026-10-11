@@ -116,13 +116,15 @@ export function PackagesActionMenuItems({
       {can.deletePackage && (
         <MenuItem
           variant="destructive"
-          disabled={packages.groupCount > 0}
+          disabled={packages.groupCount > 0 || !(packages.archived || packages.status === "Draft")}
           onClick={() => actions.onDelete(packages)}
         >
           <Trash2 />
           {packages.groupCount > 0
             ? `Delete (used by ${packages.groupCount})`
-            : "Delete Package"}
+            : packages.archived || packages.status === "Draft"
+              ? "Delete Package"
+              : "Delete (archive it first)"}
         </MenuItem>
       )}
     </>

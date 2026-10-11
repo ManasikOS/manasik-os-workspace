@@ -157,16 +157,26 @@ export async function listCommissionAccrualsForAgent(client: Db, salesAgentId: s
   return (data ?? []) as CommissionAccrualRow[];
 }
 
-/** One agent's own allocations, with the package title RLS's new "agent read allocated packages" policy grants access to. */
+/**
+ * One agent's own allocations, with each package's title.
+ *
+ * An agent never reads package rows: row security cannot limit columns, so the old "agent read allocated packages" policy exposed every field of every
+ * allocated package (TASK-043 PKG-06, supabase/migrations/20270120090500_agent_portal_package_titles.sql). The title comes from
+ * `agent_allocated_package_titles()`, which returns the package id and title and nothing else.
+ */
 export async function listPortalAllocations(client: Db, salesAgentId: string): Promise<PortalAllocation[]> {
-  const { data, error } = await client
-    .from("agent_package_allocations")
-    .select("*, packages:package_id ( title )")
-    .eq("sales_agent_id", salesAgentId);
-  if (error) throw new AgentPortalPersistenceError("agent_package_allocations", "select", error);
+  const [allocations, titles] = await Promise.all([
+    client.from("agent_package_allocations").select("*").eq("sales_agent_id", salesAgentId),
+    client.rpc("agent_allocated_package_titles"),
+  ]);
+  if (allocations.error) throw new AgentPortalPersistenceError("agent_package_allocations", "select", allocations.error);
+  if (titles.error) throw new AgentPortalPersistenceError("agent_package_allocations", "select", titles.error);
 
-  const rows = (data ?? []) as unknown as (AgentPackageAllocationRow & { packages: { title: string } | null })[];
-  return rows.map(({ packages, ...rest }) => ({ ...rest, packageTitle: packages?.title ?? "—" }));
+  const titleByPackage = new Map(((titles.data ?? []) as { package_id: string; title: string }[]).map((row) => [row.package_id, row.title]));
+  return ((allocations.data ?? []) as AgentPackageAllocationRow[]).map((row) => ({
+    ...row,
+    packageTitle: titleByPackage.get(row.package_id) || "—",
+  }));
 }
 
 export interface CreateSalesAgentInput {

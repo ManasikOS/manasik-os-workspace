@@ -8,6 +8,7 @@ import type { PackageUsageSummary } from "@/lib/data/packages-repository";
 import { DetailSection, Field, FieldGrid } from "../detail-field";
 import type { PackageDetailTabId } from "../package-detail";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export default function OverviewTab({
   pkg,
@@ -49,10 +50,7 @@ export default function OverviewTab({
       </DetailSection>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <button
-          onClick={() => onNavigate("groups")}
-          className="text-left rounded-md border border-border/40 bg-card/50 p-4 hover:border-primary/50 transition-colors"
-        >
+        <Card className="gap-2" onClick={() => onNavigate("groups")}>
           <p className="text-xs text-muted-foreground">Price from</p>
           <p className="text-lg font-medium tabular-nums text-foreground mt-1">
             {usage.fromPrice
@@ -65,25 +63,19 @@ export default function OverviewTab({
               {usage.liveGroupCount === 1 ? "" : "s"}
             </p>
           )}
-        </button>
-        <button
-          onClick={() => onNavigate("groups")}
-          className="text-left rounded-md border border-border/40 bg-card/50 p-4 hover:border-primary/50 transition-colors"
-        >
+        </Card>
+        <Card className="gap-2" onClick={() => onNavigate("groups")}>
           <p className="text-xs text-muted-foreground">Departure groups</p>
           <p className="text-lg font-bold tabular-nums text-foreground mt-1">
             {usage.liveGroupCount} live · {usage.groupCount} total
           </p>
-        </button>
-        <button
-          onClick={() => onNavigate("journey")}
-          className="text-left rounded-md border border-border/40 bg-card/50 p-4 hover:border-primary/50 transition-colors"
-        >
+        </Card>
+        <Card className="gap-2" onClick={() => onNavigate("journey")}>
           <p className="text-xs text-muted-foreground">Duration</p>
           <p className="text-lg font-bold tabular-nums text-foreground mt-1">
             {pkg.duration}
           </p>
-        </button>
+        </Card>
       </div>
 
       <div className="flex justify-end">

@@ -26,6 +26,7 @@ export default function RequirementsTab({ pkg }: { pkg: PackageRow }) {
             {pkg.document_requirements.map((d) => (
               <Card
                 key={d.id}
+                variant="md-shadow"
                 className="flex flex-row items-center justify-between  px-4 py-3 text-sm"
               >
                 <div>

@@ -47,16 +47,11 @@ const WARNING_TONE: Record<"warning" | "check", Tone> = {
 interface StepReviewPublishProps {
   formData: PackageFormData;
   onGoToStep: (stepIndex: number) => void;
-  onSaveDraft: () => void | Promise<void>;
-  /** Resolves true once the package is persisted as published. */
-  onPublish: () => Promise<boolean>;
 }
 
 export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
   formData,
   onGoToStep,
-  onSaveDraft,
-  onPublish,
 }) => {
   const router = useRouter();
   const [successDialogOpen, setSuccessDialogOpen] = useState(false);
@@ -118,21 +113,16 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
     text: `${formData.groupReadinessChecklist.length} group readiness checklist items configured.`,
   });
 
-  const handleFinalPublishClick = async () => {
-    // Only celebrate once the server confirms the package was published.
-    const published = await onPublish();
-    if (published) {
-      setSuccessDialogOpen(true);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-5">
       {/* Review Cards Grid */}
       <div className="grid px-2 grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
         {/* 1. Commercial Identity Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
-          <div className="space-y-5">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
+          <div className="space-y-3">
             <SectionHeading
               title="Commercial Identity"
               act={
@@ -187,7 +177,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 2. Pricing Policy Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Pricing Policy"
@@ -228,7 +221,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 3. Journey Itinerary Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Journey Itinerary"
@@ -258,7 +254,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 4. Service Standards Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Service Standards"
@@ -307,7 +306,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 5. Traveller Requirements Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Traveller Requirements"
@@ -346,7 +348,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
         </Card>
 
         {/* 6. Group Defaults Summary */}
-        <Card className="p-5 gap-3 flex flex-col justify-between">
+        <Card
+          variant="md-shadow"
+          className="px-5 py-5 gap-1 flex flex-col justify-between"
+        >
           <div className="space-y-5">
             <SectionHeading
               title="Group Creation Defaults"
@@ -396,9 +401,10 @@ export const StepReviewPublish: React.FC<StepReviewPublishProps> = ({
             const tone = WARNING_TONE[w.type];
             return (
               <Card
+                variant="md-shadow"
                 key={i}
                 className={cn(
-                  "px-3 py-3  rounded-sm flex-row  flex items-center gap-2",
+                  "px-3 py-3 border-none! ring-none! rounded-sm flex-row  flex items-center gap-2",
                   TONE_STAT_CARD[tone],
                   TONE_TEXT[tone],
                 )}

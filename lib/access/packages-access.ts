@@ -35,6 +35,14 @@ export interface PackageCapabilities {
   viewInternalFinance: boolean;
   exportCatalogue: boolean;
   createGroupFromPackage: boolean;
+  /**
+   * May change the payment, contract and booking terms of a package that is already on sale (the Tier 1 and Tier 2 fields in
+   * `lib/access/package-field-tiers.ts`). `editPackage` alone covers drafts and display-only fields. Whether such a change also needs a
+   * second person's approval is an agency setting (Settings → Operations).
+   */
+  editSensitiveTerms: boolean;
+  /** May approve or reject another person's sensitive change request. Never lets anyone approve their own. */
+  approvePackageChanges: boolean;
 }
 
 const NONE: PackageCapabilities = {
@@ -49,6 +57,8 @@ const NONE: PackageCapabilities = {
   viewInternalFinance: false,
   exportCatalogue: false,
   createGroupFromPackage: false,
+  editSensitiveTerms: false,
+  approvePackageChanges: false,
 };
 
 const CAPABILITIES: Record<StaffRole, PackageCapabilities> = {
@@ -65,6 +75,8 @@ const CAPABILITIES: Record<StaffRole, PackageCapabilities> = {
     viewInternalFinance: true,
     exportCatalogue: true,
     createGroupFromPackage: true,
+    editSensitiveTerms: true,
+    approvePackageChanges: true,
   },
   // Full visibility including margins, no editing — the same posture as CEO in
   // the Departure Groups module.
@@ -85,6 +97,8 @@ const CAPABILITIES: Record<StaffRole, PackageCapabilities> = {
     toggleFeatured: true,
     exportCatalogue: true,
     createGroupFromPackage: true,
+    // Operations can change live terms, but only an administrator approves them.
+    editSensitiveTerms: true,
   },
   FINANCE: {
     ...NONE,

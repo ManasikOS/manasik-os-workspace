@@ -119,6 +119,7 @@ export interface PackageUsageSummary {
 
 export const getPackageUsage = cache(
   async (packageId: string): Promise<PackageUsageSummary> => {
+    await requireUser();
     const supabase = createClient(await cookies());
     const [{ data }, { data: groupRows }] = await Promise.all([
       supabase
@@ -168,12 +169,16 @@ export interface DepartureGroupUsingPackage {
   bookedSeats: number;
   capacity: number;
   archived: boolean;
-  /** From `departure_group_payment_summaries.expected_revenue` — sum of `total_booking_value` across this group's bookings. Same definition Reports uses for package profitability. */
-  expectedRevenue: number;
+  /**
+   * From `departure_group_payment_summaries.expected_revenue` — sum of `total_booking_value` across this group's bookings. Same definition Reports uses for package profitability.
+   * `null` when the caller may not see finance figures (no `viewInternalFinance`): the figure is then not even fetched.
+   */
+  expectedRevenue: number | null;
 }
 
 export const listDepartureGroupsForPackage = cache(
-  async (packageId: string): Promise<DepartureGroupUsingPackage[]> => {
+  async (packageId: string, includeRevenue: boolean): Promise<DepartureGroupUsingPackage[]> => {
+    await requireUser();
     const supabase = createClient(await cookies());
     const { data, error } = await supabase
       .from("departure_groups")
@@ -202,7 +207,7 @@ export const listDepartureGroupsForPackage = cache(
     // not a per-group price × seats estimate, so the two screens can never
     // disagree about what "revenue" means for the same group.
     const revenueByGroup = new Map<string, number>();
-    if (rows.length > 0) {
+    if (includeRevenue && rows.length > 0) {
       const { data: summaryRows } = await supabase
         .from("departure_group_payment_summaries")
         .select("departure_group_id, expected_revenue")
@@ -225,7 +230,7 @@ export const listDepartureGroupsForPackage = cache(
       bookedSeats: row.booked_seats,
       capacity: row.capacity,
       archived: row.archived,
-      expectedRevenue: revenueByGroup.get(row.id) ?? 0,
+      expectedRevenue: includeRevenue ? (revenueByGroup.get(row.id) ?? 0) : null,
     }));
   },
 );
@@ -301,6 +306,7 @@ export const getPackage = cache(async (packageId: string): Promise<PackageRow | 
  */
 export const getPackageActivity = cache(
   async (packageId: string): Promise<PackageActivityLog[]> => {
+    await requireUser();
     const supabase = createClient(await cookies());
     const { data, error } = await supabase
       .from("package_activity_logs")
@@ -334,3 +340,119 @@ export const getPackageActivity = cache(
     }));
   },
 );
+
+/* ── Reviewed changes to a live package (TASK-043) ───────────────────────── */
+
+export type PackageChangeRequestStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "APPLIED"
+  | "REJECTED"
+  | "WITHDRAWN"
+  | "EXPIRED"
+  | "SUPERSEDED";
+
+/** One column of a request: what it was, what it would become, and its tier (1 money & contract, 2 bookings & operations). */
+export interface PackageChangeRequestColumn {
+  old: unknown;
+  new: unknown;
+  tier: 1 | 2;
+}
+
+export interface PackageChangeRequest {
+  id: string;
+  packageId: string;
+  packageTitle: string;
+  packageCode: string;
+  status: PackageChangeRequestStatus;
+  highestTier: 1 | 2;
+  changes: Record<string, PackageChangeRequestColumn>;
+  reason: string;
+  requestedBy: string | null;
+  requestedByName: string;
+  approvalRequired: boolean;
+  decidedByName: string | null;
+  decisionNote: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+interface PackageChangeRequestRow {
+  id: string;
+  package_id: string;
+  status: PackageChangeRequestStatus;
+  highest_tier: 1 | 2;
+  changes: Record<string, PackageChangeRequestColumn>;
+  reason: string;
+  requested_by: string | null;
+  requested_by_name: string;
+  approval_required: boolean;
+  decided_by_name: string | null;
+  decision_note: string | null;
+  decided_at: string | null;
+  created_at: string;
+  expires_at: string;
+  packages: { title: string | null; internal_code: string | null } | null;
+}
+
+const CHANGE_REQUEST_COLUMNS =
+  "id, package_id, status, highest_tier, changes, reason, requested_by, requested_by_name, approval_required, decided_by_name, decision_note, decided_at, created_at, expires_at, packages:package_id ( title, internal_code )";
+
+function toPackageChangeRequest(row: PackageChangeRequestRow): PackageChangeRequest {
+  return {
+    id: row.id,
+    packageId: row.package_id,
+    packageTitle: row.packages?.title || "Untitled package",
+    packageCode: row.packages?.internal_code || "",
+    status: row.status,
+    highestTier: row.highest_tier,
+    changes: row.changes,
+    reason: row.reason,
+    requestedBy: row.requested_by,
+    requestedByName: row.requested_by_name,
+    approvalRequired: row.approval_required,
+    decidedByName: row.decided_by_name,
+    decisionNote: row.decision_note,
+    decidedAt: row.decided_at,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+  };
+}
+
+/**
+ * Changes waiting for approval, newest first — for one package, or (no id) every package the caller can read. A request whose 14 days have passed is
+ * left out here; the database marks it EXPIRED the next time anyone tries to decide it.
+ */
+export const listPendingPackageChanges = cache(async (packageId?: string): Promise<PackageChangeRequest[]> => {
+  await requireUser();
+  const supabase = createClient(await cookies());
+
+  let query = supabase
+    .from("package_change_requests")
+    .select(CHANGE_REQUEST_COLUMNS)
+    .eq("status", "PENDING")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (packageId) query = query.eq("package_id", packageId);
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return (data as unknown as PackageChangeRequestRow[]).map(toPackageChangeRequest);
+});
+
+/** The most recent decided or applied requests for one package, for the Activity tab. */
+export const listPackageChangeHistory = cache(async (packageId: string): Promise<PackageChangeRequest[]> => {
+  await requireUser();
+  const supabase = createClient(await cookies());
+  const { data, error } = await supabase
+    .from("package_change_requests")
+    .select(CHANGE_REQUEST_COLUMNS)
+    .eq("package_id", packageId)
+    .neq("status", "PENDING")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error || !data) return [];
+  return (data as unknown as PackageChangeRequestRow[]).map(toPackageChangeRequest);
+});

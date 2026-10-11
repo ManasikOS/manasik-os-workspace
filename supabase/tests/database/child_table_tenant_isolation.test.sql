@@ -30,6 +30,9 @@ insert into public.staff_profiles (id, agency_id, full_name, email, role, status
 insert into public.departure_groups (id, agency_id, group_name, group_code, departure_date, return_date, capacity) values
   ('1a000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', 'Child Iso Group A', 'CHILD-ISO-A', current_date + 60, current_date + 70, 10),
   ('2b000000-0000-4000-8000-0000000000b2', '20000000-0000-4000-8000-0000000000b2', 'Child Iso Group B', 'CHILD-ISO-B', current_date + 60, current_date + 70, 10);
+-- A guide reads only the groups they are assigned to (20260903090000_departure_group_guide_scoping.sql), so Guide A is assigned to group A.
+insert into public.staff_group_assignments (staff_profile_id, departure_group_id, responsibility, agency_id) values
+  ('13000000-0000-4000-8000-0000000000a1', '1a000000-0000-4000-8000-0000000000a1', 'PRIMARY_GUIDE', '10000000-0000-4000-8000-0000000000a1');
 insert into public.departure_group_bookings (id, agency_id, departure_group_id, booking_reference) values
   ('1b000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '1a000000-0000-4000-8000-0000000000a1', 'CHILD-ISO-BK-A'),
   ('2c000000-0000-4000-8000-0000000000b2', '20000000-0000-4000-8000-0000000000b2', '2b000000-0000-4000-8000-0000000000b2', 'CHILD-ISO-BK-B');
@@ -81,7 +84,7 @@ select throws_ok($$insert into public.payment_reminders (milestone_id, booking_i
 
 -- A guide in agency A can see the group itself but not its finance or quote detail ----------------------------------------------------
 set local "request.jwt.claims" = '{"sub":"13000000-0000-4000-8000-0000000000a1","role":"authenticated"}';
-select results_eq($$select count(*) from public.departure_groups where id = '1a000000-0000-4000-8000-0000000000a1'$$, array[1::bigint], 'A guide can see their own agency''s departure group');
+select results_eq($$select count(*) from public.departure_groups where id = '1a000000-0000-4000-8000-0000000000a1'$$, array[1::bigint], 'A guide can see their own agency''s departure group they are assigned to');
 select results_eq($$select (select count(*) from public.payment_reminders) + (select count(*) from public.booking_collection_risk) + (select count(*) from public.quote_line_items)$$, array[0::bigint], 'The same guide sees no reminders, collection risk or quote lines, so seeing the parent group is not enough');
 
 -- Marketing in agency A writes quote lines for its own quotes only --------------------------------------------------------------------

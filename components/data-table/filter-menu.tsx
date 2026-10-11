@@ -62,7 +62,7 @@ export function FilterMenu<TKey extends string>({
             variant="outline"
             className={cn(
               "h-10 gap-2 bg-background shadow-xs",
-              activeCount > 0 && "border-primary/40 text-primary",
+              activeCount > 0 && " text-primary",
               className,
             )}
           >

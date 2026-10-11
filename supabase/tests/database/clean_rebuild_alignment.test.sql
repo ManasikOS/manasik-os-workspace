@@ -18,17 +18,21 @@ insert into auth.users (id, aud, role, email, encrypted_password, email_confirme
 insert into public.staff_profiles (id, agency_id, full_name, email, role, status) values
   ('11000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', 'Admin A', 'admin-a@align.test', 'ADMIN', 'ACTIVE'),
   ('12000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', 'Marketing A', 'marketing-a@align.test', 'MARKETING', 'ACTIVE');
-insert into public.packages (id, agency_id, owner_id) values ('1f000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '11000000-0000-4000-8000-0000000000a1');
+-- The package is owned by Marketing A, so the row policy lets that user reach the row and the trigger is what decides.
+insert into public.packages (id, agency_id, owner_id) values ('1f000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '12000000-0000-4000-8000-0000000000a1');
 
--- The trigger decides on the acting user's role, so it is exercised here with the user's identity and a session that skips the row policy,
--- which isolates the trigger from the policy in front of it.
+-- The trigger stands aside for any session that is not a client role (the SECURITY DEFINER lifecycle functions, migrations, service_role), so
+-- it is exercised here as `authenticated` with the user's identity.
+set local role authenticated;
 set local "request.jwt.claims" = '{"sub":"12000000-0000-4000-8000-0000000000a1","role":"authenticated"}';
 select throws_ok($$update public.packages set title = 'changed by marketing' where id = '1f000000-0000-4000-8000-0000000000a1'$$, '42501', null, 'MARKETING cannot change a package field other than featured');
 select lives_ok($$update public.packages set featured = true where id = '1f000000-0000-4000-8000-0000000000a1'$$, 'MARKETING can still change the featured flag');
 set local "request.jwt.claims" = '{"sub":"11000000-0000-4000-8000-0000000000a1","role":"authenticated"}';
 select lives_ok($$update public.packages set title = 'changed by admin' where id = '1f000000-0000-4000-8000-0000000000a1'$$, 'An ADMIN can still change any field');
+-- A caller with no role never reaches the trigger as a client: the row policy shows them nothing, so nothing changes.
 set local "request.jwt.claims" = '{"sub":"31000000-0000-4000-8000-0000000000c3","role":"authenticated"}';
-select throws_ok($$update public.packages set title = 'changed by a stranger' where id = '1f000000-0000-4000-8000-0000000000a1'$$, '42501', 'Your role cannot update packages.', 'A caller with no role is refused by the backstop');
+select results_eq($$with changed as (update public.packages set title = 'changed by a stranger' where id = '1f000000-0000-4000-8000-0000000000a1' returning 1) select count(*) from changed$$, array[0::bigint], 'A caller with no role changes nothing');
+reset role;
 
 -- 1b. The departure-group audit log -----------------------------------------------------------------------------------------------------------
 select ok(not exists (select 1 from pg_policy p where p.polrelid = 'public.departure_group_activity_logs'::regclass and p.polname = 'staff write departure_group_activity_logs'), 'The all-commands "staff write" policy on the departure-group activity log is gone');

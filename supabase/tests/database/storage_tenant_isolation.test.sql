@@ -22,6 +22,9 @@ insert into public.staff_profiles (id, agency_id, full_name, email, role, status
   ('12000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', 'Guide A', 'guide-a@storageiso.test', 'GUIDE', 'ACTIVE'),
   ('21000000-0000-4000-8000-0000000000b2', '20000000-0000-4000-8000-0000000000b2', 'Operations B', 'ops-b@storageiso.test', 'OPERATIONS', 'ACTIVE');
 
+-- The whatsapp-media bucket exists on staging but no migration creates it, so a database built from the migrations has none.
+insert into storage.buckets (id, name, public) values ('whatsapp-media', 'whatsapp-media', false) on conflict (id) do nothing;
+
 insert into storage.objects (bucket_id, name) values
   ('pilgrim-documents', '10000000-0000-4000-8000-0000000000a1/passport-a.pdf'),
   ('pilgrim-documents', '20000000-0000-4000-8000-0000000000b2/passport-b.pdf'),
