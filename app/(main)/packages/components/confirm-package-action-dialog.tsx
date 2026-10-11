@@ -35,8 +35,8 @@ const COPY: Record<PendingPackageActionType, Copy> = {
       pkg.liveGroupCount > 0
         ? `${pkg.liveGroupCount} live departure group${
             pkg.liveGroupCount === 1 ? " is" : "s are"
-          } still running off this template — archiving does not affect them, ` +
-          `it only stops it appearing when someone creates a NEW group. It stays readable and can be restored at any time.`
+          } still running off this template. Archiving never changes those groups, but it stops this package appearing when someone creates a new group. ` +
+          `Because groups are still running, only an administrator can finish this, and you will be asked for a reason next. To stop new sales without archiving, use Unpublish instead.`
         : "It moves out of the active catalogue into the Archived view. It stays readable and can be restored at any time.",
     confirmLabel: "Archive Package",
     destructive: true,

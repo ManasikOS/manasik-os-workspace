@@ -56,7 +56,7 @@ const ArchivedPackagesSheet = ({
 
       toast.add({
         title: "Package restored",
-        description: `${pkg.title} is back on the active list as a draft.`,
+        description: `${pkg.title} is back on the active list with the status it had before it was archived.`,
       });
       if (packages.length <= 1) onOpenChange(false);
     });
@@ -72,7 +72,8 @@ const ArchivedPackagesSheet = ({
           <SheetTitle>Archived Packages</SheetTitle>
           <SheetDescription className="mt-1">
             Retired package templates that have been filed away. They stay
-            readable and can be restored to the active catalogue as a draft.
+            readable and can be restored to the active catalogue with the
+            status they had before they were archived.
           </SheetDescription>
         </SheetHeader>
 
