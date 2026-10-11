@@ -20,16 +20,28 @@ interface PackageEditorScreenProps {
  * long page of sections. Leaving goes back to the package (edit) or the
  * Packages list (create).
  */
-export default function PackageEditorScreen({ mode, packageId, snapshot }: PackageEditorScreenProps) {
+export default function PackageEditorScreen({
+  mode,
+  packageId,
+  snapshot,
+}: PackageEditorScreenProps) {
   const router = useProgressRouter();
-  const returnTo = mode === "edit" && packageId ? `/packages/${packageId}` : "/packages";
-  const title = mode === "edit" ? snapshot?.formData.title.trim() || "Untitled package" : "New package";
+  const returnTo =
+    mode === "edit" && packageId ? `/packages/${packageId}` : "/packages";
+  const title =
+    mode === "edit"
+      ? snapshot?.formData.title.trim() || "Untitled package"
+      : "New package";
 
   return (
     <div className="mx-auto flex w-full flex-col gap-4 pb-6">
       <PageHeader
         title={mode === "edit" ? "Edit package" : "Create package"}
-        subTitle={mode === "edit" ? title : undefined}
+        subTitle={
+          mode === "edit"
+            ? title
+            : "Create a Package that can be used as a reusable template for future departure groups"
+        }
         breadcrumb={[
           { title: "Home", link: "/dashboard" },
           { title: "Packages", link: "/packages" },
@@ -54,7 +66,12 @@ export default function PackageEditorScreen({ mode, packageId, snapshot }: Packa
         onDraftSaved={({ packageId: savedId, isFirstSave }) => {
           // A new draft now has an id. Put it in the address so a refresh reopens
           // this draft instead of an empty form (which would save a second copy).
-          if (isFirstSave) window.history.replaceState(window.history.state, "", `/packages/${savedId}/edit`);
+          if (isFirstSave)
+            window.history.replaceState(
+              window.history.state,
+              "",
+              `/packages/${savedId}/edit`,
+            );
         }}
         onPublished={(publishedId) => {
           router.push(`/packages/${publishedId}`);
