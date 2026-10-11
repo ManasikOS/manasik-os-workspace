@@ -60,6 +60,15 @@ export function PackageEditorFooter({
       : "";
   const saveLabel = isLive ? "Save changes" : "Save draft";
   const describedBy = isStepValid ? undefined : STEP_PROBLEM_ID;
+  const showSaveButton = !(isLive && isLastStep);
+
+  // On wide screens the first item of the right-hand group takes the free space
+  // (auto left margin), so the whole group sits at the right edge of the bar.
+  const pushRight = "sm:ml-auto";
+  const problemEdge = !isStepValid ? pushRight : "";
+  const backEdge = isStepValid && !isFirstStep ? pushRight : "";
+  const saveEdge = isStepValid && isFirstStep && showSaveButton ? pushRight : "";
+  const mainEdge = isStepValid && isFirstStep && !showSaveButton ? pushRight : "";
 
   return (
     <div
@@ -73,7 +82,10 @@ export function PackageEditorFooter({
         <span
           id={STEP_PROBLEM_ID}
           role="status"
-          className="order-1 flex min-w-0 items-center gap-1.5 text-xs font-medium text-destructive sm:order-3 sm:ml-auto"
+          className={cn(
+            "order-1 flex min-w-0 items-center gap-1.5 text-xs font-medium text-destructive sm:order-4",
+            problemEdge,
+          )}
         >
           <AlertCircle className="size-3.5 shrink-0" aria-hidden />
           <span className="line-clamp-1 sm:line-clamp-2">
@@ -85,7 +97,12 @@ export function PackageEditorFooter({
       {/* Phone: Back and the main action. Wide screens: the children join the bar directly (`contents`). */}
       <div className="order-2 flex items-center gap-2 sm:contents">
         {!isFirstStep ? (
-          <Button type="button" variant="ghost" onClick={onBack} className="sm:order-4">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onBack}
+            className={cn("sm:order-5", backEdge)}
+          >
             Back
           </Button>
         ) : null}
@@ -95,7 +112,7 @@ export function PackageEditorFooter({
             type="button"
             onClick={onContinue}
             aria-describedby={describedBy}
-            className="flex-1 sm:order-6 sm:flex-none"
+            className={cn("flex-1 sm:order-7 sm:flex-none", mainEdge)}
           >
             Continue
           </Button>
@@ -104,7 +121,7 @@ export function PackageEditorFooter({
             type="button"
             disabled={isWorking || !isDirty}
             onClick={onSave}
-            className="flex-1 sm:order-6 sm:flex-none"
+            className={cn("flex-1 sm:order-7 sm:flex-none", mainEdge)}
           >
             {isWorking ? "Saving…" : "Save changes"}
           </Button>
@@ -114,7 +131,7 @@ export function PackageEditorFooter({
             disabled={isWorking}
             onClick={onPublish}
             aria-describedby={describedBy}
-            className="flex-1 sm:order-6 sm:flex-none"
+            className={cn("flex-1 sm:order-7 sm:flex-none", mainEdge)}
           >
             {isWorking ? "Publishing…" : "Publish package"}
           </Button>
@@ -123,7 +140,12 @@ export function PackageEditorFooter({
 
       {/* Phone: Cancel, the save status and Save draft. Wide screens: they join the bar directly. */}
       <div className="order-3 flex items-center justify-between gap-2 sm:contents">
-        <Button type="button" variant="ghost" onClick={onCancel} className="sm:order-1">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onCancel}
+          className="sm:order-1"
+        >
           Cancel
         </Button>
         <p
@@ -135,17 +157,17 @@ export function PackageEditorFooter({
         >
           {saveStatus}
         </p>
-        {isLive && isLastStep ? null : (
+        {showSaveButton ? (
           <Button
             type="button"
             variant="outline_without_border"
             disabled={isWorking || !isDirty}
             onClick={onSave}
-            className="sm:order-5"
+            className={cn("sm:order-6", saveEdge)}
           >
             {isWorking ? "Saving…" : saveLabel}
           </Button>
-        )}
+        ) : null}
       </div>
     </div>
   );
