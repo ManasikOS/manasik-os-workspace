@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +16,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "@/components/ui/toast";
-import { EmptyState, ToneBadge } from "@/components/ui/tone-badge";
+import { ToneBadge } from "@/components/ui/tone-badge";
 import { TONE_BAR, TONE_STAT_CARD, TONE_TEXT } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 import {
@@ -39,7 +38,7 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 
 import type { AvailableGroupOption } from "../actions";
 import { PendingActionButton } from "@/components/pending-action-button";
@@ -83,7 +82,6 @@ import SetFollowUpDialog from "./set-follow-up-dialog";
 import { JourneyBadge } from "../leads-table/leads-columns";
 
 import { ActorChip } from "@/components/ui/copilot-mark";
-import SectionHeading from "@/components/section-heading";
 interface LeadDrawerProps {
   /** `null` closes the drawer; the sheet is mounted once by the list page. */
   lead: LeadListItem | null;
@@ -128,6 +126,72 @@ function CopyButton({ value, label }: { value: string; label: string }) {
   );
 }
 
+/** Flat, divider-led section: one heading style for the whole drawer. */
+function DrawerSection({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const headingId = useId();
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-4 border-t border-border/60 pt-6"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3
+            id={headingId}
+            className="text-sm font-semibold tracking-tight text-foreground"
+          >
+            {title}
+          </h3>
+          {description && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {description}
+            </p>
+          )}
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** Tinted status block — the only boxed element in the drawer. */
+function Callout({
+  tone = "neutral",
+  title,
+  children,
+}: {
+  tone?: "neutral" | "danger" | "warning" | "success";
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col gap-1 rounded-md px-4 py-3.5",
+        TONE_STAT_CARD[tone],
+      )}
+    >
+      <p className="text-xs font-medium text-muted-foreground">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function DetailList({ children }: { children: React.ReactNode }) {
+  return <dl className="flex flex-col gap-3">{children}</dl>;
+}
+
 function DetailRow({
   label,
   children,
@@ -136,9 +200,9 @@ function DetailRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 text-sm">
-      <span className="text-muted-foreground shrink-0">{label}</span>
-      <span className="text-foreground text-right min-w-0">{children}</span>
+    <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] items-baseline gap-x-4 text-sm sm:grid-cols-[9rem_minmax(0,1fr)]">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 text-foreground">{children}</dd>
     </div>
   );
 }
@@ -261,11 +325,11 @@ const LeadDrawer = ({
         <SheetContent className="data-[side=right]:sm:max-w-xl w-full p-0 gap-0 flex flex-col">
           {lead && (
             <>
-              <SheetHeader className="gap-2">
-                <div className="flex items-start gap-3">
+              <SheetHeader className="gap-4 px-6 pt-6 pb-5">
+                <div className="flex items-start gap-4 pr-10">
                   <div
                     className={cn(
-                      "size-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                      "size-12 rounded-full flex items-center justify-center font-semibold text-sm shrink-0",
                       lead.avatarTone,
                     )}
                     aria-hidden
@@ -273,10 +337,10 @@ const LeadDrawer = ({
                     {lead.initials}
                   </div>
                   <div className="min-w-0">
-                    <SheetTitle className="text-2xl font-semibold tracking-tight">
+                    <SheetTitle className="text-xl font-semibold tracking-tight text-balance">
                       {lead.name}
                     </SheetTitle>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
+                    <div className="mt-0.5 flex items-center gap-0.5 text-xs text-muted-foreground tabular-nums">
                       {lead.reference}
                       <CopyButton value={lead.reference} label="lead ID" />
                     </div>
@@ -307,18 +371,20 @@ const LeadDrawer = ({
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Owner: {lead.assignedToName} · Source:{" "}
-                  {SOURCE_LABELS[lead.source]}
+                  Owned by{" "}
+                  <span className="text-foreground">{lead.assignedToName}</span>{" "}
+                  · via {SOURCE_LABELS[lead.source]}
                 </p>
               </SheetHeader>
 
-              <div className="flex-1 overflow-y-auto custom-scroll flex flex-col gap-4 px-4 pb-6">
+              <div className="flex-1 overflow-y-auto custom-scroll flex flex-col gap-6 px-6 pt-5 pb-10">
                 {/* Quick actions — WhatsApp leads since it is the agency's primary channel. */}
                 <div className="flex flex-wrap items-center gap-2">
                   {/* A lead from Messenger/Instagram has no number until the customer gives one. */}
                   {lead.mobileRaw && (
                     <>
                       <Button
+                        size="sm"
                         render={
                           <a
                             href={whatsappLink(lead.mobileRaw)}
@@ -330,6 +396,7 @@ const LeadDrawer = ({
                         <MessageSquare /> WhatsApp
                       </Button>
                       <Button
+                        size="sm"
                         variant="outline_without_border"
                         render={<a href={`tel:+94${lead.mobileRaw}`} />}
                       >
@@ -339,50 +406,55 @@ const LeadDrawer = ({
                   )}
                   {can.logContact && (
                     <Button
+                      size="sm"
                       variant="outline_without_border"
                       onClick={() => onLogContact(lead)}
                       disabled={lead.isClosed}
                     >
-                      <MessageSquare /> Add Note / Log Contact
+                      <MessageSquare /> Log contact
                     </Button>
                   )}
                   {can.sendQuote && (
                     <Button
+                      size="sm"
                       variant="outline_without_border"
                       onClick={() => setQuoteTarget(lead)}
                       disabled={lead.isClosed}
                     >
-                      <FileText /> Send Quote
+                      <FileText /> Send quote
                     </Button>
                   )}
                   {can.logContact && (
                     <Button
+                      size="sm"
                       variant="outline_without_border"
                       onClick={() => setFollowUpTarget(lead)}
                       disabled={lead.isClosed}
                     >
-                      <Calendar /> Set Follow-up
+                      <Calendar /> Set follow-up
                     </Button>
                   )}
                 </div>
 
                 {/* Follow-up state — the single most important thing on this panel. */}
                 {!lead.isClosed && (
-                  <Card
-                    className={cn(
-                      "p-3 gap-1",
-                      lead.followUpStatus === "OVERDUE" &&
-                        TONE_STAT_CARD.danger,
-                      lead.followUpStatus === "TODAY" && TONE_STAT_CARD.warning,
-                    )}
+                  <Callout
+                    tone={
+                      lead.followUpStatus === "OVERDUE"
+                        ? "danger"
+                        : lead.followUpStatus === "TODAY"
+                          ? "warning"
+                          : "neutral"
+                    }
+                    title="Next follow-up"
                   >
-                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
                       {lead.followUpStatus === "OVERDUE" && (
-                        <AlertCircle className="size-3.5 text-destructive" />
+                        <AlertCircle
+                          className="size-4 shrink-0 text-destructive"
+                          aria-hidden
+                        />
                       )}
-                      Next follow-up
-                    </div>
-                    <p className="text-sm font-medium text-foreground">
                       {followUpLabel(
                         lead.nextFollowUpAt,
                         lead.daysUntilFollowUp,
@@ -395,17 +467,15 @@ const LeadDrawer = ({
                       {lead.followUpOwnerName
                         ? ` · ${lead.followUpOwnerName}`
                         : ""}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Last contact:{" "}
+                      {" · Last contact "}
                       {pastLabel(
                         lead.lastContactedAt,
                         lead.daysSinceLastContact,
-                      )}
+                      ).toLowerCase()}
                     </p>
 
                     {lead.followUpStatus === "OVERDUE" && (
-                      <div className="flex items-center gap-2 mt-2">
+                      <div className="mt-2 flex items-center gap-2">
                         <PendingActionButton
                           size="sm"
                           variant="secondary"
@@ -426,21 +496,18 @@ const LeadDrawer = ({
                         </PendingActionButton>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
                           onClick={() => setFollowUpTarget(lead)}
                         >
                           <Calendar /> Reschedule
                         </Button>
                       </div>
                     )}
-                  </Card>
+                  </Callout>
                 )}
 
                 {lead.stage === "LOST" && (
-                  <Card className={cn("p-3 gap-1", TONE_STAT_CARD.danger)}>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Marked lost
-                    </div>
+                  <Callout tone="danger" title="Marked lost">
                     <p className="text-sm text-foreground">
                       {lead.lostReason
                         ? LOST_REASON_LABELS[lead.lostReason]
@@ -451,13 +518,101 @@ const LeadDrawer = ({
                         {lead.lostNote}
                       </p>
                     )}
-                  </Card>
+                  </Callout>
                 )}
 
+                {canConvert && (
+                  <Callout tone="success" title="Ready to convert">
+                    <p className="text-sm text-foreground">
+                      A departure group is selected. Create the booking to hold{" "}
+                      {lead.partySize} seat{lead.partySize === 1 ? "" : "s"}.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-2 self-start"
+                      onClick={() => setConvertTarget(lead)}
+                    >
+                      <PackageCheck /> Create booking &amp; hold seats
+                    </Button>
+                  </Callout>
+                )}
+
+                {lead.bookingId && (
+                  <Callout tone="success" title="Booked">
+                    <p className="text-sm text-foreground">
+                      This lead converted to a booking. See Departure Groups for
+                      the pilgrim and payment record.
+                    </p>
+                  </Callout>
+                )}
+
+                {/* Journey interest / opportunity */}
+                <DrawerSection title="Journey interest">
+                  <DetailList>
+                    <DetailRow label="Interested in">
+                      {lead.interestedIn}
+                    </DetailRow>
+                    <DetailRow label="Desired package">
+                      {lead.packageName}
+                    </DetailRow>
+                    <DetailRow label="Preferred period">
+                      {lead.preferredPeriod}
+                    </DetailRow>
+                    <DetailRow label="Travellers">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Users
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden
+                        />
+                        {partySizeLabel(lead.adults, lead.children)}
+                      </span>
+                    </DetailRow>
+                    <DetailRow label="Room preference">
+                      {ROOM_PREFERENCE_LABELS[lead.roomPreference]}
+                    </DetailRow>
+                    <DetailRow label="Budget range">
+                      {lead.budgetRange}
+                    </DetailRow>
+                    {can.viewPipelineValue && (
+                      <DetailRow label="Estimated value">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1.5 font-semibold tabular-nums",
+                            TONE_TEXT.success,
+                          )}
+                        >
+                          <TrendingUp className="size-3.5" aria-hidden />
+                          {formatExactLKR(lead.estimatedValueLkr)}
+                        </span>
+                      </DetailRow>
+                    )}
+                  </DetailList>
+
+                  {can.findGroups && !lead.isClosed && (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setGroupSheetTarget(lead)}
+                      >
+                        <Search /> Find available groups
+                      </Button>
+                      {lead.selectedDepartureGroupId && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Check
+                            className={cn("size-3.5", TONE_TEXT.success)}
+                            aria-hidden
+                          />
+                          Group selected
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </DrawerSection>
+
                 {/* Contact */}
-                <Card className="gap-2 p-4 pt-2">
-                  <SectionHeading title="Contact" />
-                  <div className="flex flex-col gap-1">
+                <DrawerSection title="Contact">
+                  <DetailList>
                     <DetailRow label="Mobile / WhatsApp">
                       <span className="inline-flex items-center gap-1 tabular-nums">
                         {lead.mobile || (
@@ -489,21 +644,25 @@ const LeadDrawer = ({
                       )}
                     </DetailRow>
                     <DetailRow label="City">
-                      <span className="inline-flex items-center gap-1">
-                        <MapPin className="size-3.5 text-muted-foreground" />
+                      <span className="inline-flex items-center gap-1.5">
+                        <MapPin
+                          className="size-3.5 text-muted-foreground"
+                          aria-hidden
+                        />
                         {lead.city}
                       </span>
                     </DetailRow>
-                    <DetailRow label="Preferred language">
+                    <DetailRow label="Language">
                       {lead.preferredLanguage}
                     </DetailRow>
                     <DetailRow label="Preferred channel">
                       {CONTACT_CHANNEL_LABELS[lead.preferredChannel]}
                     </DetailRow>
-                  </div>
-                </Card>
+                  </DetailList>
+                </DrawerSection>
 
                 <ConsentCard
+                  embedded
                   consentStatus={lead.consentStatus}
                   consentSource={lead.consentSource}
                   consentAt={lead.consentAt}
@@ -515,131 +674,6 @@ const LeadDrawer = ({
                   }
                 />
 
-                {/* Campaign attribution */}
-                <Card className="gap-2 p-4 pt-2">
-                  <SectionHeading title="Campaign Attribution" />
-                  <div className="flex flex-col gap-2">
-                    <Select
-                      value={lead.campaignId ?? "NONE"}
-                      onValueChange={(value) =>
-                        setLeadCampaignAction({
-                          leadId: lead.id,
-                          campaignId: value === "NONE" ? null : value,
-                          attributionType: lead.attributionType,
-                        }).then((result) => {
-                          if (!result.ok) {
-                            toast.add({
-                              title: "Could not attribute lead",
-                              description: result.error,
-                            });
-                            return;
-                          }
-                          router.refresh();
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="No campaign" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NONE">No campaign</SelectItem>
-                        {campaignOptions.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {lead.campaignId && (
-                      <Select
-                        value={lead.attributionType}
-                        onValueChange={(value) =>
-                          setLeadCampaignAction({
-                            leadId: lead.id,
-                            campaignId: lead.campaignId,
-                            attributionType: value as
-                              | "DIRECT"
-                              | "ASSISTED"
-                              | "UNKNOWN",
-                          }).then((result) => {
-                            if (!result.ok) {
-                              toast.add({
-                                title: "Could not update attribution",
-                                description: result.error,
-                              });
-                              return;
-                            }
-                            router.refresh();
-                          })
-                        }
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="UNKNOWN">
-                            Unknown certainty
-                          </SelectItem>
-                          <SelectItem value="DIRECT">Direct</SelectItem>
-                          <SelectItem value="ASSISTED">Assisted</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                </Card>
-
-                {/* Journey interest / opportunity */}
-                <Card className="p-3 gap-2">
-                  <SectionHeading title="Journey interest" />
-                  <DetailRow label="Interested in">
-                    {lead.interestedIn}
-                  </DetailRow>
-                  <DetailRow label="Desired package">
-                    {lead.packageName}
-                  </DetailRow>
-                  <DetailRow label="Preferred period">
-                    {lead.preferredPeriod}
-                  </DetailRow>
-                  <DetailRow label="Traveller count">
-                    <span className="inline-flex items-center gap-1">
-                      <Users className="size-3.5 text-muted-foreground" />
-                      {partySizeLabel(lead.adults, lead.children)}
-                    </span>
-                  </DetailRow>
-                  <DetailRow label="Room preference">
-                    {ROOM_PREFERENCE_LABELS[lead.roomPreference]}
-                  </DetailRow>
-                  <DetailRow label="Budget range">{lead.budgetRange}</DetailRow>
-                  <DetailRow label="Estimated value">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1 font-semibold tabular-nums",
-                        TONE_TEXT.success,
-                      )}
-                    >
-                      <TrendingUp className="size-3.5" />
-                      {formatExactLKR(lead.estimatedValueLkr)}
-                    </span>
-                  </DetailRow>
-
-                  {can.findGroups && !lead.isClosed && (
-                    <div className="flex items-center gap-2 pt-2 mt-1 border-t border-border/40">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => setGroupSheetTarget(lead)}
-                      >
-                        <Search /> Find Available Groups
-                      </Button>
-                      {lead.selectedDepartureGroupId && (
-                        <span className="text-xs text-muted-foreground">
-                          Group selected
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </Card>
-
                 {/* Manasik Decision — the Sales Intelligence Engine, on request only. */}
                 {can.useCopilot && !lead.isClosed && (
                   <ManasikDecision
@@ -650,17 +684,14 @@ const LeadDrawer = ({
                 )}
 
                 {can.viewQuotes && lead.quotes.length > 0 && (
-                  <Card className="p-3 gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Quotes
-                    </h3>
-                    <ol className="flex flex-col gap-1.5">
+                  <DrawerSection title="Quotes">
+                    <ol className="flex flex-col gap-3">
                       {lead.quotes.map((quote) => (
                         <li
                           key={quote.id}
                           className="flex items-center justify-between gap-3 text-sm"
                         >
-                          <span className="flex items-center gap-2 min-w-0">
+                          <span className="flex min-w-0 items-center gap-2">
                             <span className="tabular-nums text-foreground">
                               {quote.reference}
                             </span>
@@ -673,154 +704,22 @@ const LeadDrawer = ({
                             <span className="block tabular-nums text-foreground">
                               {formatExactLKR(quote.totalLkr)}
                             </span>
-                            <span className="block text-[11px] text-muted-foreground">
+                            <span className="block text-xs text-muted-foreground">
                               Valid until {formatDateTime(quote.validUntil)}
                             </span>
                           </span>
                         </li>
                       ))}
                     </ol>
-                  </Card>
+                  </DrawerSection>
                 )}
-
-                {canConvert && (
-                  <Card className={cn("p-3 gap-2", TONE_STAT_CARD.success)}>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Ready to convert
-                    </h3>
-                    <p className="text-sm text-foreground">
-                      A departure group is selected. Create the booking to hold{" "}
-                      {lead.partySize} seat{lead.partySize === 1 ? "" : "s"}.
-                    </p>
-                    <Button
-                      size="sm"
-                      className="self-start"
-                      onClick={() => setConvertTarget(lead)}
-                    >
-                      <PackageCheck /> Create Booking &amp; Hold Seats
-                    </Button>
-                  </Card>
-                )}
-
-                {lead.bookingId && (
-                  <Card className={cn("p-3 gap-1", TONE_STAT_CARD.success)}>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Booked
-                    </div>
-                    <p className="text-sm text-foreground">
-                      This lead converted to a booking. See Departure Groups for
-                      the pilgrim and payment record.
-                    </p>
-                  </Card>
-                )}
-
-                {/* Ownership */}
-                <Card className="p-3 gap-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Ownership & source
-                  </h3>
-                  <DetailRow label="Assigned owner">
-                    {can.assignLeads ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          render={
-                            <Button variant="ghost" size="sm" className="gap-1">
-                              <UserCheck className="size-3.5" />
-                              {lead.assignedToName}
-                              <ChevronDown className="size-3.5" />
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Reassign to</DropdownMenuLabel>
-                          {staffOptions.map((staff) => (
-                            <DropdownMenuItem
-                              key={staff.id}
-                              disabled={staff.id === lead.assignedToId}
-                              onClick={() => onAssign(lead, staff.id)}
-                            >
-                              {staff.name}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      lead.assignedToName
-                    )}
-                  </DetailRow>
-                  <DetailRow label="Source">
-                    {SOURCE_LABELS[lead.source]}
-                  </DetailRow>
-                  {lead.campaignReference && (
-                    <DetailRow label="Campaign">
-                      {lead.campaignReference}
-                    </DetailRow>
-                  )}
-                  {lead.referralName && (
-                    <DetailRow label="Referred by">
-                      {lead.referralName}
-                    </DetailRow>
-                  )}
-                  <DetailRow label="Created">
-                    {formatDateTime(lead.createdAt)} · {lead.ageInDays} day
-                    {lead.ageInDays === 1 ? "" : "s"} old
-                  </DetailRow>
-                </Card>
-
-                {/* Internal notes */}
-                <Card className="p-3 gap-2">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Internal notes{" "}
-                    <span className="normal-case font-normal">
-                      (internal only — never shown to the customer)
-                    </span>
-                  </h3>
-                  {lead.notes.length === 0 ? (
-                    <EmptyState title="No notes yet" />
-                  ) : (
-                    <ol className="flex flex-col gap-2">
-                      {lead.notes.map((note) => (
-                        <li key={note.id} className="text-sm">
-                          <p className="text-foreground whitespace-pre-wrap">
-                            {note.body}
-                          </p>
-                          <p className="text-[11px] text-muted-foreground">
-                            {note.authorName} · {formatDateTime(note.createdAt)}
-                          </p>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-                  {can.addNote && (
-                    <div className="flex flex-col gap-1.5 pt-1">
-                      <InputGroup className="h-16">
-                        <InputGroupTextarea
-                          rows={2}
-                          value={noteDraft}
-                          onChange={(event) => setNoteDraft(event.target.value)}
-                          placeholder="Add an internal note…"
-                          className="text-xs p-2"
-                        />
-                      </InputGroup>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="self-start"
-                        disabled={!noteDraft.trim() || addingNote}
-                        onClick={() => submitNote(lead.id)}
-                      >
-                        <Plus /> Add Note
-                      </Button>
-                    </div>
-                  )}
-                </Card>
 
                 {/* Stage control */}
                 {can.changeStage && (
-                  <Card className="p-3 gap-2">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Pipeline
-                    </h3>
+                  <DrawerSection
+                    title="Pipeline"
+                    description="Move this lead to a different stage."
+                  >
                     <div className="flex flex-wrap gap-1.5">
                       {ACTIVE_STAGE_ORDER.map((stage) => {
                         const isCurrent = stage === lead.stage;
@@ -852,46 +751,223 @@ const LeadDrawer = ({
                     </div>
                     {!lead.isClosed && (
                       <Button
-                        variant="destructive"
+                        variant="ghost"
                         size="sm"
-                        className="self-start mt-1"
+                        className="self-start text-destructive hover:bg-destructive/10 hover:text-destructive"
                         onClick={() => onMarkLost(lead)}
                       >
-                        <Ban /> Mark as Lost…
+                        <Ban /> Mark as lost…
                       </Button>
                     )}
-                  </Card>
+                  </DrawerSection>
                 )}
 
-                {/* Activity trail */}
-                <Card className="p-3 gap-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Activity
-                  </h3>
-                  {lead.activity.length === 0 ? (
-                    <EmptyState title="Nothing recorded yet" />
+                {/* Internal notes */}
+                <DrawerSection
+                  title="Internal notes"
+                  description="Visible to staff only — never shown to the customer."
+                >
+                  {lead.notes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No notes yet.
+                    </p>
                   ) : (
-                    <ol className="flex flex-col gap-3">
-                      {lead.activity.map((entry) => (
-                        <li key={entry.id} className="flex gap-2.5">
-                          <span
-                            className="mt-1.5 size-1.5 rounded-full bg-primary/60 shrink-0"
-                            aria-hidden
-                          />
-                          <div className="min-w-0">
-                            <p className="text-sm text-foreground">
-                              {entry.message}
-                            </p>
-                            <p className="text-[11px] text-muted-foreground">
-                              <ActorChip name={entry.actorName} inline /> ·{" "}
-                              {formatDateTime(entry.createdAt)}
-                            </p>
-                          </div>
+                    <ol className="flex flex-col gap-4">
+                      {lead.notes.map((note) => (
+                        <li key={note.id} className="text-sm">
+                          <p className="whitespace-pre-wrap text-foreground">
+                            {note.body}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {note.authorName} · {formatDateTime(note.createdAt)}
+                          </p>
                         </li>
                       ))}
                     </ol>
                   )}
-                </Card>
+                  {can.addNote && (
+                    <div className="flex flex-col gap-2">
+                      <InputGroup className="h-20">
+                        <InputGroupTextarea
+                          rows={2}
+                          value={noteDraft}
+                          onChange={(event) => setNoteDraft(event.target.value)}
+                          placeholder="Add an internal note…"
+                          aria-label="Add an internal note"
+                          className="p-2.5 text-sm"
+                        />
+                      </InputGroup>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="self-start"
+                        disabled={!noteDraft.trim() || addingNote}
+                        onClick={() => submitNote(lead.id)}
+                      >
+                        <Plus /> Add note
+                      </Button>
+                    </div>
+                  )}
+                </DrawerSection>
+
+                {/* Ownership */}
+                <DrawerSection title="Ownership & source">
+                  <DetailList>
+                    <DetailRow label="Assigned owner">
+                      {can.assignLeads ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="-ml-2 gap-1.5"
+                              >
+                                <UserCheck className="size-3.5" aria-hidden />
+                                {lead.assignedToName}
+                                <ChevronDown className="size-3.5" aria-hidden />
+                              </Button>
+                            }
+                          />
+                          <DropdownMenuContent align="start">
+                            <DropdownMenuLabel>Reassign to</DropdownMenuLabel>
+                            {staffOptions.map((staff) => (
+                              <DropdownMenuItem
+                                key={staff.id}
+                                disabled={staff.id === lead.assignedToId}
+                                onClick={() => onAssign(lead, staff.id)}
+                              >
+                                {staff.name}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : (
+                        lead.assignedToName
+                      )}
+                    </DetailRow>
+                    <DetailRow label="Source">
+                      {SOURCE_LABELS[lead.source]}
+                    </DetailRow>
+                    {lead.campaignReference && (
+                      <DetailRow label="Campaign">
+                        {lead.campaignReference}
+                      </DetailRow>
+                    )}
+                    {lead.referralName && (
+                      <DetailRow label="Referred by">
+                        {lead.referralName}
+                      </DetailRow>
+                    )}
+                    <DetailRow label="Created">
+                      {formatDateTime(lead.createdAt)} · {lead.ageInDays} day
+                      {lead.ageInDays === 1 ? "" : "s"} old
+                    </DetailRow>
+                  </DetailList>
+                </DrawerSection>
+
+                {/* Campaign attribution */}
+                <DrawerSection title="Campaign attribution">
+                  <div className="flex flex-col gap-2">
+                    <Select
+                      value={lead.campaignId ?? "NONE"}
+                      onValueChange={(value) =>
+                        setLeadCampaignAction({
+                          leadId: lead.id,
+                          campaignId: value === "NONE" ? null : value,
+                          attributionType: lead.attributionType,
+                        }).then((result) => {
+                          if (!result.ok) {
+                            toast.add({
+                              title: "Could not attribute lead",
+                              description: result.error,
+                            });
+                            return;
+                          }
+                          router.refresh();
+                        })
+                      }
+                    >
+                      <SelectTrigger
+                        className="h-9 text-sm"
+                        aria-label="Campaign"
+                      >
+                        <SelectValue placeholder="No campaign" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NONE">No campaign</SelectItem>
+                        {campaignOptions.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {lead.campaignId && (
+                      <Select
+                        value={lead.attributionType}
+                        onValueChange={(value) =>
+                          setLeadCampaignAction({
+                            leadId: lead.id,
+                            campaignId: lead.campaignId,
+                            attributionType: value as
+                              "DIRECT" | "ASSISTED" | "UNKNOWN",
+                          }).then((result) => {
+                            if (!result.ok) {
+                              toast.add({
+                                title: "Could not update attribution",
+                                description: result.error,
+                              });
+                              return;
+                            }
+                            router.refresh();
+                          })
+                        }
+                      >
+                        <SelectTrigger
+                          className="h-9 text-sm"
+                          aria-label="Attribution certainty"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="UNKNOWN">
+                            Unknown certainty
+                          </SelectItem>
+                          <SelectItem value="DIRECT">Direct</SelectItem>
+                          <SelectItem value="ASSISTED">Assisted</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </DrawerSection>
+
+                {/* Activity trail */}
+                <DrawerSection title="Activity">
+                  {lead.activity.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Nothing recorded yet.
+                    </p>
+                  ) : (
+                    <ol className="flex flex-col gap-4 border-l border-border/60 pl-5">
+                      {lead.activity.map((entry) => (
+                        <li key={entry.id} className="relative">
+                          <span
+                            className="absolute -left-[1.6875rem] top-1.5 size-1.5 rounded-full bg-muted-foreground/40 ring-4 ring-card"
+                            aria-hidden
+                          />
+                          <p className="text-sm text-foreground">
+                            {entry.message}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            <ActorChip name={entry.actorName} inline /> ·{" "}
+                            {formatDateTime(entry.createdAt)}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </DrawerSection>
               </div>
             </>
           )}

@@ -96,15 +96,19 @@ const EXPORT_COLUMNS: ExportColumn[] = [
   { header: "Created", value: (l) => formatDateTime(l.createdAt) },
 ];
 
-export function leadsToMatrix(leads: LeadListItem[]): string[][] {
+const VALUE_HEADER = "Estimated Value (LKR)";
+
+/** `includeValue: false` drops the money column for a role that does not see pipeline value. */
+export function leadsToMatrix(leads: LeadListItem[], options: { includeValue?: boolean } = {}): string[][] {
+  const columns = options.includeValue === false ? EXPORT_COLUMNS.filter((column) => column.header !== VALUE_HEADER) : EXPORT_COLUMNS;
   return [
-    EXPORT_COLUMNS.map((column) => column.header),
-    ...leads.map((lead) => EXPORT_COLUMNS.map((column) => column.value(lead))),
+    columns.map((column) => column.header),
+    ...leads.map((lead) => columns.map((column) => column.value(lead))),
   ];
 }
 
-export function leadsToCsv(leads: LeadListItem[]): string {
-  return toCsv(leadsToMatrix(leads));
+export function leadsToCsv(leads: LeadListItem[], options: { includeValue?: boolean } = {}): string {
+  return toCsv(leadsToMatrix(leads, options));
 }
 
 /* ── Import ───────────────────────────────────────────────────────────────── */

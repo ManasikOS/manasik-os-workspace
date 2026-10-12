@@ -70,7 +70,8 @@ In progress — code built, browser verification outstanding.
 
 Decisions taken: step 2's bare `h-7` inputs left unchanged; steps 3 and 4 in
 scope; shared `SidebarStepperDialogBody` fixed in place (also used by
-`create-departure-group-dialog.tsx` and `add-new-lead.tsx`).
+`create-departure-group-dialog.tsx` and `add-new-lead.tsx`; the latter was
+replaced by the `/leads/new` page in TASK-045).
 
 Built: stepper shell (full description, locked-step tooltip, primary Continue,
 unclipped scroll); dialog (named footer message, inline errors on steps already

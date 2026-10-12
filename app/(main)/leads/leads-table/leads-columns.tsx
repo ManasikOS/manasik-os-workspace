@@ -2,16 +2,12 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -28,21 +24,17 @@ import {
   Ban,
   CalendarClock,
   CheckCircle2,
-  ChevronRight,
   Clock,
-  Eye,
-  MessageSquare,
   MoreHorizontal,
-  PhoneCall,
   Sparkles,
   TrendingUp,
-  UserCheck,
   Users,
 } from "lucide-react";
 import React from "react";
 
 import type { StaffRow } from "@/lib/types/leads";
 import type { LeadListItem, LeadStage } from "../types";
+import { DROPDOWN_SLOTS, LeadActionMenuItems } from "./lead-action-menu-items";
 import {
   ACTIVE_STAGE_ORDER,
   FOLLOW_UP_TONES,
@@ -53,9 +45,7 @@ import {
   TEMPERATURE_TONES,
   followUpLabel,
   formatCurrencyLKR,
-  nextStage,
   partySizeLabel,
-  whatsappLink,
   type LeadSort,
   type LeadSortField,
 } from "../utils";
@@ -85,8 +75,10 @@ export function buildLeadColumns(
   sort: LeadSort,
   onSortChange: (sort: DataTableSort) => void,
   staffOptions: StaffRow[],
+  /** Roles that never see money get no "Est. Value" column. */
+  showValue = true,
 ): ColumnDef<LeadListItem>[] {
-  return [
+  const columns: ColumnDef<LeadListItem>[] = [
     {
       id: "lead",
       header: sortableHeader("Lead Info", "name", sort, onSortChange),
@@ -296,7 +288,6 @@ export function buildLeadColumns(
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => {
         const lead = row.original;
-        const advance = nextStage(lead.stage);
 
         return (
           <DropdownMenu>
@@ -316,79 +307,19 @@ export function buildLeadColumns(
               align="end"
               onClick={(event) => event.stopPropagation()}
             >
-              <DropdownMenuLabel>{lead.reference}</DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => actions.onOpen(lead)}>
-                <Eye /> Open Lead
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => actions.onLogContact(lead)}>
-                <MessageSquare /> Log Contact…
-              </DropdownMenuItem>
-
-              {/* No number yet (Messenger/Instagram lead): nothing to call or open on WhatsApp. */}
-              {lead.mobileRaw && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    render={<a href={`tel:+94${lead.mobileRaw}`} />}
-                  >
-                    <PhoneCall /> Call {lead.mobile}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    render={
-                      <a
-                        href={whatsappLink(lead.mobileRaw)}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                      />
-                    }
-                  >
-                    <MessageSquare /> Open WhatsApp
-                  </DropdownMenuItem>
-                </>
-              )}
-
-              <DropdownMenuSeparator />
-              {advance && (
-                <DropdownMenuItem
-                  onClick={() => actions.onChangeStage(lead, advance)}
-                >
-                  <ChevronRight /> Advance to {STAGE_LABELS[advance]}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <UserCheck /> Reassign
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  {staffOptions.map((staff) => (
-                    <DropdownMenuItem
-                      key={staff.id}
-                      disabled={staff.id === lead.assignedToId}
-                      onClick={() => actions.onAssign(lead, staff.id)}
-                    >
-                      {staff.name}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-
-              {!lead.isClosed && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => actions.onMarkLost(lead)}
-                  >
-                    <Ban /> Mark as Lost…
-                  </DropdownMenuItem>
-                </>
-              )}
+              <LeadActionMenuItems
+                lead={lead}
+                actions={actions}
+                staffOptions={staffOptions}
+                slots={DROPDOWN_SLOTS}
+              />
             </DropdownMenuContent>
           </DropdownMenu>
         );
       },
     },
   ];
+  return showValue ? columns : columns.filter((column) => column.id !== "value");
 }
 
 /** Journey badge reused by the drawer header. */

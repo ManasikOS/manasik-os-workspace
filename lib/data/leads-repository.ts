@@ -36,6 +36,9 @@ type Row = Record<string, any>;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export class LeadPersistenceError extends Error {
+  /** The Postgres / PostgREST error code (23505, 42501, PGRST…), kept for `describeLeadFailure`; never shown to a user. */
+  readonly code: string | null;
+
   constructor(
     readonly table: string,
     readonly operation: "select" | "insert" | "update" | "delete",
@@ -47,6 +50,8 @@ export class LeadPersistenceError extends Error {
         : String(cause);
     super(`Leads: ${operation} on ${table} failed — ${detail}`);
     this.name = "LeadPersistenceError";
+    const code = cause && typeof cause === "object" && "code" in cause ? (cause as { code: unknown }).code : null;
+    this.code = typeof code === "string" ? code : null;
   }
 }
 
@@ -254,6 +259,84 @@ export async function loadAssignableStaff(db: Db): Promise<StaffRow[]> {
   }));
 }
 
+/** What the duplicate warning shows about an existing lead. */
+export interface DuplicateLeadSummary {
+  id: string;
+  reference: string;
+  name: string;
+  mobile: string;
+  email: string | null;
+  stage: LeadRow["stage"];
+  assignedToName: string;
+  interestedIn: string;
+}
+
+/** Escapes `%`, `_` and `\` so an email is matched as typed, not as a pattern. */
+function escapeLikePattern(value: string): string {
+  // `*` is PostgREST's alias for `%` in like / ilike; it must be escaped too.
+  return value.replace(/[\\%_*]/g, (character) => `\\${character}`);
+}
+
+/**
+ * Finds one existing lead for the same person with two narrow reads, instead of
+ * loading every lead. `normalisedMobile` is the nine-digit subscriber number
+ * (`normaliseMobile`), which is how `leads.mobile` is stored. Mobile wins over
+ * email, as in `findDuplicateLead`. Reads go through the caller's client, so
+ * row-level security keeps this to the agency's own leads.
+ */
+export async function findDuplicateLeadSummary(
+  db: Db,
+  normalisedMobile: string,
+  email: string,
+): Promise<{ lead: DuplicateLeadSummary; matchedOn: "mobile" | "email" } | null> {
+  const columns = "id, reference, full_name, mobile, email, stage, assigned_to_name, interested_in";
+  const toSummary = (row: Row): DuplicateLeadSummary => ({
+    id: row.id,
+    reference: row.reference,
+    name: row.full_name,
+    mobile: row.mobile,
+    email: row.email ?? null,
+    stage: row.stage,
+    assignedToName: row.assigned_to_name ?? "Unassigned",
+    interestedIn: row.interested_in ?? "",
+  });
+
+  if (normalisedMobile.length >= 9) {
+    const { data, error } = await db.from("leads").select(columns).eq("mobile", normalisedMobile).limit(1);
+    if (error) throw new LeadPersistenceError("leads", "select", error);
+    if (data && data.length > 0) return { lead: toSummary(data[0] as Row), matchedOn: "mobile" };
+  }
+
+  const cleanEmail = email.trim();
+  if (cleanEmail) {
+    // Equality on the stored, lower-cased column — `ilike` would read `*` in the address as a wildcard and match the first lead on file.
+    let { data, error } = await db.from("leads").select(columns).eq("email_normalised", cleanEmail.toLowerCase()).limit(1);
+    // 42703: the column is not there yet (20270208090000 not applied) — fall back to the pattern match with every wildcard escaped.
+    if (error && error.code === "42703") {
+      ({ data, error } = await db.from("leads").select(columns).ilike("email", escapeLikePattern(cleanEmail)).limit(1));
+    }
+    if (error) throw new LeadPersistenceError("leads", "select", error);
+    if (data && data.length > 0) return { lead: toSummary(data[0] as Row), matchedOn: "email" };
+  }
+
+  return null;
+}
+
+/**
+ * Which of these nine-digit mobiles already belong to a lead, as `mobile → reference`. One narrow read per 200 numbers — the import checks a whole
+ * file against the agency with it instead of trusting the browser's copy of the lead list.
+ */
+export async function findExistingLeadMobiles(db: Db, mobiles: string[]): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  const unique = [...new Set(mobiles.filter((mobile) => mobile.length > 0))];
+  for (let index = 0; index < unique.length; index += 200) {
+    const { data, error } = await db.from("leads").select("mobile, reference").in("mobile", unique.slice(index, index + 200));
+    if (error) throw new LeadPersistenceError("leads", "select", error);
+    for (const row of (data ?? []) as { mobile: string; reference: string }[]) found.set(row.mobile, row.reference);
+  }
+  return found;
+}
+
 export async function loadLeadStore(
   db: Db,
   options: LoadLeadStoreOptions = {},
@@ -379,6 +462,54 @@ function chunked<T>(rows: T[]): T[][] {
 }
 
 /**
+ * Writes the lead rows a mutation changed.
+ *
+ * A new lead is inserted. An existing one is PATCHED — only the columns the mutator changed — and only if it is still the version that was read
+ * (`updated_at`, which the database bumps on every update). The previous whole-row upsert let a stale page silently put back every column a colleague
+ * had just changed; now it fails with `LeadConflictError` instead, and nothing about that lead is written.
+ */
+/** Columns the database computes. Reading them with `select *` is fine; writing one back is an error. */
+const GENERATED_LEAD_COLUMNS = ["email_normalised"] as const;
+
+function withoutGeneratedColumns(row: Row): Row {
+  const copy = { ...row };
+  for (const column of GENERATED_LEAD_COLUMNS) delete copy[column];
+  return copy;
+}
+
+async function writeLeadRows(db: Db, previous: Map<string, Row>, pending: Row[]): Promise<void> {
+  const inserts: Row[] = [];
+
+  for (const row of pending) {
+    const old = previous.get(String(row.id));
+    if (!old) {
+      inserts.push(row);
+      continue;
+    }
+
+    const patch: Row = {};
+    for (const key of new Set([...Object.keys(old), ...Object.keys(row)])) {
+      if (!sameValue(old[key], row[key])) patch[key] = row[key] ?? null;
+    }
+    // The database stamps updated_at itself; it is the version this write is checked against, not a value to send.
+    delete patch.updated_at;
+    delete patch.id;
+    for (const column of GENERATED_LEAD_COLUMNS) delete patch[column];
+    if (Object.keys(patch).length === 0) continue;
+
+    const { data, error } = await db.from("leads").update(patch).eq("id", row.id).eq("updated_at", old.updated_at).select("id");
+    if (error) throw new LeadPersistenceError("leads", "update", error);
+    if (!data || data.length === 0) throw new LeadConflictError(String(row.id));
+  }
+
+  if (inserts.length === 0) return;
+  for (const batch of chunked(inserts.map(withoutGeneratedColumns))) {
+    const { error } = await db.from("leads").insert(batch);
+    if (error) throw new LeadPersistenceError("leads", "insert", error);
+  }
+}
+
+/**
  * Writes everything the mutation changed, and nothing it did not.
  *
  * Rows are compared by primary key against the pre-mutation snapshot: absent
@@ -406,8 +537,18 @@ export async function persistLeadStore(
 
     if (pending.length === 0) continue;
 
+    if (spec.key === "leads") {
+      await writeLeadRows(db, previous, pending);
+      continue;
+    }
+
     for (const batch of chunked(pending)) {
-      const { error } = await db.from(spec.table).upsert(batch, { onConflict: spec.pk });
+      // History tables are INSERT-only for browser sessions (20270125090000_leads_rls_least_privilege.sql): an upsert is
+      // `INSERT … ON CONFLICT DO UPDATE`, which needs UPDATE privilege even when nothing conflicts. A plain insert is also
+      // the honest statement of intent — `pending` here only ever holds rows that did not exist before.
+      const { error } = spec.appendOnly
+        ? await db.from(spec.table).insert(batch)
+        : await db.from(spec.table).upsert(batch, { onConflict: spec.pk });
       if (error) throw new LeadPersistenceError(spec.table, "insert", error);
     }
   }
@@ -456,11 +597,40 @@ export async function persistSingleLeadChange(db: Db, before: LeadStore, after: 
   }
   // The database stamps updated_at itself; it is the version this write is checked against, not a value to send.
   delete patch.updated_at;
+  for (const column of GENERATED_LEAD_COLUMNS) delete patch[column];
 
   if (Object.keys(patch).length > 0) {
     const { data, error } = await db.from("leads").update(patch).eq("id", leadId).eq("updated_at", previous.updated_at).select("id");
     if (error) throw new LeadPersistenceError("leads", "update", error);
     if (!data || data.length === 0) throw new LeadConflictError(leadId);
+  }
+
+  // Notes and quotes of this lead, written after the lead itself so a version conflict leaves nothing behind.
+  const knownNotes = new Set(before.notes.map((row) => row.id));
+  const newNotes = after.notes.filter((row) => row.lead_id === leadId && !knownNotes.has(row.id));
+  for (const batch of chunked(newNotes as Row[])) {
+    if (batch.length === 0) continue;
+    const { error } = await db.from("lead_notes").insert(batch);
+    if (error) throw new LeadPersistenceError("lead_notes", "insert", error);
+  }
+
+  const previousQuotes = new Map(before.quotes.map((row) => [row.id, row as Row]));
+  for (const quote of after.quotes as Row[]) {
+    if (quote.lead_id !== leadId) continue;
+    const old = previousQuotes.get(quote.id);
+    if (!old) {
+      const { error } = await db.from("lead_quotes").insert(quote);
+      if (error) throw new LeadPersistenceError("lead_quotes", "insert", error);
+      continue;
+    }
+    const quotePatch: Row = {};
+    for (const key of new Set([...Object.keys(old), ...Object.keys(quote)])) {
+      if (!sameValue(old[key], quote[key])) quotePatch[key] = quote[key] ?? null;
+    }
+    delete quotePatch.id;
+    if (Object.keys(quotePatch).length === 0) continue;
+    const { error } = await db.from("lead_quotes").update(quotePatch).eq("id", quote.id);
+    if (error) throw new LeadPersistenceError("lead_quotes", "update", error);
   }
 
   const knownActivity = new Set(before.activity.map((row) => row.id));

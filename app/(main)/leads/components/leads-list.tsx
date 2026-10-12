@@ -20,13 +20,12 @@ import {
   Download,
   Import,
   MoreVertical,
-  PhoneCall,
   Plus,
   Radio,
-  Sparkles,
   TrendingUp,
   UserCheck,
 } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import React, { useMemo, useState } from "react";
 
@@ -40,14 +39,18 @@ import {
 import { KpiCard, KpiRow } from "@/components/data-table/kpi-card";
 import { SavedViewBar } from "@/components/data-table/saved-view-bar";
 
-import AddNewLead from "../add-new-lead/add-new-lead";
+import { authoriseLeadExportAction } from "../actions";
 import { downloadTextFile, leadsToCsv, timestampedFilename } from "../csv";
 import { useLeads } from "../leads-store";
 import {
+  CONTEXT_MENU_SLOTS,
+  LeadActionMenuItems,
+} from "../leads-table/lead-action-menu-items";
+import {
   buildLeadColumns,
   LEAD_COLUMN_SORT_FIELDS,
+  type LeadRowActions,
 } from "../leads-table/leads-columns";
-import LeadTableSorting from "../leads-table/lead-table-sorting";
 import {
   EMPTY_LEAD_FILTERS,
   LEAD_SAVED_VIEWS,
@@ -120,7 +123,6 @@ const LeadsList = () => {
   const [savedView, setSavedView] = useState<LeadSavedView>("All Leads");
   const [quickFilter, setQuickFilter] = useState<QuickFilter | null>(null);
 
-  const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   // Deep link from other modules — e.g. /quotes links to `/leads?open=<id>`
@@ -299,7 +301,9 @@ const LeadsList = () => {
    * and sort — so the file matches what the operator is looking at rather than
    * the unfiltered set.
    */
-  const exportLeads = () => {
+  const exportLeads = async () => {
+    // The menu item is hidden without the capability; this is the second lock, not the only one.
+    if (!can.exportLeads) return;
     if (sorted.length === 0) {
       toast.add({
         title: "Nothing to export",
@@ -308,37 +312,53 @@ const LeadsList = () => {
       return;
     }
 
-    downloadTextFile(timestampedFilename("leads"), leadsToCsv(sorted));
+    // The server records the export and enforces the hourly limit; no file is built if it says no.
+    const authorised = await authoriseLeadExportAction({
+      rowCount: sorted.length,
+      view: String(savedView),
+      quickFilter: quickFilter ? String(quickFilter) : null,
+    });
+    if (!authorised.ok) {
+      toast.add({ title: "Export not allowed", description: authorised.error });
+      return;
+    }
+
+    downloadTextFile(timestampedFilename("leads"), leadsToCsv(sorted, { includeValue: can.viewPipelineValue }));
     toast.add({
       title: "Export ready",
       description: `${sorted.length} lead${sorted.length === 1 ? "" : "s"} exported to CSV.`,
     });
   };
 
-  const columns = useMemo(
-    () =>
-      buildLeadColumns(
-        {
-          onOpen: (lead) => setOpenLeadId(lead.id),
-          onLogContact: (lead) => setContactLeadId(lead.id),
-          onChangeStage: handleChangeStage,
-          onAssign: handleAssign,
-          onMarkLost: (lead) => setLostLeadIds([lead.id]),
-        },
-        sort,
-        (s) => setSort(s as LeadSort),
-        staffOptions,
-      ),
+  const rowActions = useMemo<LeadRowActions>(
+    () => ({
+      onOpen: (lead) => setOpenLeadId(lead.id),
+      onLogContact: (lead) => setContactLeadId(lead.id),
+      onChangeStage: handleChangeStage,
+      onAssign: handleAssign,
+      onMarkLost: (lead) => setLostLeadIds([lead.id]),
+    }),
     // `handleChangeStage` and `handleAssign` close over `changeStage` /
     // `assignLeads`, which the store keeps stable across renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sort, changeStage, assignLeads, staffOptions],
+    [changeStage, assignLeads, staffOptions],
+  );
+
+  const columns = useMemo(
+    () =>
+      buildLeadColumns(
+        rowActions,
+        sort,
+        (s) => setSort(s as LeadSort),
+        staffOptions,
+        can.viewPipelineValue,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rowActions, sort, staffOptions, can.viewPipelineValue],
   );
 
   return (
     <>
-      <AddNewLead open={addOpen} setOpen={setAddOpen} />
-
       <ImportLeadsDialog
         open={importOpen}
         onOpenChange={setImportOpen}
@@ -394,7 +414,7 @@ const LeadsList = () => {
           action={
             <div className="flex items-center gap-2">
               {can.createLead && (
-                <Button onClick={() => setAddOpen(true)}>
+                <Button render={<Link href="/leads/new" />}>
                   <Plus /> Add Lead
                 </Button>
               )}
@@ -415,9 +435,11 @@ const LeadsList = () => {
                       <Import /> Import Leads
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onClick={exportLeads}>
-                    <Download /> Export Leads
-                  </DropdownMenuItem>
+                  {can.exportLeads && (
+                    <DropdownMenuItem onClick={exportLeads}>
+                      <Download /> Export Leads
+                    </DropdownMenuItem>
+                  )}
                   {can.manageSourcesAndAutomation && (
                     <DropdownMenuItem onClick={() => setSourcesOpen(true)}>
                       <Radio /> Manage Lead Sources
@@ -539,6 +561,14 @@ const LeadsList = () => {
             enableRowSelection
             rowsAreButtons
             rowAriaLabel={(lead) => `Open ${lead.name}, ${lead.reference}`}
+            contextMenuContents={(lead) => (
+              <LeadActionMenuItems
+                lead={lead}
+                actions={rowActions}
+                staffOptions={staffOptions}
+                slots={CONTEXT_MENU_SLOTS}
+              />
+            )}
             sort={sort as DataTableSort}
             sortFieldByColumnId={LEAD_COLUMN_SORT_FIELDS}
             // Any change that reshuffles the rows sends the table back to page one.
@@ -628,7 +658,6 @@ const LeadsList = () => {
                     setQuickFilter(null);
                   }}
                 />
-                <LeadTableSorting sort={sort} onChange={setSort} />
               </div>
             }
             bulkBar={
@@ -653,6 +682,13 @@ const LeadsList = () => {
                                     selected.map((lead) => lead.id),
                                     stage,
                                   );
+                                  if (!result.ok) {
+                                    toast.add({
+                                      title: "Could not move leads",
+                                      description: result.error,
+                                    });
+                                    return;
+                                  }
                                   clear();
                                   toast.add({
                                     title: `${result.changed} lead${
@@ -686,6 +722,13 @@ const LeadsList = () => {
                                     selected.map((lead) => lead.id),
                                     staff.id,
                                   );
+                                  if (!result.ok) {
+                                    toast.add({
+                                      title: "Could not reassign leads",
+                                      description: result.error,
+                                    });
+                                    return;
+                                  }
                                   clear();
                                   toast.add({
                                     title: `${result.changed} lead${

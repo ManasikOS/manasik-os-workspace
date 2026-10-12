@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { Db } from "@/lib/ai/db";
-import type { LeadRow } from "@/lib/types/leads";
 
 import { changeOneLead, LeadConflictError, loadLeadStore, persistSingleLeadChange, snapshotLeadStore } from "./leads-repository";
 

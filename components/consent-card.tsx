@@ -53,6 +53,8 @@ export interface ConsentCardProps {
   contactableChannels: ConsentChannel[];
   /** False for a role that cannot record a decision — the card still shows status, read-only. */
   canManage: boolean;
+  /** Render as a flat, divider-led section (inside a drawer) instead of a standalone card. */
+  embedded?: boolean;
   /** Only required when `canManage` — the read-only card never calls this. */
   onSave?: (input: {
     consentStatus: ConsentStatus;
@@ -76,6 +78,7 @@ export default function ConsentCard({
   doNotContact,
   contactableChannels,
   canManage,
+  embedded = false,
   onSave,
 }: ConsentCardProps) {
   const router = useRouter();
@@ -129,10 +132,24 @@ export default function ConsentCard({
     router.refresh();
   };
 
+  const Root = embedded ? "section" : Card;
+
   return (
-    <Card className="gap-2 p-4 pt-2">
-      <div className="flex items-center justify-between">
-        <SectionHeading title="Consent & Contactability" />
+    <Root
+      className={
+        embedded
+          ? "flex flex-col gap-3 border-t border-border/60 pt-6"
+          : "gap-2 p-4 pt-2"
+      }
+    >
+      <div className="flex items-center justify-between gap-2">
+        {embedded ? (
+          <h3 className="text-sm font-semibold text-foreground">
+            Consent &amp; contactability
+          </h3>
+        ) : (
+          <SectionHeading title="Consent & Contactability" />
+        )}
         {canManage && (
           <Button size="sm" variant="ghost" onClick={openDialog}>
             <ShieldCheck className="size-3.5" /> Record Decision
@@ -229,6 +246,6 @@ export default function ConsentCard({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </Root>
   );
 }

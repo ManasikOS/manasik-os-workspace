@@ -11,7 +11,9 @@
  */
 
 import { colomboDayKey } from "@/lib/date";
+import { checkStageTransition } from "@/lib/data/lead-stage-transitions";
 import { newId } from "@/lib/data/leads-ids";
+import { checkQuoteTransition } from "@/lib/data/quote-transitions";
 import type { LeadStore } from "@/lib/data/leads-repository";
 import type {
   FollowUpStatus,
@@ -240,6 +242,9 @@ const ROOM_PRICE_KEY: Record<Exclude<LeadRoomPreference, "UNDECIDED">, keyof Lea
   DOUBLE: "double_price",
   SINGLE: "single_price",
 };
+
+/** Share of the quoted price asked as a deposit. One value for the quote the server sends and the preview the sender sees. */
+export const QUOTE_DEPOSIT_RATE = 0.2;
 
 /**
  * Baseline price per traveller when no package has been chosen yet, so an
@@ -489,6 +494,8 @@ export function createLeadInStore(
   store: LeadStore,
   input: CreateLeadInput,
   nowIso: string,
+  /** A reference already allocated by the database (`allocateReferences`). Without one it is derived from `store.leads`, which is only correct when the store holds every lead. */
+  options: { reference?: string } = {},
 ): CreateLeadOutcome {
   const mobile = normaliseMobile(input.mobile);
   if (!input.fullName.trim()) {
@@ -510,7 +517,7 @@ export function createLeadInStore(
     return { ok: false, error: "A next follow-up is required for every new lead." };
   }
 
-  const reference = nextLeadReference(store, nowIso);
+  const reference = options.reference ?? nextLeadReference(store, nowIso);
   const pkg = packageById(store, input.packageId);
   const travellers = input.adults + input.children;
 
@@ -649,9 +656,13 @@ export function changeLeadStageInStore(
   if (input.stage === "LOST" && !input.lostReason) {
     return { ok: false, error: "Select a reason before marking a lead lost." };
   }
-  if (lead.booking_id) {
-    return { ok: false, error: "This lead is already linked to a booking." };
-  }
+  const verdict = checkStageTransition({
+    from: lead.stage,
+    to: input.stage,
+    hasBooking: lead.booking_id !== null,
+    hasAcceptedQuote: store.quotes.some((quote) => quote.lead_id === lead.id && quote.status === "ACCEPTED"),
+  });
+  if (!verdict.ok) return { ok: false, error: verdict.error };
 
   const previous = lead.stage;
   lead.stage = input.stage;
@@ -935,6 +946,11 @@ export interface UpdateQuoteStatusInput {
   quoteId: string;
   status: QuoteStatus;
   actorName: string;
+  /**
+   * Present only when the caller may approve a held discount (an administrator). Without it a `PENDING_APPROVAL` quote cannot be released, and
+   * with it the approval is recorded on the quote.
+   */
+  approval?: { approvedById: string | null; approvedByName: string };
 }
 
 /**
@@ -955,6 +971,15 @@ export function updateQuoteStatusInStore(
 ): MutationOutcome {
   const quote = store.quotes.find((q) => q.id === input.quoteId);
   if (!quote) return { ok: false, error: "That quote no longer exists." };
+  if (quote.status === input.status) return { ok: true };
+
+  const verdict = checkQuoteTransition({ from: quote.status, to: input.status, isApprover: input.approval !== undefined });
+  if (!verdict.ok) return { ok: false, error: verdict.error };
+
+  if (quote.status === "PENDING_APPROVAL" && input.approval && (input.status === "SENT" || input.status === "DRAFT")) {
+    quote.discount_approved_by = input.approval.approvedById ?? input.approval.approvedByName;
+    quote.discount_approved_at = nowIso;
+  }
 
   quote.status = input.status;
 
@@ -1176,6 +1201,7 @@ export function markLeadBookedInStore(
   if (lead.booking_id) return { ok: true };
 
   lead.booking_id = input.bookingId;
+  lead.converting_at = null;
   lead.stage = "BOOKED";
   lead.next_follow_up_at = null;
   lead.follow_up_type = null;

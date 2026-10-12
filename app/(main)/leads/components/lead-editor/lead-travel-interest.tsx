@@ -1,6 +1,5 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
@@ -14,14 +13,6 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
-import {
-  Calendar,
-  Compass,
-  DollarSign,
-  Plane,
-  Sparkles,
-  Users,
-} from "lucide-react";
 import React from "react";
 
 import type {
@@ -199,9 +190,6 @@ export default function LeadTravelInterest({
                     : "text-muted-foreground hover:text-foreground hover:bg-background/40"
                 }`}
               >
-                {/* eslint-disable no-restricted-syntax -- fixed 3-way journey-type legend, not a status/severity signal */}
-
-                {/* eslint-enable no-restricted-syntax */}
                 <span>{choice.label}</span>
               </button>
             );

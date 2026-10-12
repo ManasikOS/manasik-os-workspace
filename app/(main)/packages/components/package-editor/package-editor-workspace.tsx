@@ -15,7 +15,7 @@ import { PackageLeaveConfirmDialog } from "./package-leave-confirm-dialog";
 import { usePackageEditorForm } from "./use-package-editor-form";
 import { usePackageEditorSave } from "./use-package-editor-save";
 import { usePackageEditorStepper } from "./use-package-editor-stepper";
-import { useUnsavedChangesGuard, type BlockedNavigation } from "./use-unsaved-changes-guard";
+import { useUnsavedChangesGuard, type BlockedNavigation } from "@/hooks/use-unsaved-changes-guard";
 
 export interface PackageEditorWorkspaceProps {
   mode: "create" | "edit";

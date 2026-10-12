@@ -117,8 +117,8 @@ const ImportLeadsDialog = ({
           </DialogTitle>
           <DialogDescription>
             Upload a CSV with at least a <strong>Full Name</strong> and a{" "}
-            <strong>Mobile</strong> column. Nothing is uploaded anywhere — the
-            file is read in your browser.
+            <strong>Mobile</strong> column. The file is checked in your browser,
+            then the rows you confirm are saved to the CRM.
           </DialogDescription>
         </DialogHeader>
 

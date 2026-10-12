@@ -28,7 +28,7 @@ Product rule the whole plan enforces:
 | List | `components/leads-list.tsx` | 617 | Header, KPIs, saved views, filter chips, table, bulk bar |
 | Table | `leads-table/*` | ~700 | Columns, sortable headers, data table, sort menu |
 | Drawer | `components/lead-drawer.tsx` | 458 | Sheet: header, actions, follow-up, cards, stage bar, activity |
-| Add lead | `add-new-lead/*` | ~1,100 | Sheet with 5 sections + duplicate check + preview card |
+| Add lead | `new/*`, `components/lead-editor/*` | ~1,300 | Full page at `/leads/new` (TASK-045): 6-step stepper, server duplicate check, review summary |
 | Dialogs | `log-contact-dialog`, `mark-lost-dialog`, `import-leads-dialog` | — | Working |
 | Export | `csv.ts` | — | `leadsToCsv`, `timestampedFilename` |
 
@@ -304,6 +304,11 @@ Follows the spec's own build order. Each phase is independently shippable.
 - Add Package and Source filter chips to the primary row.
 
 ### Phase 2 — Add Lead dialog to spec
+
+> **Container changed (TASK-045).** Add Lead is now the page `/leads/new`, not a dialog. The
+> rules below still apply; the duplicate check is a server lookup
+> (`checkLeadDuplicateAction`) and `createLeadAction` enforces the answer. Module notes:
+> `docs/tasks/TASK-045-add-lead-screen.md`.
 - Step 1 becomes a **gate**: no other field is enabled until the number is entered and the duplicate
   search (leads **+ pilgrims/customers**, server-side, debounced) has returned.
 - Duplicate outcome: *Open Existing* / *Merge* (admin only) / *Create anyway* — the last requires

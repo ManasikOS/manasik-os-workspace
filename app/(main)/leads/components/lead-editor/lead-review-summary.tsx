@@ -15,7 +15,7 @@ import {
   formatCurrencyLKR,
   localInputToIso,
 } from "../../utils";
-import { useLeads } from "../../leads-store";
+import type { StaffRow } from "@/lib/types/leads";
 import OpportunityPreviewCard from "./opportunity-preview-card";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -25,6 +25,7 @@ import FormDataLabel from "@/components/ui/form-data-label";
 interface LeadReviewSummaryProps {
   formData: AddLeadFormData;
   packages: LeadPackageRow[];
+  staffOptions: StaffRow[];
 }
 
 /* ── tiny helpers ─────────────────────────────────────────────────────────── */
@@ -75,9 +76,8 @@ function formatFollowUpDate(localInput: string): string | null {
 export default function LeadReviewSummary({
   formData,
   packages,
+  staffOptions,
 }: LeadReviewSummaryProps) {
-  const { staffOptions } = useLeads();
-
   const assigneeName =
     staffOptions.find((s) => s.id === formData.assignedToId)?.name ?? "—";
   const ownerName =
@@ -88,9 +88,7 @@ export default function LeadReviewSummary({
     ? `${selectedPackage.name} — ${formatCurrencyLKR(selectedPackage.price_per_person_lkr)}/pax`
     : "Not decided (custom proposal)";
 
-  const followUpDate = formData.createFollowUpTask
-    ? formatFollowUpDate(formData.nextFollowUpAt)
-    : null;
+  const followUpDate = formatFollowUpDate(formData.nextFollowUpAt);
 
   return (
     <div className="flex flex-col gap-4">
@@ -105,7 +103,7 @@ export default function LeadReviewSummary({
       />
 
       {/* ── Contact Details ──────────────────────────────────────────────── */}
-      <Card className="p-4 flex flex-col pt-3 gap-3">
+      <Card className="p-5 flex flex-col pt-3 gap-3">
         <SectionHeading title="Contact Details" />
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <FormDataLabel label="Full Name" value={formData.fullName || "-"} />
@@ -125,7 +123,7 @@ export default function LeadReviewSummary({
         </div>
       </Card>
 
-      <Card className="p-4 flex flex-col pt-3 gap-3">
+      <Card className="p-5 flex flex-col pt-3 gap-3">
         <SectionHeading title="Sales Setup" />
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <FormDataLabel
@@ -154,7 +152,7 @@ export default function LeadReviewSummary({
       </Card>
 
       {/* ── Travel Interest ──────────────────────────────────────────────── */}
-      <Card className="p-4 flex flex-col pt-3 gap-3">
+      <Card className="p-5 flex flex-col pt-3 gap-3">
         <SectionHeading title="Travel Interest" />
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <FormDataLabel
@@ -195,25 +193,19 @@ export default function LeadReviewSummary({
       </Card>
 
       {/* ── Next Action ──────────────────────────────────────────────────── */}
-      <Card className="p-4 flex flex-col pt-3 gap-3">
+      <Card className="p-5 flex flex-col pt-3 gap-3">
         <SectionHeading title="Next Action" />
-        {formData.createFollowUpTask ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <FormDataLabel
-              label="Follow-Up Date"
-              value={followUpDate?.toString() || "-"}
-            />
-            <FormDataLabel
-              label="Type"
-              value={FOLLOW_UP_TYPE_LABELS[formData.followUpType]}
-            />
-            <FormDataLabel label="Assigned To" value={ownerName} />
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            No follow-up scheduled — this lead will appear under &quot;Needs Action&quot;.
-          </p>
-        )}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <FormDataLabel
+            label="Follow-Up Date"
+            value={followUpDate?.toString() || "-"}
+          />
+          <FormDataLabel
+            label="Type"
+            value={FOLLOW_UP_TYPE_LABELS[formData.followUpType]}
+          />
+          <FormDataLabel label="Assigned To" value={ownerName} />
+        </div>
 
         {formData.notes && (
           <>
