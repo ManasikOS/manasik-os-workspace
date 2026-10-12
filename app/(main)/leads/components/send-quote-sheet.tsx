@@ -63,7 +63,6 @@ function SendQuoteForm({
     null,
   );
 
-  const pkg = packages.find((entry) => entry.id === lead.packageId) ?? null;
   const roomPricePerPerson = pricePerPerson(
     { packages },
     lead.packageId,

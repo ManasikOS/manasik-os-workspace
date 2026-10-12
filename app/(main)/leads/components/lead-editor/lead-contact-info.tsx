@@ -1,21 +1,11 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
-import InputFormHeader from "@/components/ui/input-form-header";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Languages, Mail, MapPin, MessageCircle, User } from "lucide-react";
 import React from "react";
 
 import type { LeadContactChannel } from "../../types";

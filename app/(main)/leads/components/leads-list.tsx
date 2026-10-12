@@ -20,10 +20,8 @@ import {
   Download,
   Import,
   MoreVertical,
-  PhoneCall,
   Plus,
   Radio,
-  Sparkles,
   TrendingUp,
   UserCheck,
 } from "lucide-react";
@@ -53,7 +51,6 @@ import {
   LEAD_COLUMN_SORT_FIELDS,
   type LeadRowActions,
 } from "../leads-table/leads-columns";
-import LeadTableSorting from "../leads-table/lead-table-sorting";
 import {
   EMPTY_LEAD_FILTERS,
   LEAD_SAVED_VIEWS,
@@ -685,6 +682,13 @@ const LeadsList = () => {
                                     selected.map((lead) => lead.id),
                                     stage,
                                   );
+                                  if (!result.ok) {
+                                    toast.add({
+                                      title: "Could not move leads",
+                                      description: result.error,
+                                    });
+                                    return;
+                                  }
                                   clear();
                                   toast.add({
                                     title: `${result.changed} lead${
@@ -718,6 +722,13 @@ const LeadsList = () => {
                                     selected.map((lead) => lead.id),
                                     staff.id,
                                   );
+                                  if (!result.ok) {
+                                    toast.add({
+                                      title: "Could not reassign leads",
+                                      description: result.error,
+                                    });
+                                    return;
+                                  }
                                   clear();
                                   toast.add({
                                     title: `${result.changed} lead${

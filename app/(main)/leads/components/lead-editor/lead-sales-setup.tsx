@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Flame, Tag } from "lucide-react";
+import { Tag } from "lucide-react";
 import React from "react";
 
 import type { LeadSource, LeadStage, LeadTemperature } from "../../types";
@@ -24,7 +24,7 @@ import {
   TEMPERATURE_LABELS,
   TEMPERATURE_TONES,
 } from "../../utils";
-import { TONE_BADGE_BORDER, TONE_CLASS, TONE_TEXT } from "@/lib/ui/tone";
+import { TONE_BADGE_BORDER, TONE_CLASS } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 
 interface LeadSalesSetupProps {
@@ -68,12 +68,6 @@ const TEMPERATURE_STYLES: Record<LeadTemperature, string> = {
     TONE_BADGE_BORDER[TEMPERATURE_TONES.COLD],
     "font-bold border",
   ),
-};
-
-const TEMPERATURE_EMOJI: Record<LeadTemperature, string> = {
-  HOT: "🔥",
-  WARM: "☀️",
-  COLD: "❄️",
 };
 
 export default function LeadSalesSetup({

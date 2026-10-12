@@ -13,7 +13,7 @@ import {
   InputGroupText,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { AlertCircle, MessageSquareText } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import React from "react";
 
 import type { FollowUpType } from "../../types";
