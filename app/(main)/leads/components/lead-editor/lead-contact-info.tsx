@@ -92,13 +92,7 @@ export default function LeadContactInfo({
     <div className="">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-1">
         <div className="flex flex-col gap-1">
-          <InputGroup
-            className={
-              errors.fullName
-                ? "border-destructive ring-1 ring-destructive/30"
-                : ""
-            }
-          >
+          <InputGroup>
             <InputGroupAddon align={"block-start"}>
               <InputGroupText>Full Name</InputGroupText>
             </InputGroupAddon>
@@ -109,9 +103,8 @@ export default function LeadContactInfo({
               placeholder="e.g. Mohamed Afras"
               value={fullName}
               onChange={(event) => onFullNameChange(event.target.value)}
-              aria-invalid={Boolean(errors.fullName)}
-              aria-describedby={errors.fullName ? "lead-name-error" : undefined}
-              className="text-sm"
+              // aria-invalid={Boolean(errors.fullName)}
+              // aria-describedby={errors.fullName ? "lead-name-error" : undefined}
             />
           </InputGroup>
           {errors.fullName && (
@@ -139,7 +132,7 @@ export default function LeadContactInfo({
                 <span className="text-destructive">*</span>
               </InputGroupText>
             </InputGroupAddon>
-            <ButtonGroup>
+            <ButtonGroup className="w-full">
               <InputGroupInput value={"+94"} readOnly className="flex-1" />
               <InputGroupInput
                 id="lead-mobile"
@@ -149,10 +142,10 @@ export default function LeadContactInfo({
                 placeholder="77 123 4567"
                 value={mobile}
                 onChange={(event) => onMobileChange(event.target.value)}
-                aria-invalid={Boolean(errors.mobile)}
-                aria-describedby={
-                  errors.mobile ? "lead-mobile-error" : undefined
-                }
+                // aria-invalid={Boolean(errors.mobile)}
+                // aria-describedby={
+                //   errors.mobile ? "lead-mobile-error" : undefined
+                // }
                 className="text-sm tabular-nums flex-6"
               />
             </ButtonGroup>
@@ -168,13 +161,7 @@ export default function LeadContactInfo({
         </div>
 
         <div className="flex flex-col gap-1">
-          <InputGroup
-            className={
-              errors.email
-                ? "border-destructive ring-1 ring-destructive/30"
-                : ""
-            }
-          >
+          <InputGroup>
             <InputGroupAddon align="block-start">
               <InputGroupText> Email Address</InputGroupText>
             </InputGroupAddon>
@@ -185,8 +172,6 @@ export default function LeadContactInfo({
               placeholder="e.g. afras@gmail.com"
               value={email}
               onChange={(event) => onEmailChange(event.target.value)}
-              aria-invalid={Boolean(errors.email)}
-              aria-describedby={errors.email ? "lead-email-error" : undefined}
             />
           </InputGroup>
           {errors.email && (

@@ -8,14 +8,16 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group";
+import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2 } from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { AlertTriangle, CheckCircle2, ChevronDown } from "lucide-react";
 
 import type { DuplicateLeadSummary } from "@/lib/data/leads-repository";
 import { STAGE_LABELS } from "../../utils";
@@ -27,6 +29,7 @@ import {
 } from "@/lib/ui/tone";
 import { cn } from "@/lib/utils";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { Card } from "@/components/ui/card";
 
 interface DuplicateCheckSectionProps {
   mobile: string;
@@ -74,13 +77,11 @@ export default function DuplicateCheckSection({
   const showClear = checked && !duplicate && !isChecking && !checkFailed;
 
   return (
-    <div className="flex flex-col gap-3 w-full">
-      <div className="flex flex-col gap-2">
-        <InputGroup>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-start flex-col gap-2 w-full">
+        <InputGroup className="w-fit">
           <InputGroupAddon align="block-start">
-            <InputGroupText>
-              <label htmlFor="duplicate-mobile">WhatsApp / Mobile Number</label>
-            </InputGroupText>
+            <InputGroupText>WhatsApp / Mobile Number</InputGroupText>
           </InputGroupAddon>
           {/* `type="tel"`, not `type="number"`: a number input rejects spaces,
               eats leading zeros and changes value on scroll. */}
@@ -133,10 +134,11 @@ export default function DuplicateCheckSection({
         </p>
 
         {duplicate && (
-          <div
+          <Card
             role="alert"
+            variant="md-shadow"
             className={cn(
-              "rounded-md border p-3 text-sm flex flex-col gap-2.5",
+              "p-4 text-sm flex flex-col gap-2.5",
               TONE_STAT_CARD.warning,
             )}
           >
@@ -165,7 +167,8 @@ export default function DuplicateCheckSection({
               </Badge>
             </div>
 
-            <div
+            <Card
+              variant="md-shadow"
               className={cn(
                 "bg-background/60 p-2.5 rounded-sm border text-xs flex flex-col gap-0.5",
                 TONE_BADGE_BORDER.warning,
@@ -188,7 +191,7 @@ export default function DuplicateCheckSection({
                 </strong>{" "}
                 · Interested in <strong>{duplicate.lead.interestedIn}</strong>
               </span>
-            </div>
+            </Card>
 
             <div
               className={cn(
@@ -203,30 +206,37 @@ export default function DuplicateCheckSection({
                 To create a separate lead anyway, choose a reason:
               </label>
               <div className="flex flex-wrap items-center gap-2">
-                <Select
-                  value={duplicateReason}
-                  onValueChange={(value) => {
-                    onDuplicateReasonChange(value ?? "");
-                    // Clearing the reason must also clear the confirmation,
-                    // otherwise the override survives half-undone.
-                    if (!value) onCreateAnywayChange(false);
-                  }}
-                >
-                  <SelectTrigger id="duplicate-reason" className="text-xs">
-                    <SelectValue placeholder="Select a reason" />
-                  </SelectTrigger>
-                  <SelectContent>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    id="duplicate-reason"
+                    render={<Button type="button" variant="outline" />}
+                  >
+                    <span
+                      className={cn(
+                        "truncate text-start",
+                        !duplicateReason && "text-muted-foreground",
+                      )}
+                    >
+                      {DUPLICATE_REASONS.find(
+                        (reason) => reason.value === duplicateReason,
+                      )?.label ?? "Select a reason"}
+                    </span>
+                    <ChevronDown
+                      className="size-3.5 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
                     {DUPLICATE_REASONS.map((reason) => (
-                      <SelectItem
+                      <DropdownMenuItem
+                        onClick={() => onDuplicateReasonChange(reason.value)}
                         key={reason.value}
-                        value={reason.value}
-                        className="text-xs"
                       >
                         {reason.label}
-                      </SelectItem>
+                      </DropdownMenuItem>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {duplicateReason && (
                   <label className="flex items-center gap-1.5 text-xs text-foreground cursor-pointer font-medium select-none">
@@ -241,7 +251,7 @@ export default function DuplicateCheckSection({
                 )}
               </div>
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </div>

@@ -103,7 +103,7 @@ export default function LeadReviewSummary({
       />
 
       {/* ── Contact Details ──────────────────────────────────────────────── */}
-      <Card className="p-4 flex flex-col pt-3 gap-3">
+      <Card className="p-5 flex flex-col pt-3 gap-3">
         <SectionHeading title="Contact Details" />
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <FormDataLabel label="Full Name" value={formData.fullName || "-"} />
@@ -123,7 +123,7 @@ export default function LeadReviewSummary({
         </div>
       </Card>
 
-      <Card className="p-4 flex flex-col pt-3 gap-3">
+      <Card className="p-5 flex flex-col pt-3 gap-3">
         <SectionHeading title="Sales Setup" />
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <FormDataLabel
@@ -152,7 +152,7 @@ export default function LeadReviewSummary({
       </Card>
 
       {/* ── Travel Interest ──────────────────────────────────────────────── */}
-      <Card className="p-4 flex flex-col pt-3 gap-3">
+      <Card className="p-5 flex flex-col pt-3 gap-3">
         <SectionHeading title="Travel Interest" />
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <FormDataLabel
@@ -193,7 +193,7 @@ export default function LeadReviewSummary({
       </Card>
 
       {/* ── Next Action ──────────────────────────────────────────────────── */}
-      <Card className="p-4 flex flex-col pt-3 gap-3">
+      <Card className="p-5 flex flex-col pt-3 gap-3">
         <SectionHeading title="Next Action" />
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <FormDataLabel
