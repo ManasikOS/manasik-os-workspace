@@ -117,7 +117,7 @@ select is((select count(*)::int from public.lead_notes), 1, 'OPERATIONS sees not
 select is((select body from public.lead_notes), 'converted lead note', 'and it is the converted lead''s note');
 select is((select count(*)::int from public.lead_activity), 1, 'OPERATIONS sees activity of converted leads only');
 select is((select count(*)::int from public.lead_quotes), 1, 'OPERATIONS sees quotes of converted leads only');
-select is(public.zz_rows_changed($$delete from public.lead_notes where id = 'db000000-0000-4000-8000-0000000000a2'$$), 0, 'OPERATIONS cannot delete a note');
+select throws_ok($$delete from public.lead_notes where id = 'db000000-0000-4000-8000-0000000000a2'$$, '42501', null, 'OPERATIONS cannot delete a note (the privilege is revoked, so it is refused rather than matching no rows)');
 
 -- FINANCE keeps the quote ledger ------------------------------------------------------------------------------------------------------------------
 set local "request.jwt.claims" = '{"sub":"d4000000-0000-4000-8000-0000000000a1","role":"authenticated"}';
