@@ -44,8 +44,13 @@ import { SavedViewBar } from "@/components/data-table/saved-view-bar";
 import { downloadTextFile, leadsToCsv, timestampedFilename } from "../csv";
 import { useLeads } from "../leads-store";
 import {
+  CONTEXT_MENU_SLOTS,
+  LeadActionMenuItems,
+} from "../leads-table/lead-action-menu-items";
+import {
   buildLeadColumns,
   LEAD_COLUMN_SORT_FIELDS,
+  type LeadRowActions,
 } from "../leads-table/leads-columns";
 import LeadTableSorting from "../leads-table/lead-table-sorting";
 import {
@@ -314,24 +319,30 @@ const LeadsList = () => {
     });
   };
 
+  const rowActions = useMemo<LeadRowActions>(
+    () => ({
+      onOpen: (lead) => setOpenLeadId(lead.id),
+      onLogContact: (lead) => setContactLeadId(lead.id),
+      onChangeStage: handleChangeStage,
+      onAssign: handleAssign,
+      onMarkLost: (lead) => setLostLeadIds([lead.id]),
+    }),
+    // `handleChangeStage` and `handleAssign` close over `changeStage` /
+    // `assignLeads`, which the store keeps stable across renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [changeStage, assignLeads, staffOptions],
+  );
+
   const columns = useMemo(
     () =>
       buildLeadColumns(
-        {
-          onOpen: (lead) => setOpenLeadId(lead.id),
-          onLogContact: (lead) => setContactLeadId(lead.id),
-          onChangeStage: handleChangeStage,
-          onAssign: handleAssign,
-          onMarkLost: (lead) => setLostLeadIds([lead.id]),
-        },
+        rowActions,
         sort,
         (s) => setSort(s as LeadSort),
         staffOptions,
       ),
-    // `handleChangeStage` and `handleAssign` close over `changeStage` /
-    // `assignLeads`, which the store keeps stable across renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sort, changeStage, assignLeads, staffOptions],
+    [rowActions, sort, staffOptions],
   );
 
   return (
@@ -536,6 +547,14 @@ const LeadsList = () => {
             enableRowSelection
             rowsAreButtons
             rowAriaLabel={(lead) => `Open ${lead.name}, ${lead.reference}`}
+            contextMenuContents={(lead) => (
+              <LeadActionMenuItems
+                lead={lead}
+                actions={rowActions}
+                staffOptions={staffOptions}
+                slots={CONTEXT_MENU_SLOTS}
+              />
+            )}
             sort={sort as DataTableSort}
             sortFieldByColumnId={LEAD_COLUMN_SORT_FIELDS}
             // Any change that reshuffles the rows sends the table back to page one.
@@ -625,7 +644,6 @@ const LeadsList = () => {
                     setQuickFilter(null);
                   }}
                 />
-                <LeadTableSorting sort={sort} onChange={setSort} />
               </div>
             }
             bulkBar={
