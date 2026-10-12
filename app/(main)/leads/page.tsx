@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 
-import { capabilitiesForLeads } from "@/lib/access/leads-access";
-import { getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { getLeadActor } from "@/lib/data/leads-actor";
 import { loadAssignableStaff, loadLeadStore } from "@/lib/data/leads-repository";
 import { listCampaignOptions } from "@/lib/data/campaigns-repository";
 import { createClient } from "@/utils/supabase/server";
@@ -42,8 +41,7 @@ export default async function LeadsPage() {
   );
   dataPromise.catch(() => undefined);
 
-  const { role, name, staffId } = await getCurrentStaffRole();
-  const can = capabilitiesForLeads(role);
+  const { role, name, staffId, can } = await getLeadActor();
   if (!can.viewModule) notFound();
 
   const [store, staffOptions, campaignOptions] = await dataPromise;

@@ -25,6 +25,8 @@ export interface LeadCapabilities {
   mergeDuplicates: boolean;
   deleteLead: boolean;
   manageSourcesAndAutomation: boolean;
+  /** Lifting a do-not-contact flag puts a customer who asked to be left alone back in reach of every campaign. Admin only. */
+  clearDoNotContact: boolean;
   /** Estimated value / pipeline totals; Operations & Visa never see money. */
   viewPipelineValue: boolean;
   viewAnalytics: boolean;
@@ -62,6 +64,7 @@ const NONE: LeadCapabilities = {
   mergeDuplicates: false,
   deleteLead: false,
   manageSourcesAndAutomation: false,
+  clearDoNotContact: false,
   viewPipelineValue: false,
   viewAnalytics: false,
   viewAllOwners: false,
@@ -90,6 +93,7 @@ const CAPABILITIES: Record<StaffRole, LeadCapabilities> = {
     mergeDuplicates: true,
     deleteLead: true,
     manageSourcesAndAutomation: true,
+    clearDoNotContact: true,
     viewPipelineValue: true,
     viewAnalytics: true,
     viewAllOwners: true,

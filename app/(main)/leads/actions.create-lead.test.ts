@@ -18,6 +18,12 @@ vi.mock("@/lib/data/departure-groups", () => ({
   createGroupBooking: vi.fn(),
 }));
 vi.mock("@/utils/supabase/server", () => ({ createClient: () => ({}) }));
+// The reference comes from the database counter (`allocate_references`); there is no database here.
+let nextReference = 1;
+vi.mock("@/lib/data/lead-references", () => ({
+  allocateReferences: async (_db: unknown, _kind: string, count: number) =>
+    Array.from({ length: count }, () => `LD-2030-${String(nextReference++).padStart(4, "0")}`),
+}));
 
 const EXISTING = {
   id: "lead-existing",

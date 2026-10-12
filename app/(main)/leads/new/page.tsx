@@ -1,8 +1,7 @@
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
-import { capabilitiesForLeads } from "@/lib/access/leads-access";
-import { getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { getLeadActor } from "@/lib/data/leads-actor";
 import {
   loadAssignableStaff,
   loadLeadStore,
@@ -30,8 +29,8 @@ export default async function NewLeadPage() {
   ]);
   dataPromise.catch(() => undefined);
 
-  const { role, staffId } = await getCurrentStaffRole();
-  if (!capabilitiesForLeads(role).createLead) notFound();
+  const { staffId, can } = await getLeadActor();
+  if (!can.createLead) notFound();
 
   const [store, staffOptions] = await dataPromise;
 

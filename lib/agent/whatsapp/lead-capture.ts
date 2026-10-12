@@ -10,7 +10,7 @@ import { COPILOT_NAME } from "@/lib/agent/identity";
 import type { AgentContext } from "@/lib/agent/whatsapp/context";
 import { waIdToMobile } from "@/lib/agent/whatsapp/phone";
 import { addCampaignTouchpoint } from "@/lib/data/campaigns-repository";
-import { colomboDayKey } from "@/lib/date";
+import { allocateReferences } from "@/lib/data/lead-references";
 import { leadChannelDefaults, mobileForNewLead } from "@/lib/inbox/lead-channel";
 import { newChatLeadActivity, newChatLeadFollowUpFields } from "@/lib/inbox/lead-defaults";
 
@@ -40,23 +40,10 @@ export function mobileForConversation(profile: { identifiesByPhone: boolean }, c
   return mobile.length > 0 ? mobile : null;
 }
 
+/** From the database counter (`allocate_references`): the old read-then-add-one raced a staff member creating a lead at the same moment. */
 async function nextLeadReferenceForAgency(ctx: AgentContext): Promise<string> {
-  const year = colomboDayKey().slice(0, 4);
-  const prefix = `LD-${year}-`;
-
-  const { data, error } = await ctx.db
-    .from("leads")
-    .select("reference")
-    .eq("agency_id", ctx.agencyId)
-    .like("reference", `${prefix}%`);
-  if (error) throw new Error(`Failed to read lead references: ${error.message}`);
-
-  const highest = ((data ?? []) as { reference: string }[]).reduce((max, row) => {
-    const parsed = Number.parseInt(row.reference.slice(prefix.length), 10);
-    return Number.isFinite(parsed) ? Math.max(max, parsed) : max;
-  }, 0);
-
-  return `${prefix}${String(highest + 1).padStart(4, "0")}`;
+  const [reference] = await allocateReferences(ctx.db, "LEAD", 1, { agencyId: ctx.agencyId });
+  return reference;
 }
 
 async function defaultLeadOwner(ctx: AgentContext): Promise<{ id: string; name: string }> {

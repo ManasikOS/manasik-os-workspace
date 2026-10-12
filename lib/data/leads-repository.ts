@@ -36,6 +36,9 @@ type Row = Record<string, any>;
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export class LeadPersistenceError extends Error {
+  /** The Postgres / PostgREST error code (23505, 42501, PGRST…), kept for `describeLeadFailure`; never shown to a user. */
+  readonly code: string | null;
+
   constructor(
     readonly table: string,
     readonly operation: "select" | "insert" | "update" | "delete",
@@ -47,6 +50,8 @@ export class LeadPersistenceError extends Error {
         : String(cause);
     super(`Leads: ${operation} on ${table} failed — ${detail}`);
     this.name = "LeadPersistenceError";
+    const code = cause && typeof cause === "object" && "code" in cause ? (cause as { code: unknown }).code : null;
+    this.code = typeof code === "string" ? code : null;
   }
 }
 
@@ -311,6 +316,21 @@ export async function findDuplicateLeadSummary(
   return null;
 }
 
+/**
+ * Which of these nine-digit mobiles already belong to a lead, as `mobile → reference`. One narrow read per 200 numbers — the import checks a whole
+ * file against the agency with it instead of trusting the browser's copy of the lead list.
+ */
+export async function findExistingLeadMobiles(db: Db, mobiles: string[]): Promise<Map<string, string>> {
+  const found = new Map<string, string>();
+  const unique = [...new Set(mobiles.filter((mobile) => mobile.length > 0))];
+  for (let index = 0; index < unique.length; index += 200) {
+    const { data, error } = await db.from("leads").select("mobile, reference").in("mobile", unique.slice(index, index + 200));
+    if (error) throw new LeadPersistenceError("leads", "select", error);
+    for (const row of (data ?? []) as { mobile: string; reference: string }[]) found.set(row.mobile, row.reference);
+  }
+  return found;
+}
+
 export async function loadLeadStore(
   db: Db,
   options: LoadLeadStoreOptions = {},
@@ -436,6 +456,44 @@ function chunked<T>(rows: T[]): T[][] {
 }
 
 /**
+ * Writes the lead rows a mutation changed.
+ *
+ * A new lead is inserted. An existing one is PATCHED — only the columns the mutator changed — and only if it is still the version that was read
+ * (`updated_at`, which the database bumps on every update). The previous whole-row upsert let a stale page silently put back every column a colleague
+ * had just changed; now it fails with `LeadConflictError` instead, and nothing about that lead is written.
+ */
+async function writeLeadRows(db: Db, previous: Map<string, Row>, pending: Row[]): Promise<void> {
+  const inserts: Row[] = [];
+
+  for (const row of pending) {
+    const old = previous.get(String(row.id));
+    if (!old) {
+      inserts.push(row);
+      continue;
+    }
+
+    const patch: Row = {};
+    for (const key of new Set([...Object.keys(old), ...Object.keys(row)])) {
+      if (!sameValue(old[key], row[key])) patch[key] = row[key] ?? null;
+    }
+    // The database stamps updated_at itself; it is the version this write is checked against, not a value to send.
+    delete patch.updated_at;
+    delete patch.id;
+    if (Object.keys(patch).length === 0) continue;
+
+    const { data, error } = await db.from("leads").update(patch).eq("id", row.id).eq("updated_at", old.updated_at).select("id");
+    if (error) throw new LeadPersistenceError("leads", "update", error);
+    if (!data || data.length === 0) throw new LeadConflictError(String(row.id));
+  }
+
+  if (inserts.length === 0) return;
+  for (const batch of chunked(inserts)) {
+    const { error } = await db.from("leads").insert(batch);
+    if (error) throw new LeadPersistenceError("leads", "insert", error);
+  }
+}
+
+/**
  * Writes everything the mutation changed, and nothing it did not.
  *
  * Rows are compared by primary key against the pre-mutation snapshot: absent
@@ -462,6 +520,11 @@ export async function persistLeadStore(
     }
 
     if (pending.length === 0) continue;
+
+    if (spec.key === "leads") {
+      await writeLeadRows(db, previous, pending);
+      continue;
+    }
 
     for (const batch of chunked(pending)) {
       // History tables are INSERT-only for browser sessions (20270125090000_leads_rls_least_privilege.sql): an upsert is
@@ -523,6 +586,34 @@ export async function persistSingleLeadChange(db: Db, before: LeadStore, after: 
     const { data, error } = await db.from("leads").update(patch).eq("id", leadId).eq("updated_at", previous.updated_at).select("id");
     if (error) throw new LeadPersistenceError("leads", "update", error);
     if (!data || data.length === 0) throw new LeadConflictError(leadId);
+  }
+
+  // Notes and quotes of this lead, written after the lead itself so a version conflict leaves nothing behind.
+  const knownNotes = new Set(before.notes.map((row) => row.id));
+  const newNotes = after.notes.filter((row) => row.lead_id === leadId && !knownNotes.has(row.id));
+  for (const batch of chunked(newNotes as Row[])) {
+    if (batch.length === 0) continue;
+    const { error } = await db.from("lead_notes").insert(batch);
+    if (error) throw new LeadPersistenceError("lead_notes", "insert", error);
+  }
+
+  const previousQuotes = new Map(before.quotes.map((row) => [row.id, row as Row]));
+  for (const quote of after.quotes as Row[]) {
+    if (quote.lead_id !== leadId) continue;
+    const old = previousQuotes.get(quote.id);
+    if (!old) {
+      const { error } = await db.from("lead_quotes").insert(quote);
+      if (error) throw new LeadPersistenceError("lead_quotes", "insert", error);
+      continue;
+    }
+    const quotePatch: Row = {};
+    for (const key of new Set([...Object.keys(old), ...Object.keys(quote)])) {
+      if (!sameValue(old[key], quote[key])) quotePatch[key] = quote[key] ?? null;
+    }
+    delete quotePatch.id;
+    if (Object.keys(quotePatch).length === 0) continue;
+    const { error } = await db.from("lead_quotes").update(quotePatch).eq("id", quote.id);
+    if (error) throw new LeadPersistenceError("lead_quotes", "update", error);
   }
 
   const knownActivity = new Set(before.activity.map((row) => row.id));

@@ -247,6 +247,9 @@ export interface LeadRow extends ConsentFields {
   duplicate_of_lead_id: string | null;
   duplicate_override_reason: string | null;
 
+  /** Set while a conversion to a booking is in flight, so a second click cannot start another. Cleared when the lead is linked. */
+  converting_at?: string | null;
+
   created_at: string;
   updated_at: string;
 }

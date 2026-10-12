@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/data/lead-references", () => ({ allocateReferences: async () => ["LD-2026-0001"] }));
 
 import { getChannelProfile } from "@/lib/channels/profile";
 import type { ChannelProvider } from "@/lib/inbox/contracts";

@@ -16,7 +16,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-import { capabilitiesForLeads, type LeadCapabilities } from "@/lib/access/leads-access";
+import type { LeadCapabilities } from "@/lib/access/leads-access";
 import { detectCopilotSuggestion } from "@/lib/copilot/sales/alerts";
 import { answerWithRules, buildScopedContext, classifyQuestion } from "@/lib/copilot/sales/ask-manasik";
 import {
@@ -53,13 +53,14 @@ import type {
   SalesStrategy,
   TravelIntent,
 } from "@/lib/copilot/sales/types";
-import { getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { describeLeadFailure } from "@/lib/data/lead-errors";
+import { allocateReferences } from "@/lib/data/lead-references";
+import { getLeadActor } from "@/lib/data/leads-actor";
 import {
   applyTravelIntentInStore,
   createQuoteDraftInStore,
   dismissSuggestionInStore,
   logCopilotActivityInStore,
-  nextQuoteReference,
   saveCommunicationDraftInStore,
   selectOfferInStore,
 } from "@/lib/data/leads-copilot";
@@ -76,8 +77,9 @@ async function db() {
 
 async function actor(): Promise<{ can: LeadCapabilities; name: string; staffId: string | null }> {
   await requireUser();
-  const { role, name, staffId } = await getCurrentStaffRole();
-  return { can: capabilitiesForLeads(role), name: name ?? "Staff", staffId };
+  // Base-role capabilities with any custom-role overrides merged over them, like every other Leads action.
+  const { can, name, staffId } = await getLeadActor();
+  return { can, name, staffId };
 }
 
 /** Pure mutation against an already-loaded store, then persist the diff. */
@@ -109,7 +111,8 @@ function persistenceError(error: unknown): Failure {
   if (/lead_copilot|lead_communication|column .* does not exist|schema cache/i.test(message)) {
     return { ok: false, error: "The Sales Intelligence migration has not been applied to this database yet." };
   }
-  return { ok: false, error: message };
+  // Never the raw database text: it names tables and constraints. The real error goes to the server log under a reference.
+  return { ok: false, error: describeLeadFailure(error, "copilot").message };
 }
 
 function groupFactsOf(context: CopilotKnowledgeContext): Record<string, CustomerSafeOfferFacts> {
@@ -597,7 +600,13 @@ export async function saveQuoteDraftAction(input: unknown): Promise<SaveQuoteDra
   // Customer-facing lists may only be narrowed, never extended with free text.
   const inclusions = request.inclusions.filter((line) => facts.inclusions.includes(line));
   const exclusions = request.exclusions.filter((line) => facts.exclusions.includes(line));
-  const reference = nextQuoteReference(context.store.quotes, now);
+  // From the database counter: `context.store.quotes` is only this agency's quotes as read a moment ago, and two staff can save at once.
+  let reference: string;
+  try {
+    [reference] = await allocateReferences(await db(), "QUOTE", 1);
+  } catch (error) {
+    return persistenceError(error);
+  }
 
   try {
     const outcome = await persist(context.store, (store) =>
