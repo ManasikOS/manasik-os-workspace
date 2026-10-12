@@ -15,6 +15,8 @@ import {
   completeFollowUpInStore,
   createLeadInStore,
   normaliseMobile,
+  pricePerPerson,
+  QUOTE_DEPOSIT_RATE,
   logContactInStore,
   markLeadBookedInStore,
   recordQuoteInStore,
@@ -40,7 +42,8 @@ import {
   type LeadStore,
 } from "@/lib/data/leads-repository";
 import { requireUser } from "@/lib/dal";
-import type { LeadQuotePricingSnapshot, LeadRoomPreference } from "@/lib/types/leads";
+import { formatShortDate } from "@/lib/copilot/sales/format";
+import type { LeadQuotePricingSnapshot } from "@/lib/types/leads";
 import {
   addNoteActionSchema,
   assignLeadsActionSchema,
@@ -721,18 +724,12 @@ export async function findAvailableGroupsAction(input: {
 
 export interface SendQuoteInput {
   leadId: string;
-  packageId: string | null;
-  departureGroupId: string | null;
-  roomPreference: LeadRoomPreference;
-  adults: number;
-  children: number;
-  roomPricePerPerson: number;
-  depositPerPerson: number;
-  currency: string;
-  packageName: string;
-  groupLabel: string | null;
-  groupDates: string | null;
   sentVia: "WHATSAPP" | "EMAIL" | "PDF" | null;
+  /**
+   * The per-person price the sender saw on the sheet. Not a price to use — the server prices the quote itself — but a check that what was shown is
+   * still what is on offer; a mismatch is refused rather than silently sending a different number.
+   */
+  expectedRoomPricePerPerson: number;
 }
 
 export interface SendQuoteResult extends MutationOutcome {
@@ -744,20 +741,11 @@ export interface SendQuoteResult extends MutationOutcome {
 
 const sendQuoteInputSchema = z.object({
   leadId: z.uuid(),
-  packageId: z.uuid().nullable(),
-  departureGroupId: z.uuid().nullable(),
-  roomPreference: z.enum(["QUAD", "TRIPLE", "DOUBLE", "SINGLE", "UNDECIDED"]),
-  adults: z.number().int().min(1).max(60),
-  children: z.number().int().min(0).max(60),
-  roomPricePerPerson: z.number().positive().max(100_000_000),
-  depositPerPerson: z.number().min(0).max(100_000_000),
-  currency: z.string().trim().min(1).max(8),
-  packageName: z.string().trim().max(200),
-  groupLabel: z.string().trim().max(200).nullable(),
-  groupDates: z.string().trim().max(100).nullable(),
   sentVia: z.enum(["WHATSAPP", "EMAIL", "PDF"]).nullable(),
+  expectedRoomPricePerPerson: z.number().positive().max(100_000_000),
 });
 
+/** A quote the customer receives is priced here, from the lead and the live package / departure prices — never from the browser. */
 export async function sendQuoteAction(input: SendQuoteInput): Promise<SendQuoteResult> {
   await requireUser();
   const who = await getLeadActor();
@@ -768,26 +756,65 @@ export async function sendQuoteAction(input: SendQuoteInput): Promise<SendQuoteR
   if (!parsed.success) return { ok: false, error: INVALID_REQUEST };
   const request = parsed.data;
 
-  const travellers = request.adults + request.children;
-  const totalLkr = request.roomPricePerPerson * travellers;
-  const depositLkr = request.depositPerPerson * travellers;
-  const now = new Date().toISOString();
-  const validUntil = new Date(Date.now() + 7 * 86_400_000).toISOString();
-
-  const pricingSnapshot: LeadQuotePricingSnapshot = {
-    currency: request.currency,
-    roomPricePerPerson: request.roomPricePerPerson,
-    depositPerPerson: request.depositPerPerson,
-    paymentMilestones: [],
-    packageName: request.packageName,
-    groupLabel: request.groupLabel,
-    groupDates: request.groupDates,
-  };
-
   return guarded<SendQuoteResult>(
     "sendQuote",
     async () => {
       const supabase = await db();
+
+      const { leads, packages } = await loadLeadStore(supabase, { only: ["leads", "packages"], leadId: request.leadId });
+      const lead = leads[0];
+      if (!lead) return { ok: false, error: "That lead no longer exists." };
+      if (lead.booking_id) return { ok: false, error: "This lead is already linked to a booking." };
+
+      const roomPricePerPerson = pricePerPerson({ packages }, lead.desired_package_id, lead.journey_type, lead.room_preference);
+      if (Math.abs(roomPricePerPerson - request.expectedRoomPricePerPerson) > 0.5) {
+        return { ok: false, error: "The price has changed since this quote was prepared. Close the sheet and open it again." };
+      }
+
+      const travellers = lead.adults + lead.children;
+      const depositPerPerson = Math.round(roomPricePerPerson * QUOTE_DEPOSIT_RATE);
+      const pkg = packages.find((entry) => entry.id === lead.desired_package_id) ?? null;
+
+      // A group the lead has shown interest in must still be open and have room; its name and dates come from the group, not the sender.
+      let groupLabel: string | null = null;
+      let groupDates: string | null = null;
+      if (lead.selected_departure_group_id) {
+        const { data: group, error: groupError } = await supabase
+          .from("departure_groups")
+          .select("group_name, group_code, departure_date, return_date, sales_status, group_status, archived, available_seats")
+          .eq("id", lead.selected_departure_group_id)
+          .maybeSingle();
+        if (groupError) throw groupError;
+        const sellable =
+          group &&
+          !group.archived &&
+          ["SELLING", "LIMITED_AVAILABILITY"].includes(String(group.sales_status)) &&
+          !["CANCELLED", "COMPLETED", "CLOSED"].includes(String(group.group_status));
+        if (!group || !sellable) {
+          return { ok: false, error: "The departure group chosen for this lead is no longer open for sale. Choose another before sending a quote." };
+        }
+        if (Number(group.available_seats) < travellers) {
+          return { ok: false, error: `Only ${Number(group.available_seats)} seat(s) remain on ${group.group_name}.` };
+        }
+        groupLabel = `${group.group_name} (${group.group_code})`;
+        groupDates = `${formatShortDate(String(group.departure_date))} – ${formatShortDate(String(group.return_date))}`;
+      }
+
+      const totalLkr = roomPricePerPerson * travellers;
+      const depositLkr = depositPerPerson * travellers;
+      const now = new Date().toISOString();
+      const validUntil = new Date(Date.now() + 7 * 86_400_000).toISOString();
+
+      const pricingSnapshot: LeadQuotePricingSnapshot = {
+        currency: pkg?.currency ?? "LKR",
+        roomPricePerPerson,
+        depositPerPerson,
+        paymentMilestones: [],
+        packageName: pkg?.name ?? lead.desired_package_name ?? lead.interested_in,
+        groupLabel,
+        groupDates,
+      };
+
       // Allocated once, before the version-checked write, so a retry after a conflict reuses the same number.
       const [reference] = await allocateReferences(supabase, "QUOTE", 1);
 
@@ -799,12 +826,12 @@ export async function sendQuoteAction(input: SendQuoteInput): Promise<SendQuoteR
             actorName: who.name,
             quote: {
               reference,
-              package_id: request.packageId,
-              departure_group_id: request.departureGroupId,
+              package_id: lead.desired_package_id,
+              departure_group_id: lead.selected_departure_group_id,
               pricing_snapshot: pricingSnapshot,
-              adults: request.adults,
-              children: request.children,
-              room_preference: request.roomPreference,
+              adults: lead.adults,
+              children: lead.children,
+              room_preference: lead.room_preference,
               total_lkr: totalLkr,
               deposit_lkr: depositLkr,
               valid_until: validUntil,
@@ -812,15 +839,15 @@ export async function sendQuoteAction(input: SendQuoteInput): Promise<SendQuoteR
               sent_at: request.sentVia ? now : null,
               created_by_name: who.name,
               status: "SENT",
-              occupancy_type: request.roomPreference === "UNDECIDED" ? null : request.roomPreference,
+              occupancy_type: lead.room_preference === "UNDECIDED" ? null : lead.room_preference,
               infants: 0,
-              price_per_person: request.roomPricePerPerson,
+              price_per_person: roomPricePerPerson,
               discount_amount: 0,
               discount_reason: null,
               payment_milestones: [],
               inclusions: [],
               exclusions: [],
-              created_by_user_id: null,
+              created_by_user_id: who.staffId,
               supersedes_quote_id: null,
               viewed_at: null,
               cancelled_at: null,
@@ -878,7 +905,13 @@ export async function updateQuoteStatusAction(input: {
         (store) =>
           updateQuoteStatusInStore(
             store,
-            { quoteId: request.quoteId, status: request.status, actorName: who.name },
+            {
+              quoteId: request.quoteId,
+              status: request.status,
+              actorName: who.name,
+              // Only an approver may release a quote that is waiting for discount approval; the same rule is in the database.
+              approval: who.can.applyUnrestrictedDiscount ? { approvedById: who.staffId, approvedByName: who.name } : undefined,
+            },
             new Date().toISOString(),
           ),
         { collections: ["quotes"] },

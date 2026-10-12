@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/toast";
 import { FileText, Loader2, Mail, MessageSquare } from "lucide-react";
 import React, { useState } from "react";
 
-import { pricePerPerson } from "@/lib/data/leads";
+import { pricePerPerson, QUOTE_DEPOSIT_RATE } from "@/lib/data/leads";
 import type { LeadPackageRow } from "@/lib/types/leads";
 import { sendQuoteAction } from "../actions";
 import { useLeads } from "../leads-store";
@@ -27,7 +27,6 @@ interface SendQuoteSheetProps {
   onSent: () => void;
 }
 
-const DEPOSIT_RATE = 0.2;
 
 /**
  * Composes a quote from the lead's package + room preference + traveller
@@ -72,7 +71,7 @@ function SendQuoteForm({
     lead.roomPreference,
   );
   const total = roomPricePerPerson * lead.partySize;
-  const depositPerPerson = Math.round(roomPricePerPerson * DEPOSIT_RATE);
+  const depositPerPerson = Math.round(roomPricePerPerson * QUOTE_DEPOSIT_RATE);
   const deposit = depositPerPerson * lead.partySize;
 
   const groupLabel = lead.selectedDepartureGroupId
@@ -81,20 +80,11 @@ function SendQuoteForm({
 
   const send = async (via: "WHATSAPP" | "EMAIL" | "PDF") => {
     setSending(via);
+    // The server prices the quote itself; the price on screen is only sent so it can refuse if it is no longer the price on offer.
     const result = await sendQuoteAction({
       leadId: lead.id,
-      packageId: lead.packageId,
-      departureGroupId: lead.selectedDepartureGroupId,
-      roomPreference: lead.roomPreference,
-      adults: lead.adults,
-      children: lead.children,
-      roomPricePerPerson,
-      depositPerPerson,
-      currency: pkg?.currency ?? "LKR",
-      packageName: lead.packageName,
-      groupLabel,
-      groupDates: null,
       sentVia: via,
+      expectedRoomPricePerPerson: roomPricePerPerson,
     });
     setSending(null);
 

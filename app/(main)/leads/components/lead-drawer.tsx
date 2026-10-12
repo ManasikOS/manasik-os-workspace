@@ -573,17 +573,19 @@ const LeadDrawer = ({
                     <DetailRow label="Budget range">
                       {lead.budgetRange}
                     </DetailRow>
-                    <DetailRow label="Estimated value">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-1.5 font-semibold tabular-nums",
-                          TONE_TEXT.success,
-                        )}
-                      >
-                        <TrendingUp className="size-3.5" aria-hidden />
-                        {formatExactLKR(lead.estimatedValueLkr)}
-                      </span>
-                    </DetailRow>
+                    {can.viewPipelineValue && (
+                      <DetailRow label="Estimated value">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1.5 font-semibold tabular-nums",
+                            TONE_TEXT.success,
+                          )}
+                        >
+                          <TrendingUp className="size-3.5" aria-hidden />
+                          {formatExactLKR(lead.estimatedValueLkr)}
+                        </span>
+                      </DetailRow>
+                    )}
                   </DetailList>
 
                   {can.findGroups && !lead.isClosed && (

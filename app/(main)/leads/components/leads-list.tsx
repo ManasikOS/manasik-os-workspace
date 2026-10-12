@@ -304,6 +304,8 @@ const LeadsList = () => {
    * the unfiltered set.
    */
   const exportLeads = () => {
+    // The menu item is hidden without the capability; this is the second lock, not the only one.
+    if (!can.exportLeads) return;
     if (sorted.length === 0) {
       toast.add({
         title: "Nothing to export",
@@ -312,7 +314,7 @@ const LeadsList = () => {
       return;
     }
 
-    downloadTextFile(timestampedFilename("leads"), leadsToCsv(sorted));
+    downloadTextFile(timestampedFilename("leads"), leadsToCsv(sorted, { includeValue: can.viewPipelineValue }));
     toast.add({
       title: "Export ready",
       description: `${sorted.length} lead${sorted.length === 1 ? "" : "s"} exported to CSV.`,
@@ -340,9 +342,10 @@ const LeadsList = () => {
         sort,
         (s) => setSort(s as LeadSort),
         staffOptions,
+        can.viewPipelineValue,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rowActions, sort, staffOptions],
+    [rowActions, sort, staffOptions, can.viewPipelineValue],
   );
 
   return (
@@ -423,9 +426,11 @@ const LeadsList = () => {
                       <Import /> Import Leads
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem onClick={exportLeads}>
-                    <Download /> Export Leads
-                  </DropdownMenuItem>
+                  {can.exportLeads && (
+                    <DropdownMenuItem onClick={exportLeads}>
+                      <Download /> Export Leads
+                    </DropdownMenuItem>
+                  )}
                   {can.manageSourcesAndAutomation && (
                     <DropdownMenuItem onClick={() => setSourcesOpen(true)}>
                       <Radio /> Manage Lead Sources

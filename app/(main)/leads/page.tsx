@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 
 import { getLeadActor } from "@/lib/data/leads-actor";
+import { projectLeadStoreForRole } from "@/lib/data/leads-projection";
 import { loadAssignableStaff, loadLeadStore } from "@/lib/data/leads-repository";
 import { listCampaignOptions } from "@/lib/data/campaigns-repository";
 import { createClient } from "@/utils/supabase/server";
@@ -47,15 +48,13 @@ export default async function LeadsPage() {
   const [store, staffOptions, campaignOptions] = await dataPromise;
   const nowIso = new Date().toISOString();
 
-  // Finance / Operations / Visa only ever see leads that already converted —
-  // applied here, before serialisation, so the rest never reaches the client.
-  const leads = can.convertedOnly
-    ? store.leads.filter((lead) => lead.booking_id !== null)
-    : store.leads;
+  // Finance / Operations / Visa only ever see leads that already converted, and only roles that see money receive any — applied here, before
+  // serialisation, to the leads AND to the notes, quotes, activity and copilot rows hanging off them, so none of it reaches the client.
+  const projected = projectLeadStoreForRole(store, can);
 
   return (
     <LeadsProvider
-      initialStore={{ ...store, leads }}
+      initialStore={projected}
       nowIso={nowIso}
       currentStaffId={staffId ?? ""}
       currentStaffName={name ?? "Staff"}

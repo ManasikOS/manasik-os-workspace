@@ -13,6 +13,7 @@
 import { colomboDayKey } from "@/lib/date";
 import { checkStageTransition } from "@/lib/data/lead-stage-transitions";
 import { newId } from "@/lib/data/leads-ids";
+import { checkQuoteTransition } from "@/lib/data/quote-transitions";
 import type { LeadStore } from "@/lib/data/leads-repository";
 import type {
   FollowUpStatus,
@@ -241,6 +242,9 @@ const ROOM_PRICE_KEY: Record<Exclude<LeadRoomPreference, "UNDECIDED">, keyof Lea
   DOUBLE: "double_price",
   SINGLE: "single_price",
 };
+
+/** Share of the quoted price asked as a deposit. One value for the quote the server sends and the preview the sender sees. */
+export const QUOTE_DEPOSIT_RATE = 0.2;
 
 /**
  * Baseline price per traveller when no package has been chosen yet, so an
@@ -942,6 +946,11 @@ export interface UpdateQuoteStatusInput {
   quoteId: string;
   status: QuoteStatus;
   actorName: string;
+  /**
+   * Present only when the caller may approve a held discount (an administrator). Without it a `PENDING_APPROVAL` quote cannot be released, and
+   * with it the approval is recorded on the quote.
+   */
+  approval?: { approvedById: string | null; approvedByName: string };
 }
 
 /**
@@ -962,6 +971,15 @@ export function updateQuoteStatusInStore(
 ): MutationOutcome {
   const quote = store.quotes.find((q) => q.id === input.quoteId);
   if (!quote) return { ok: false, error: "That quote no longer exists." };
+  if (quote.status === input.status) return { ok: true };
+
+  const verdict = checkQuoteTransition({ from: quote.status, to: input.status, isApprover: input.approval !== undefined });
+  if (!verdict.ok) return { ok: false, error: verdict.error };
+
+  if (quote.status === "PENDING_APPROVAL" && input.approval && (input.status === "SENT" || input.status === "DRAFT")) {
+    quote.discount_approved_by = input.approval.approvedById ?? input.approval.approvedByName;
+    quote.discount_approved_at = nowIso;
+  }
 
   quote.status = input.status;
 

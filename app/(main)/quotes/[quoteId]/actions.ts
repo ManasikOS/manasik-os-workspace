@@ -7,6 +7,7 @@ import { capabilitiesForQuotes } from "@/lib/access/quotes-access";
 import { loadQuotePack } from "@/lib/agent/kernel/proposals/quote-pack";
 import { explainQuoteRisk } from "@/lib/ai/surfaces/quotes/workflows";
 import { createGroupBooking, getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { getLeadActor } from "@/lib/data/leads-actor";
 import {
   cancelQuoteInStore,
   createQuoteRevisionInStore,
@@ -61,8 +62,19 @@ export async function updateQuoteStatusFromDetailAction(input: { quoteId: string
     return { ok: false, error: "Your role cannot change this quote's status." };
   }
 
+  // Releasing a quote that waits for discount approval is an approver's decision — the same capability the copilot uses to skip approval.
+  const { can: leadCan, staffId } = await getLeadActor();
   const result = await mutate((store, actorName) =>
-    updateQuoteStatusInStore(store, { quoteId: input.quoteId, status: input.status, actorName }, new Date().toISOString()),
+    updateQuoteStatusInStore(
+      store,
+      {
+        quoteId: input.quoteId,
+        status: input.status,
+        actorName,
+        approval: leadCan.applyUnrestrictedDiscount ? { approvedById: staffId, approvedByName: actorName } : undefined,
+      },
+      new Date().toISOString(),
+    ),
   );
   if (result.ok) revalidateQuote(input.quoteId);
   return result;

@@ -14,7 +14,7 @@ import { toast } from "@/components/ui/toast";
 import { CheckCircle2, Loader2, PackageCheck } from "lucide-react";
 import React, { useState } from "react";
 
-import { pricePerPerson } from "@/lib/data/leads";
+import { pricePerPerson, QUOTE_DEPOSIT_RATE } from "@/lib/data/leads";
 import type { LeadPackageRow } from "@/lib/types/leads";
 import { convertLeadToBookingAction } from "../actions";
 import { useLeads } from "../leads-store";
@@ -29,7 +29,6 @@ interface ConvertToBookingDialogProps {
   onConverted: (bookingReference: string) => void;
 }
 
-const DEPOSIT_RATE = 0.2;
 
 /**
  * "Ready to create booking" — shown only once a lead has selected a group.
@@ -75,7 +74,7 @@ function ConvertForm({
     lead.roomPreference,
   );
   const total = pricePerHead * lead.partySize;
-  const deposit = Math.round(pricePerHead * DEPOSIT_RATE) * lead.partySize;
+  const deposit = Math.round(pricePerHead * QUOTE_DEPOSIT_RATE) * lead.partySize;
   const roomType =
     lead.roomPreference === "UNDECIDED" ? "TRIPLE" : lead.roomPreference;
 

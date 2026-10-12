@@ -76,8 +76,10 @@ export function buildLeadColumns(
   sort: LeadSort,
   onSortChange: (sort: DataTableSort) => void,
   staffOptions: StaffRow[],
+  /** Roles that never see money get no "Est. Value" column. */
+  showValue = true,
 ): ColumnDef<LeadListItem>[] {
-  return [
+  const columns: ColumnDef<LeadListItem>[] = [
     {
       id: "lead",
       header: sortableHeader("Lead Info", "name", sort, onSortChange),
@@ -318,6 +320,7 @@ export function buildLeadColumns(
       },
     },
   ];
+  return showValue ? columns : columns.filter((column) => column.id !== "value");
 }
 
 /** Journey badge reused by the drawer header. */

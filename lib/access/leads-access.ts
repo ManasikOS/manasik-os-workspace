@@ -6,8 +6,8 @@ import type { StaffRole } from "@/lib/access/departure-groups-access";
  * Same posture as `lib/access/departure-groups-access.ts` and
  * `lib/access/packages-access.ts`: pure functions over a role string, usable
  * from Server and Client Components. Capabilities decide what is *fetched*,
- * not merely what is rendered — `filterLeadsForRole` and
- * `nullPipelineValueForRole` are applied in the repository before a lead ever
+ * not merely what is rendered — `projectLeadStoreForRole`
+ * (`lib/data/leads-projection.ts`) is applied on the server before a lead ever
  * reaches a Client Component.
  */
 
@@ -25,6 +25,8 @@ export interface LeadCapabilities {
   mergeDuplicates: boolean;
   deleteLead: boolean;
   manageSourcesAndAutomation: boolean;
+  /** Download the lead list as a file. The file carries names, numbers, e-mail addresses and every note. */
+  exportLeads: boolean;
   /** Lifting a do-not-contact flag puts a customer who asked to be left alone back in reach of every campaign. Admin only. */
   clearDoNotContact: boolean;
   /** Estimated value / pipeline totals; Operations & Visa never see money. */
@@ -65,6 +67,7 @@ const NONE: LeadCapabilities = {
   deleteLead: false,
   manageSourcesAndAutomation: false,
   clearDoNotContact: false,
+  exportLeads: false,
   viewPipelineValue: false,
   viewAnalytics: false,
   viewAllOwners: false,
@@ -94,6 +97,7 @@ const CAPABILITIES: Record<StaffRole, LeadCapabilities> = {
     deleteLead: true,
     manageSourcesAndAutomation: true,
     clearDoNotContact: true,
+    exportLeads: true,
     viewPipelineValue: true,
     viewAnalytics: true,
     viewAllOwners: true,
@@ -127,6 +131,7 @@ const CAPABILITIES: Record<StaffRole, LeadCapabilities> = {
     sendQuote: true,
     findGroups: true,
     convertToBooking: true,
+    exportLeads: true,
     viewPipelineValue: true,
     viewAnalytics: true,
     viewAllOwners: true,
