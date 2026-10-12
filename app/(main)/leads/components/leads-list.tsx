@@ -41,6 +41,7 @@ import {
 import { KpiCard, KpiRow } from "@/components/data-table/kpi-card";
 import { SavedViewBar } from "@/components/data-table/saved-view-bar";
 
+import { authoriseLeadExportAction } from "../actions";
 import { downloadTextFile, leadsToCsv, timestampedFilename } from "../csv";
 import { useLeads } from "../leads-store";
 import {
@@ -303,7 +304,7 @@ const LeadsList = () => {
    * and sort — so the file matches what the operator is looking at rather than
    * the unfiltered set.
    */
-  const exportLeads = () => {
+  const exportLeads = async () => {
     // The menu item is hidden without the capability; this is the second lock, not the only one.
     if (!can.exportLeads) return;
     if (sorted.length === 0) {
@@ -311,6 +312,17 @@ const LeadsList = () => {
         title: "Nothing to export",
         description: "No leads match the current filters.",
       });
+      return;
+    }
+
+    // The server records the export and enforces the hourly limit; no file is built if it says no.
+    const authorised = await authoriseLeadExportAction({
+      rowCount: sorted.length,
+      view: String(savedView),
+      quickFilter: quickFilter ? String(quickFilter) : null,
+    });
+    if (!authorised.ok) {
+      toast.add({ title: "Export not allowed", description: authorised.error });
       return;
     }
 

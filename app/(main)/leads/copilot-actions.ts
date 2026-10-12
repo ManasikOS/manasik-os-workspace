@@ -55,6 +55,7 @@ import type {
 } from "@/lib/copilot/sales/types";
 import { describeLeadFailure } from "@/lib/data/lead-errors";
 import { allocateReferences } from "@/lib/data/lead-references";
+import { consumeLeadRateLimit, type LeadRateLimitedAction } from "@/lib/data/lead-rate-limits";
 import { getLeadActor } from "@/lib/data/leads-actor";
 import {
   applyTravelIntentInStore,
@@ -106,6 +107,12 @@ async function logActivity(
   );
 }
 
+/** Counts one paid model call against the person's hour and the agency's day. Called after the role check, before any work. */
+async function withinLimit(action: LeadRateLimitedAction): Promise<Failure | null> {
+  const verdict = await consumeLeadRateLimit(await db(), action);
+  return verdict.ok ? null : { ok: false, error: verdict.error };
+}
+
 function persistenceError(error: unknown): Failure {
   const message = error instanceof Error ? error.message : "Unknown error";
   if (/lead_copilot|lead_communication|column .* does not exist|schema cache/i.test(message)) {
@@ -141,6 +148,8 @@ export async function analyseEnquiryAction(input: { leadId: string; text: string
   const text = input.text.trim();
   if (text.length < 10) return { ok: false, error: "Paste the customer's messages or notes first." };
   if (text.length > 12_000) return { ok: false, error: "That text is too long — paste the relevant part of the conversation." };
+  const limited = await withinLimit("copilot.analyse_enquiry");
+  if (limited) return limited;
 
   const context = await loadCopilotKnowledgeContext(await db(), input.leadId);
   if (!context) return { ok: false, error: "That lead no longer exists." };
@@ -308,6 +317,11 @@ export async function draftCustomerReplyAction(input: unknown): Promise<DraftRep
   const parsed = draftReplySchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Choose a purpose, tone and language." };
   const request = parsed.data;
+  // Only a reply that would be sent to the model counts; the template path costs nothing.
+  if (getReasoningProvider().source === "LLM") {
+    const limited = await withinLimit("copilot.draft_reply");
+    if (limited) return limited;
+  }
 
   const context = await loadCopilotKnowledgeContext(await db(), request.leadId, request.intentOverride);
   if (!context) return { ok: false, error: "That lead no longer exists." };
@@ -396,6 +410,8 @@ export async function askManasikAction(input: { leadId: string; question: string
   const question = input.question.trim();
   if (!question) return { ok: false, error: "Ask a question first." };
   if (question.length > 500) return { ok: false, error: "Keep the question under 500 characters." };
+  const limited = await withinLimit("copilot.ask");
+  if (limited) return limited;
 
   const context = await loadCopilotKnowledgeContext(await db(), input.leadId);
   if (!context) return { ok: false, error: "That lead no longer exists." };

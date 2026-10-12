@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createGroupBooking } from "@/lib/data/departure-groups";
 import { describeLeadFailure } from "@/lib/data/lead-errors";
 import { allocateReferences } from "@/lib/data/lead-references";
+import { consumeLeadRateLimit } from "@/lib/data/lead-rate-limits";
 import { getLeadActor } from "@/lib/data/leads-actor";
 import {
   addLeadNoteInStore,
@@ -239,6 +240,9 @@ export async function importLeadsAction(
     "importLeads",
     async () => {
       const supabase = await db();
+      const allowed = await consumeLeadRateLimit(supabase, "lead.import");
+      if (!allowed.ok) return { ok: true, created: 0, failures: [allowed.error] };
+
       const staffOptions = await loadAssignableStaff(supabase);
       const staffById = new Map(staffOptions.map((staff) => [staff.id, staff]));
       const existing = await findExistingLeadMobiles(supabase, parsed.data.map((row) => normaliseMobile(row.mobile)));
@@ -332,11 +336,12 @@ export async function checkLeadDuplicateAction(
   return guarded<CheckLeadDuplicateResult>(
     "checkLeadDuplicate",
     async () => {
-      const duplicate = await findDuplicateLeadSummary(
-        await db(),
-        normaliseMobile(parsed.data.mobile),
-        parsed.data.email,
-      );
+      const supabase = await db();
+      // The answer is another lead's name, number and owner, so it is metered: typing a number triggers one check, a script triggers thousands.
+      const allowed = await consumeLeadRateLimit(supabase, "lead.duplicate_check");
+      if (!allowed.ok) return { ok: false, error: allowed.error };
+
+      const duplicate = await findDuplicateLeadSummary(supabase, normaliseMobile(parsed.data.mobile), parsed.data.email);
       return { ok: true, duplicate };
     },
     (error) => ({ ok: false, error }),
@@ -1127,6 +1132,51 @@ export async function convertLeadToBookingAction(
       }
     },
     (error) => ({ ok: false, error }),
+  );
+}
+
+/* ── Export ───────────────────────────────────────────────────────────────── */
+
+const authoriseLeadExportSchema = z.object({
+  rowCount: z.number().int().min(1).max(100_000),
+  /** Which saved view and quick filter were on screen. Free search text is deliberately not accepted: it can be a customer's name or number. */
+  view: z.string().trim().max(60),
+  quickFilter: z.string().trim().max(60).nullable(),
+});
+
+export type AuthoriseLeadExportResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * The file is still built in the browser from the list on screen (no second download), but only after this succeeds: it checks the role's
+ * `exportLeads` capability, limits each person to ten exports an hour, and records who exported how many rows of which view
+ * (`lead_export_logs`). If it refuses, no file is built.
+ */
+export async function authoriseLeadExportAction(input: {
+  rowCount: number;
+  view: string;
+  quickFilter: string | null;
+}): Promise<AuthoriseLeadExportResult> {
+  await requireUser();
+  const who = await getLeadActor();
+  if (!who.can.exportLeads) {
+    return { ok: false, error: "Your role cannot export leads." };
+  }
+  const parsed = authoriseLeadExportSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "There is nothing to export." };
+
+  return guarded<AuthoriseLeadExportResult>(
+    "authoriseLeadExport",
+    async () => {
+      const { error } = await (await db()).rpc("authorise_lead_export", {
+        p_row_count: parsed.data.rowCount,
+        p_filters: { view: parsed.data.view, quickFilter: parsed.data.quickFilter },
+      });
+      if (!error) return { ok: true };
+      // The function's own sentences for the limit ("You have reached the limit of 10 exports an hour…") are meant to be read.
+      if (error.code === "P0001") return { ok: false, error: error.message };
+      throw error;
+    },
+    (message) => ({ ok: false, error: message }),
   );
 }
 

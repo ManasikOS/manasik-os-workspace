@@ -250,6 +250,9 @@ export interface LeadRow extends ConsentFields {
   /** Set while a conversion to a booking is in flight, so a second click cannot start another. Cleared when the lead is linked. */
   converting_at?: string | null;
 
+  /** Lower-cased, trimmed e-mail, computed by the database. Read-only. */
+  email_normalised?: string | null;
+
   created_at: string;
   updated_at: string;
 }

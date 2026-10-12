@@ -117,6 +117,9 @@ const nextConfig: NextConfig = {
   // `lucide-react` is already optimized by Next by default.
   experimental: {
     optimizePackageImports: ["recharts", "motion", "reicon-react"],
+    // Server Action request bodies are capped at 1 MB. That is Next's default; it is stated here so raising it is a decision, not an accident.
+    // The largest legitimate Leads body is a 500-row CSV import (well under this).
+    serverActions: { bodySizeLimit: "1mb" },
   },
 
   devIndicators: false,

@@ -20,6 +20,7 @@ import { deterministicProvider, type CopilotReasoningProvider } from "../provide
 import { travelIntentSchema } from "../schemas";
 import type { ReplyLanguage, ReplyTone } from "../types";
 import { isOpenRouterConfigured, openRouterChat, openRouterJson } from "./openrouter";
+import { fenceUntrusted, redactForModel, UNTRUSTED_DATA_RULE } from "./redact";
 
 const INTENT_JSON_SCHEMA = JSON.stringify(z.toJSONSchema(travelIntentSchema));
 
@@ -32,12 +33,14 @@ Rules:
 - extractedFacts: short lines like 'Travellers: "We are 4 people from Colombo"' quoting the evidence.
 - unansweredQuestions: what a sales agent must still ask before quoting (exact departure date, budget per person, room occupancy, children's ages, ...).
 - confidence: 0..1, the share of key facts (journey, dates, travellers, room, budget, hotel/payment preference) that are known.
+${UNTRUSTED_DATA_RULE}
 Reply with ONE JSON object matching this JSON Schema, nothing else:
 ${INTENT_JSON_SCHEMA}`;
 
 const ANSWER_SYSTEM = `You are Manasik, an internal sales assistant for a Hajj/Umrah travel agency. A staff member is asking about ONE lead.
 Answer ONLY from the JSON context provided. If the context does not contain the answer, say exactly what information is missing.
 Never invent prices, dates, seat counts, hotel names, flight details, discounts, or visa outcomes. Never promise a seat.
+${UNTRUSTED_DATA_RULE}
 Be direct and practical, in plain text, at most 120 words.`;
 
 const TONE_GUIDE: Record<ReplyTone, string> = {
@@ -54,12 +57,16 @@ export const openRouterProvider: CopilotReasoningProvider = {
 
   async extractIntent(input) {
     try {
-      const notes = input.notes.length > 0 ? `\n\nEXISTING INTERNAL NOTES (read-only context):\n${input.notes.join("\n")}` : "";
+      // Personal identifiers are not needed to read a travel intent, and what the customer or an agent wrote is fenced as data.
+      const notes =
+        input.notes.length > 0
+          ? `\n\nEXISTING INTERNAL NOTES (read-only context):\n${fenceUntrusted("internal_notes", redactForModel(input.notes.join("\n")))}`
+          : "";
       const intent = await openRouterJson(
         travelIntentSchema,
         [
           { role: "system", content: INTENT_SYSTEM },
-          { role: "user", content: `TODAY: ${input.now.slice(0, 10)}\n\nENQUIRY:\n${input.text}${notes}` },
+          { role: "user", content: `TODAY: ${input.now.slice(0, 10)}\n\nENQUIRY:\n${fenceUntrusted("enquiry", redactForModel(input.text))}${notes}` },
         ],
         { maxTokens: 1500 },
       );
@@ -78,7 +85,10 @@ export const openRouterProvider: CopilotReasoningProvider = {
       return await openRouterChat(
         [
           { role: "system", content: ANSWER_SYSTEM },
-          { role: "user", content: `CONTEXT:\n${JSON.stringify(context)}\n\nQUESTION: ${question}` },
+          {
+            role: "user",
+            content: `CONTEXT:\n${fenceUntrusted("context", redactForModel(JSON.stringify(context)))}\n\nQUESTION: ${redactForModel(question)}`,
+          },
         ],
         { maxTokens: 400 },
       );

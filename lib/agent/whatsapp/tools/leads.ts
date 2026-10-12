@@ -15,6 +15,7 @@ import { COPILOT_NAME } from "@/lib/agent/identity";
 import type { AgentContext } from "@/lib/agent/whatsapp/context";
 import { captureContactNumber } from "@/lib/agent/whatsapp/contact-number";
 import { ensureLeadForConversation } from "@/lib/agent/whatsapp/lead-capture";
+import { AGENT_FIELD_LIMITS, cleanEmail, cleanLine, cleanText, cleanTravellerCount } from "@/lib/agent/whatsapp/lead-input";
 
 /** Pipeline stages the assistant may set, lowest first. It may only move a lead forward through these. */
 const ASSISTANT_STAGE_ORDER = ["NEW_LEAD", "CONTACTED", "QUALIFIED"] as const;
@@ -52,20 +53,23 @@ export function createLeadTools(ctx: AgentContext) {
     inputSchema: {
       type: "object",
       properties: {
-        fullName: { type: "string" },
+        fullName: { type: "string", maxLength: 120 },
         journeyType: { type: "string", enum: ["UMRAH", "HAJJ", "EARLY_REGISTRATION"] },
-        interestedIn: { type: "string", description: "Free-text summary of what the customer is asking about." },
-        city: { type: "string" },
+        interestedIn: { type: "string", maxLength: 200, description: "Free-text summary of what the customer is asking about." },
+        city: { type: "string", maxLength: 80 },
       },
       required: ["fullName"],
       additionalProperties: false,
     } as const,
     run: async (args) => {
+      const fullName = cleanLine(args.fullName ?? "", AGENT_FIELD_LIMITS.fullName);
+      if (!fullName) return JSON.stringify({ error: "A name is needed to create a lead." });
+
       const result = await ensureLeadForConversation(ctx, {
-        fullName: args.fullName,
+        fullName,
         journeyType: args.journeyType,
-        interestedIn: args.interestedIn,
-        city: args.city,
+        interestedIn: args.interestedIn === undefined ? undefined : cleanLine(args.interestedIn, AGENT_FIELD_LIMITS.interestedIn),
+        city: args.city === undefined ? undefined : cleanLine(args.city, AGENT_FIELD_LIMITS.city),
       });
       return JSON.stringify(result);
     },
@@ -90,8 +94,8 @@ export function createLeadTools(ctx: AgentContext) {
         preferredPeriod: { type: "string" },
         roomPreference: { type: "string", enum: ["QUAD", "TRIPLE", "DOUBLE", "SINGLE", "UNDECIDED"] },
         budgetRange: { type: "string" },
-        adults: { type: "integer", minimum: 1 },
-        children: { type: "integer", minimum: 0 },
+        adults: { type: "integer", minimum: 1, maximum: 20 },
+        children: { type: "integer", minimum: 0, maximum: 20 },
         stage: { type: "string", enum: ["NEW_LEAD", "CONTACTED", "QUALIFIED"] },
       },
       required: ["leadId"],
@@ -102,17 +106,22 @@ export function createLeadTools(ctx: AgentContext) {
       if (!target.ok) return WRONG_LEAD_ERROR;
 
       const patch: Record<string, unknown> = {};
-      if (args.fullName?.trim()) patch.full_name = args.fullName.trim();
-      if (args.city !== undefined) patch.city = args.city;
-      if (args.departureCity !== undefined) patch.departure_city = args.departureCity;
-      if (args.email?.trim()) patch.email = args.email.trim();
+      // Everything below is the customer's words as the model repeated them: bounded and cleaned here, never trusted for its size or shape.
+      const fullName = args.fullName === undefined ? "" : cleanLine(args.fullName, AGENT_FIELD_LIMITS.fullName);
+      if (fullName) patch.full_name = fullName;
+      if (args.city !== undefined) patch.city = cleanLine(args.city, AGENT_FIELD_LIMITS.city);
+      if (args.departureCity !== undefined) patch.departure_city = cleanLine(args.departureCity, AGENT_FIELD_LIMITS.departureCity);
+      const email = args.email === undefined ? null : cleanEmail(args.email);
+      if (email) patch.email = email;
       if (args.preferredLanguage !== undefined) patch.preferred_language = args.preferredLanguage;
-      if (args.interestedIn !== undefined) patch.interested_in = args.interestedIn;
-      if (args.preferredPeriod !== undefined) patch.preferred_period = args.preferredPeriod;
+      if (args.interestedIn !== undefined) patch.interested_in = cleanLine(args.interestedIn, AGENT_FIELD_LIMITS.interestedIn);
+      if (args.preferredPeriod !== undefined) patch.preferred_period = cleanLine(args.preferredPeriod, AGENT_FIELD_LIMITS.preferredPeriod);
       if (args.roomPreference !== undefined) patch.room_preference = args.roomPreference;
-      if (args.budgetRange !== undefined) patch.budget_range = args.budgetRange;
-      if (args.adults !== undefined) patch.adults = args.adults;
-      if (args.children !== undefined) patch.children = args.children;
+      if (args.budgetRange !== undefined) patch.budget_range = cleanLine(args.budgetRange, AGENT_FIELD_LIMITS.budgetRange);
+      const adults = cleanTravellerCount(args.adults, 1);
+      if (adults !== null) patch.adults = adults;
+      const children = cleanTravellerCount(args.children, 0);
+      if (children !== null) patch.children = children;
       // The schema caps the stage at QUALIFIED; this also stops it moving a lead backwards, or overriding a
       // stage staff set later (PROPOSAL_SENT, BOOKED, …), which is not in the list at all.
       if (args.stage !== undefined) {
@@ -140,7 +149,7 @@ export function createLeadTools(ctx: AgentContext) {
       type: "object",
       properties: {
         leadId: { type: "string" },
-        note: { type: "string" },
+        note: { type: "string", maxLength: 1000 },
       },
       required: ["leadId", "note"],
       additionalProperties: false,
@@ -149,10 +158,13 @@ export function createLeadTools(ctx: AgentContext) {
       const target = await conversationLeadMatches(ctx, args.leadId);
       if (!target.ok) return WRONG_LEAD_ERROR;
 
+      const body = cleanText(args.note ?? "", AGENT_FIELD_LIMITS.note);
+      if (!body) return JSON.stringify({ error: "The note is empty." });
+
       const { error } = await ctx.db.from("lead_notes").insert({
         agency_id: ctx.agencyId,
         lead_id: args.leadId,
-        body: args.note,
+        body,
         author_name: COPILOT_NAME,
       });
       if (error) throw new Error(`Failed to add lead note: ${error.message}`);

@@ -273,7 +273,8 @@ export interface DuplicateLeadSummary {
 
 /** Escapes `%`, `_` and `\` so an email is matched as typed, not as a pattern. */
 function escapeLikePattern(value: string): string {
-  return value.replace(/[\\%_]/g, (character) => `\\${character}`);
+  // `*` is PostgREST's alias for `%` in like / ilike; it must be escaped too.
+  return value.replace(/[\\%_*]/g, (character) => `\\${character}`);
 }
 
 /**
@@ -308,7 +309,12 @@ export async function findDuplicateLeadSummary(
 
   const cleanEmail = email.trim();
   if (cleanEmail) {
-    const { data, error } = await db.from("leads").select(columns).ilike("email", escapeLikePattern(cleanEmail)).limit(1);
+    // Equality on the stored, lower-cased column — `ilike` would read `*` in the address as a wildcard and match the first lead on file.
+    let { data, error } = await db.from("leads").select(columns).eq("email_normalised", cleanEmail.toLowerCase()).limit(1);
+    // 42703: the column is not there yet (20270208090000 not applied) — fall back to the pattern match with every wildcard escaped.
+    if (error && error.code === "42703") {
+      ({ data, error } = await db.from("leads").select(columns).ilike("email", escapeLikePattern(cleanEmail)).limit(1));
+    }
     if (error) throw new LeadPersistenceError("leads", "select", error);
     if (data && data.length > 0) return { lead: toSummary(data[0] as Row), matchedOn: "email" };
   }
@@ -462,6 +468,15 @@ function chunked<T>(rows: T[]): T[][] {
  * (`updated_at`, which the database bumps on every update). The previous whole-row upsert let a stale page silently put back every column a colleague
  * had just changed; now it fails with `LeadConflictError` instead, and nothing about that lead is written.
  */
+/** Columns the database computes. Reading them with `select *` is fine; writing one back is an error. */
+const GENERATED_LEAD_COLUMNS = ["email_normalised"] as const;
+
+function withoutGeneratedColumns(row: Row): Row {
+  const copy = { ...row };
+  for (const column of GENERATED_LEAD_COLUMNS) delete copy[column];
+  return copy;
+}
+
 async function writeLeadRows(db: Db, previous: Map<string, Row>, pending: Row[]): Promise<void> {
   const inserts: Row[] = [];
 
@@ -479,6 +494,7 @@ async function writeLeadRows(db: Db, previous: Map<string, Row>, pending: Row[])
     // The database stamps updated_at itself; it is the version this write is checked against, not a value to send.
     delete patch.updated_at;
     delete patch.id;
+    for (const column of GENERATED_LEAD_COLUMNS) delete patch[column];
     if (Object.keys(patch).length === 0) continue;
 
     const { data, error } = await db.from("leads").update(patch).eq("id", row.id).eq("updated_at", old.updated_at).select("id");
@@ -487,7 +503,7 @@ async function writeLeadRows(db: Db, previous: Map<string, Row>, pending: Row[])
   }
 
   if (inserts.length === 0) return;
-  for (const batch of chunked(inserts)) {
+  for (const batch of chunked(inserts.map(withoutGeneratedColumns))) {
     const { error } = await db.from("leads").insert(batch);
     if (error) throw new LeadPersistenceError("leads", "insert", error);
   }
@@ -581,6 +597,7 @@ export async function persistSingleLeadChange(db: Db, before: LeadStore, after: 
   }
   // The database stamps updated_at itself; it is the version this write is checked against, not a value to send.
   delete patch.updated_at;
+  for (const column of GENERATED_LEAD_COLUMNS) delete patch[column];
 
   if (Object.keys(patch).length > 0) {
     const { data, error } = await db.from("leads").update(patch).eq("id", leadId).eq("updated_at", previous.updated_at).select("id");
