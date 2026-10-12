@@ -190,7 +190,7 @@ export function LeadEditorWorkspace({
       <div className="flex flex-col gap-4">
         {/* One bar holds the stepper and the open step's title, so the form
             starts as high as it can. */}
-        <Card className="scroll-mt-20 gap-4 py-4">
+        <Card className="scroll-mt-20 gap-4 py-4 w-full">
           <HorizontalStepper
             steps={LEAD_EDITOR_STEPS}
             activeStep={stepper.activeStep}
@@ -226,7 +226,7 @@ export function LeadEditorWorkspace({
         {emailDuplicateNotice ? (
           <div
             role="alert"
-            className="flex max-w-3xl flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 bg-card p-3 text-sm"
+            className="flex w-full flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 bg-card p-3 text-sm"
           >
             <span>{emailDuplicateNotice}</span>
             <Button
@@ -245,7 +245,7 @@ export function LeadEditorWorkspace({
           initial={{ opacity: 0, x: stepper.direction >= 0 ? 16 : -16 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.18, ease: "easeOut" }}
-          className="max-w-3xl"
+          className="w-full"
         >
           {/* The review step is already made of cards; wrapping it would nest them. */}
           {stepper.stepId === "review" ? (
@@ -259,7 +259,7 @@ export function LeadEditorWorkspace({
               staffOptions={staffOptions}
             />
           ) : (
-            <Card className="p-4">
+            <Card className="w-full">
               <LeadEditorStepContent
                 stepId={stepper.stepId}
                 form={form}

@@ -24,7 +24,7 @@ export default function LeadEditorLoading() {
           <Skeleton className="h-4 w-80 max-w-full" />
         </div>
       </Card>
-      <Card className="max-w-3xl gap-4">
+      <Card className="w-full gap-4">
         <Skeleton className="h-16 w-full" />
         <Skeleton className="h-6 w-2/3" />
       </Card>

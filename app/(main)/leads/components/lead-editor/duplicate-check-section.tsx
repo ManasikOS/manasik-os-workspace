@@ -74,7 +74,7 @@ export default function DuplicateCheckSection({
   const showClear = checked && !duplicate && !isChecking && !checkFailed;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 w-full">
       <div className="flex flex-col gap-2">
         <InputGroup>
           <InputGroupAddon align="block-start">
