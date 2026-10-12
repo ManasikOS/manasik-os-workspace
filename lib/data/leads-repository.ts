@@ -464,7 +464,12 @@ export async function persistLeadStore(
     if (pending.length === 0) continue;
 
     for (const batch of chunked(pending)) {
-      const { error } = await db.from(spec.table).upsert(batch, { onConflict: spec.pk });
+      // History tables are INSERT-only for browser sessions (20270125090000_leads_rls_least_privilege.sql): an upsert is
+      // `INSERT … ON CONFLICT DO UPDATE`, which needs UPDATE privilege even when nothing conflicts. A plain insert is also
+      // the honest statement of intent — `pending` here only ever holds rows that did not exist before.
+      const { error } = spec.appendOnly
+        ? await db.from(spec.table).insert(batch)
+        : await db.from(spec.table).upsert(batch, { onConflict: spec.pk });
       if (error) throw new LeadPersistenceError(spec.table, "insert", error);
     }
   }
