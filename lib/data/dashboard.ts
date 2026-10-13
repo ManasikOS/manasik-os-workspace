@@ -211,6 +211,8 @@ export function buildKpiCandidates(input: {
   refundsPending: number | null;
   /** `null` when the Reports overview was not read. `showMargin` is `reports.viewCostAndMargin`. */
   executive: { summary: ExecutiveSummary; showMargin: boolean } | null;
+  /** The visa module's own KPI counts; `null` when the visa queue was not read. */
+  visaQueue: { readyToSubmit: number; submittedPending: number; visaIssues: number; issued: number } | null;
 }): Partial<Record<DashboardKpiId, AdminKpi>> {
   const kpis: Partial<Record<DashboardKpiId, AdminKpi>> = {};
   const activeGroups = input.groups.filter((g) => !INACTIVE_GROUP_STATUSES.has(g.groupStatus));
@@ -346,6 +348,18 @@ export function buildKpiCandidates(input: {
       value: String(input.refundsPending),
       supportingText: "Awaiting approval",
       destination: "/finance?view=receivables&subview=adjustments",
+    };
+  }
+
+  if (input.visaQueue) {
+    // Applications in flight - ready to send or already with the embassy -
+    // the visa module's own two counts added, not a new definition of "pending".
+    kpis["visa-pending"] = {
+      id: "visa-pending",
+      title: "Visa Pending",
+      value: String(input.visaQueue.readyToSubmit + input.visaQueue.submittedPending),
+      supportingText: `${input.visaQueue.visaIssues} need rework`,
+      destination: "/visa",
     };
   }
 

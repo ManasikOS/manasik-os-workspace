@@ -87,6 +87,7 @@ function input(overrides: Partial<Candidates> = {}): Candidates {
     overdueBalance: null,
     refundsPending: null,
     executive: null,
+    visaQueue: null,
     ...overrides,
   };
 }
@@ -217,5 +218,27 @@ describe("activityTypeFor", () => {
     for (const entity of ["GROUP", "FLIGHT", "ACCOMMODATION", "ROOM", "TRANSPORT", "BOOKING", "PILGRIM", "TASK", "READINESS_ITEM", "SOMETHING_NEW"]) {
       expect(activityTypeFor(entity)).toBe("operations");
     }
+  });
+});
+
+describe("buildKpiCandidates - visa", () => {
+  it("omits Visa Pending when the visa queue was not read", () => {
+    expect(buildKpiCandidates(input({ visaQueue: null }))["visa-pending"]).toBeUndefined();
+  });
+
+  it("shows applications in flight, and how many need rework", () => {
+    const k = buildKpiCandidates(
+      input({ visaQueue: { readyToSubmit: 4, submittedPending: 3, visaIssues: 2, issued: 9 } }),
+    );
+    expect(k["visa-pending"]?.value).toBe("7");
+    expect(k["visa-pending"]?.supportingText).toBe("2 need rework");
+    expect(k["visa-pending"]?.destination).toBe("/visa");
+  });
+
+  it("shows a real zero when the queue was read and is empty", () => {
+    const k = buildKpiCandidates(
+      input({ visaQueue: { readyToSubmit: 0, submittedPending: 0, visaIssues: 0, issued: 0 } }),
+    );
+    expect(k["visa-pending"]?.value).toBe("0");
   });
 });

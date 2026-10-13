@@ -12,6 +12,7 @@ import ReceivablesAgingCard from "./components/receivables-aging";
 import ReadinessHeatmap from "./components/readiness-heatmap";
 import SeatFillPace from "./components/seat-fill-pace";
 import Pipeline from "./components/pipeline";
+import VisaQueue from "./components/visa-queue";
 import TeamPerformance from "./components/team-performance";
 import CollectionsAttention from "./components/collections-attention";
 import RecentActivity from "./components/recent-activity";
@@ -81,6 +82,7 @@ const PANEL_SPAN: Record<DashboardGridPanelId, string> = {
   "team-performance": "lg:col-span-4",
   collections: "lg:col-span-6",
   "recent-activity": "lg:col-span-6",
+  "visa-queue": "lg:col-span-6",
 };
 
 /**
@@ -102,6 +104,7 @@ const BLOCK_LABEL: Record<DashboardPanelId, string> = {
   collections: "Collections",
   "team-performance": "Team performance",
   "recent-activity": "Recent activity",
+  "visa-queue": "Visa queue",
 };
 
 function renderDashboardPanels(
@@ -184,6 +187,9 @@ function renderDashboardPanels(
             id,
             node: <CollectionsAttention collections={data.collections} />,
           });
+        break;
+      case "visa-queue":
+        if (data.visaQueue) panels.push({ id, node: <VisaQueue data={data.visaQueue} /> });
         break;
       case "recent-activity":
         panels.push({

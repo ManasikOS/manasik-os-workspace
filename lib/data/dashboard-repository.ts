@@ -63,6 +63,9 @@ import { buildSeatPacePoints } from "@/lib/data/dashboard-pace";
 import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
 import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/operations";
+import { buildVisaQueue } from "@/lib/data/dashboard-visa";
+import { toVisaListItems } from "@/lib/data/visa";
+import { loadVisaQueue } from "@/lib/data/visa-repository";
 import { reportHandledError } from "@/lib/observability/report-error";
 import { createClient } from "@/utils/supabase/server";
 
@@ -431,7 +434,8 @@ type DashboardRead =
   | "copilot"
   | "financeReport"
   | "salesReport"
-  | "overview";
+  | "overview"
+  | "visaQueue";
 
 export async function loadDashboardData(
   role: StaffRole,
@@ -503,7 +507,7 @@ export async function loadDashboardData(
     }
   };
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview] =
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
       read("leads", plan.leads, () => loadLeadDashboardFacts(supabase)),
@@ -522,6 +526,8 @@ export async function loadDashboardData(
       read("salesReport", plan.salesReport, () => loadReportsSalesSnapshot(supabase, reportFilters, nowIso)),
       // Revenue / Gross Margin tiles - Reports' own executive summary, never a re-derivation.
       read("overview", plan.overview, () => loadReportsOverviewSnapshot(supabase, reportFilters, nowIso, reportsCan)),
+      // Visa queue - the visa module's own rows and derivations, trimmed to group-level counts.
+      read("visaQueue", plan.visaQueue, async () => buildVisaQueue(toVisaListItems(await loadVisaQueue(supabase), nowIso))),
     ]);
 
   const myTasks = myTasksRead ?? [];
@@ -626,7 +632,7 @@ export async function loadDashboardData(
     overdueBalanceLabel: receivables ? formatCurrencyLKR(overdueBalanceAmount) : null,
     overdueBalanceAmount: receivables ? overdueBalanceAmount : 0,
     figuresUnavailable: (
-      ["leads", "receivables", "payments", "refunds", "myTasks", "overview"] as const
+      ["leads", "receivables", "payments", "refunds", "myTasks", "overview", "visaQueue"] as const
     ).some((name) => failed.has(name)),
   });
 
@@ -702,6 +708,7 @@ export async function loadDashboardData(
   markFailed("pipeline", "salesReport");
   markFailed("team-performance", "salesReport");
   markFailed("my-day", "myTasks");
+  markFailed("visa-queue", "visaQueue");
 
   return {
     statusLine,
@@ -720,6 +727,7 @@ export async function loadDashboardData(
         myOpenTaskCount: plan.myTasks && !failed.has("myTasks") ? myTasks.length : null,
         overdueBalance: receivables ? overdueBalanceAmount : null,
         refundsPending: refundsPending ? refundsPending.count : null,
+        visaQueue: visaQueue ? visaQueue.counts : null,
         executive: overview
           ? {
               summary: computeExecutiveSummary(overview.bookingsCurrent, overview.bookingsPrevious, overview.groups),
@@ -736,6 +744,7 @@ export async function loadDashboardData(
     copilotToday,
     businessHealth,
     pipeline,
+    visaQueue,
     teamPerformance,
     seatPace,
     leadAttention,

@@ -31,6 +31,8 @@ export interface DashboardFetchPlan {
   salesReport: boolean;
   /** Reports overview snapshot — the Revenue and Gross Margin KPI tiles. */
   overview: boolean;
+  /** Visa applications - the Visa queue block and the Visa Pending tile. */
+  visaQueue: boolean;
   /** The signed-in person's own tasks — My Day and the My Open Tasks tile. */
   myTasks: boolean;
 }
@@ -55,6 +57,7 @@ export function planDashboardFetch(
     financeReport: caps.reports.viewFinance && has("revenue-trend"),
     salesReport: caps.reports.viewSales && (has("pipeline") || has("team-performance")),
     overview: caps.reports.viewOverview && (kpi("revenue") || kpi("gross-margin")),
+    visaQueue: caps.visa.viewModule && !caps.visa.viewPaymentBlockersOnly && (has("visa-queue") || kpi("visa-pending")),
     myTasks: who.staffId !== null && (has("my-day") || kpi("my-open-tasks")),
   };
 }

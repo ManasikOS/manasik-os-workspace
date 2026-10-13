@@ -135,7 +135,7 @@ Avg seat fill, Revenue, Gross margin.
 block). Then: mapper `lib/data/dashboard-<block>.ts` (pure, tested) → view model in `lib/types/dashboard.ts` → component → registry id +
 gate + preset row (spec §2) → KPI tile if listed in §4 → empty/denied/error states → test. Top ≤ 6 rows, each with verb + filtered link.
 
-### [ ] T9: `visa-queue`  (hero for VISA)
+### [x] T9: `visa-queue`  (hero for VISA)
 **Acceptance:** stage counts + soonest-departure-first rows from `loadVisaQueue`/`toVisaListItems`; gate `visa.viewModule`; present for VISA (hero), OPERATIONS (summary); absent for others; "Visa pending" + "Docs…" KPI wired for VISA; GUIDE never sees it.
 **Verification:** mapper unit tests (stage bucketing, ordering, empty); capability test; manual as VISA.
 **Dependencies:** T3, T5a · **Files:** `lib/data/dashboard-visa.ts`(+test), `components/visa-queue.tsx`, `dashboard-layout.ts`/`dashboard-access.ts` (1 line each), `lib/types/dashboard.ts` · **Scope:** M

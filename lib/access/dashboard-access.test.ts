@@ -17,6 +17,7 @@ function withOverrides(
     reports: { ...base.reports, ...overrides.reports },
     departureGroups: { ...base.departureGroups, ...overrides.departureGroups },
     inbox: { ...base.inbox, ...overrides.inbox },
+    visa: { ...base.visa, ...overrides.visa },
   };
 }
 
@@ -81,5 +82,13 @@ describe("visibleBlocks", () => {
     const caps = withOverrides("ADMIN", { inbox: { viewModule: false } });
     expect(visibleBlocks(DASHBOARD_LAYOUTS.ADMIN, caps)).not.toContain("inbox-owner");
     expect(visibleBlocks(DASHBOARD_LAYOUTS.ADMIN, baseDashboardCapabilities("ADMIN"))).toContain("inbox-owner");
+  });
+
+  it("shows the visa queue only to a role with the Visa module and more than payment blockers", () => {
+    const base = baseDashboardCapabilities("VISA");
+    expect(visibleBlocks(["visa-queue"], base)).toEqual(["visa-queue"]);
+    expect(visibleBlocks(["visa-queue"], withOverrides("VISA", { visa: { viewModule: false } }))).toEqual([]);
+    expect(visibleBlocks(["visa-queue"], withOverrides("VISA", { visa: { viewPaymentBlockersOnly: true } }))).toEqual([]);
+    expect(visibleBlocks(["visa-queue"], baseDashboardCapabilities("FINANCE"))).toEqual([]);
   });
 });

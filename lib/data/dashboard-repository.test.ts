@@ -17,8 +17,10 @@ const loadReportsFinanceSnapshot = vi.fn();
 const loadReportsSalesSnapshot = vi.fn();
 const loadReportsOverviewSnapshot = vi.fn();
 const reportHandledError = vi.fn();
+const loadVisaQueue = vi.fn();
 
 vi.mock("@/lib/observability/report-error", () => ({ reportHandledError: (...a: unknown[]) => reportHandledError(...a) }));
+vi.mock("@/lib/data/visa-repository", () => ({ loadVisaQueue: (...a: unknown[]) => loadVisaQueue(...a) }));
 vi.mock("@/lib/data/operations-repository", () => ({ buildOperationsSnapshot: (...a: unknown[]) => buildOperationsSnapshot(...a) }));
 vi.mock("@/lib/data/team-repository", () => ({
   loadAssignedGroupIds: (...a: unknown[]) => loadAssignedGroupIds(...a),
@@ -59,6 +61,7 @@ function caps(role: Role, overrides: { [K in keyof DashboardCapabilities]?: Part
     reports: { ...base.reports, ...overrides.reports },
     departureGroups: { ...base.departureGroups, ...overrides.departureGroups },
     inbox: { ...base.inbox, ...overrides.inbox },
+    visa: { ...base.visa, ...overrides.visa },
   };
 }
 
@@ -100,6 +103,7 @@ beforeEach(() => {
   loadRefundsPendingSummary.mockResolvedValue({ count: 0 });
   loadReportsFinanceSnapshot.mockResolvedValue({ bookings: [], payments: [], groups: [], milestones: [] });
   loadReportsSalesSnapshot.mockResolvedValue({ leads: [] });
+  loadVisaQueue.mockResolvedValue([]);
   loadReportsOverviewSnapshot.mockResolvedValue({
     bookingsCurrent: [],
     bookingsPrevious: [],
@@ -466,5 +470,41 @@ describe("loadDashboardData - Recent Activity", () => {
     withActivity([activity("1", "GROUP")]);
     const data = await load("ADMIN", caps("ADMIN"));
     expect(data.recentActivities.every((a) => a.destination.startsWith("/departure-groups/"))).toBe(true);
+  });
+});
+
+describe("loadDashboardData - the visa queue", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("reads the visa queue for VISA and builds the block and the tile", async () => {
+    const data = await load("VISA", caps("VISA"));
+    expect(loadVisaQueue).toHaveBeenCalledOnce();
+    expect(data.visaQueue).not.toBeNull();
+    expect(data.kpis.map((k) => k.id)).toContain("visa-pending");
+  });
+
+  it("does not read it for ADMIN, CEO, FINANCE, MARKETING or GUIDE", async () => {
+    for (const role of ["ADMIN", "CEO", "FINANCE", "MARKETING", "GUIDE"] as const) {
+      vi.clearAllMocks();
+      const data = await load(role, caps(role));
+      expect(loadVisaQueue).not.toHaveBeenCalled();
+      expect(data.visaQueue).toBeNull();
+    }
+  });
+
+  it("does not read it when a custom role has the Visa module switched off", async () => {
+    const data = await load("VISA", caps("VISA", { visa: { viewModule: false } }));
+    expect(loadVisaQueue).not.toHaveBeenCalled();
+    expect(data.visaQueue).toBeNull();
+  });
+
+  it("marks the block, not the page, when the queue cannot be read", async () => {
+    loadVisaQueue.mockRejectedValue(new Error("db down"));
+    const data = await load("VISA", caps("VISA"));
+    expect(data.blockErrors["visa-queue"]).toBe(true);
+    expect(data.visaQueue).toBeNull();
+    expect(data.kpis.map((k) => k.id)).not.toContain("visa-pending");
   });
 });

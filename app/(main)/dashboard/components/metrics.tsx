@@ -18,6 +18,7 @@ import {
   Truck,
   Users,
   Armchair,
+  Stamp,
   type LucideIcon,
 } from "lucide-react";
 import React from "react";
@@ -56,6 +57,7 @@ const KPI_PRESENTATION: Record<string, { icon: LucideIcon; tone: Tone }> = {
   "supplier-confirmations-pending": { icon: Truck, tone: "warning" },
   "my-groups": { icon: Users, tone: "brand" },
   "avg-seat-fill": { icon: Armchair, tone: "info" },
+  "visa-pending": { icon: Stamp, tone: "info" },
 };
 
 export default function DashboardMetrics({ kpis }: DashboardMetricsProps) {

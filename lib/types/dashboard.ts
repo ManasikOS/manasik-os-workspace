@@ -155,6 +155,34 @@ export interface PipelineData {
   topSources: LeadSourceRow[];
 }
 
+/** One group on the Visa queue block - group-level counts only, never a pilgrim. */
+export interface VisaQueueGroupRow {
+  groupId: string;
+  groupName: string;
+  groupCode: string;
+  daysToDeparture: number;
+  pilgrimCount: number;
+  readyToSubmit: number;
+  submitted: number;
+  reworkRequired: number;
+  rejected: number;
+  issued: number;
+  readinessPercent: number;
+  riskBand: "GREEN" | "AMBER" | "RED";
+  /** The single most urgent next step, worded as a verb ("Submit 8"). */
+  action: string;
+  blockers: string[];
+}
+
+/** Visa queue (spec section 3.2) - the visa module's own KPI and per-group derivations, trimmed to what the block shows. */
+export interface VisaQueueData {
+  counts: { readyToSubmit: number; submittedPending: number; visaIssues: number; issued: number };
+  groups: VisaQueueGroupRow[];
+  /** Groups needing action in total - `groups` is only the top few. */
+  actionableGroupCount: number;
+  totalApplications: number;
+}
+
 export interface DashboardData {
   statusLine: StatusLine;
   /**
@@ -172,6 +200,8 @@ export interface DashboardData {
   copilotToday: CopilotDailySummary | null;
   businessHealth: BusinessHealthData | null;
   pipeline: PipelineData | null;
+  /** `null` for a role without the Visa queue block (or without Visa access). */
+  visaQueue: VisaQueueData | null;
   teamPerformance: SalesOwnerRow[] | null;
   seatPace: SeatPacePoint[];
   leadAttention: {

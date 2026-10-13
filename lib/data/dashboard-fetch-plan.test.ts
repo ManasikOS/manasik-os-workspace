@@ -24,6 +24,7 @@ describe("planDashboardFetch", () => {
       financeReport: false,
       salesReport: false,
       overview: false,
+      visaQueue: false,
       myTasks: true,
     });
   });
@@ -96,6 +97,29 @@ describe("planDashboardFetch", () => {
     it("reads pending refunds for the KPI alone when Collections and the rail are not shown", () => {
       expect(planDashboardFetch(kpisOnly, caps, WHO, ["refunds-pending"]).refunds).toBe(true);
       expect(planDashboardFetch(kpisOnly, caps, WHO, ["departing-30"]).refunds).toBe(false);
+    });
+  });
+
+  describe("visa queue", () => {
+    it("is read for VISA, whose preset shows the block and whose row lists the visa tile", () => {
+      expect(planFor("VISA").visaQueue).toBe(true);
+    });
+
+    it("is read for OPERATIONS (block) and not for roles without the block or the tile", () => {
+      expect(planFor("OPERATIONS").visaQueue).toBe(true);
+      expect(planFor("GUIDE").visaQueue).toBe(false);
+      expect(planFor("MARKETING").visaQueue).toBe(false);
+    });
+
+    it("is never read for a role limited to payment blockers, even if the block is asked for", () => {
+      const caps = baseDashboardCapabilities("FINANCE");
+      expect(planDashboardFetch(["visa-queue"], caps, WHO, ["visa-pending"]).visaQueue).toBe(false);
+    });
+
+    it("is read for the KPI alone when the block is not shown", () => {
+      const caps = baseDashboardCapabilities("VISA");
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["visa-pending"]).visaQueue).toBe(true);
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["departing-30"]).visaQueue).toBe(false);
     });
   });
 });

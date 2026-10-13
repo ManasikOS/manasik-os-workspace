@@ -115,3 +115,11 @@ describe("emptyDashboardMessage", () => {
     expect(message).toMatch(/administrator/i);
   });
 });
+
+describe("visa-queue placement", () => {
+  it("is shown to VISA (as the first grid panel) and OPERATIONS only", () => {
+    const holders = STAFF_ROLES.filter((r) => DASHBOARD_LAYOUTS[r].includes("visa-queue"));
+    expect([...holders].sort()).toEqual(["OPERATIONS", "VISA"]);
+    expect(splitDashboardBlocks(DASHBOARD_LAYOUTS.VISA).panels[0]).toBe("visa-queue");
+  });
+});
