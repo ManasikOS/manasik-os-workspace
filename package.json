@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:dashboard": "playwright test -c playwright.dashboard.config.ts",
     "worker:build": "esbuild worker/index.ts --bundle --platform=node --format=cjs --target=node22 --packages=external --alias:server-only=./worker/server-only-stub.ts --tsconfig=tsconfig.json --outfile=dist-worker/worker.cjs",
     "worker:check": "node dist-worker/worker.cjs --check",
     "worker:start": "node dist-worker/worker.cjs",

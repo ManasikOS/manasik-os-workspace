@@ -176,6 +176,7 @@ gate + preset row (spec §2) → KPI tile if listed in §4 → empty/denied/erro
 ## Phase 4 — Proof
 
 ### [ ] T16: Role-matrix e2e
+**Status: BUILT, NOT YET RUN AGAINST A BROWSER (2026-10-13).** Spec, isolated config (production-refusing), `data-dashboard-block` hooks, expectations and runbook are in and unit-tested; the spec compiles and lists 9 tests. It needs the staging accounts in `docs/runbooks/dashboard-roles-e2e.md` to execute. Custom-role case not covered (no fixture) - covered at unit level.
 **Description:** Start by inspecting `e2e/support` for per-role session helpers. One spec iterating the 7 roles + 1 restricted custom role.
 **Acceptance:**
 - [ ] Per role: expected block ids present; forbidden ids absent from DOM and from the RSC response text.

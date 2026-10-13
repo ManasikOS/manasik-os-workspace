@@ -78,7 +78,7 @@ T2,T3 ──► T16 e2e matrix ;  T4 ──► T17 perf baseline
 ### Checkpoint C — G4 closed
 
 ### Phase 4 — Proof
-- [ ] T16 Role matrix e2e (M)
+- [ ] T16 Role matrix e2e (built; unrun - needs staging accounts) (M)
 - [ ] T17 Render-time baseline + budget (S)
 ### Checkpoint D — release gate
 

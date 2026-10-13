@@ -233,7 +233,7 @@ function renderDashboardPanels(
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-flow-row-dense gap-6">
       {panels.map(({ id, node }) => (
-        <div key={id} className={PANEL_SPAN[id]}>
+        <div key={id} className={PANEL_SPAN[id]} data-dashboard-block={id}>
           <BlockBoundary label={BLOCK_LABEL[id]}>{node}</BlockBoundary>
         </div>
       ))}
@@ -249,10 +249,12 @@ function renderDashboardBanner(
   name: string | null,
   inboxIntelligence: InboxOwnerIntelligence | null | "error",
 ): ReactNode {
+  const body = renderBannerBody(id, data, role, name, inboxIntelligence);
+  if (body === null) return null;
   return (
-    <BlockBoundary key={id} label={BLOCK_LABEL[id]}>
-      {renderBannerBody(id, data, role, name, inboxIntelligence)}
-    </BlockBoundary>
+    <div key={id} data-dashboard-block={id}>
+      <BlockBoundary label={BLOCK_LABEL[id]}>{body}</BlockBoundary>
+    </div>
   );
 }
 
