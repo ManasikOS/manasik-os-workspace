@@ -15,6 +15,7 @@ const loadFinancePayments = vi.fn();
 const loadRefundsPendingSummary = vi.fn();
 const loadReportsFinanceSnapshot = vi.fn();
 const loadReportsSalesSnapshot = vi.fn();
+const loadReportsOverviewSnapshot = vi.fn();
 
 vi.mock("@/lib/data/operations-repository", () => ({ buildOperationsSnapshot: (...a: unknown[]) => buildOperationsSnapshot(...a) }));
 vi.mock("@/lib/data/team-repository", () => ({
@@ -34,6 +35,7 @@ vi.mock("@/lib/data/finance-repository", () => ({
 vi.mock("@/lib/data/reports-repository", () => ({
   loadReportsFinanceSnapshot: (...a: unknown[]) => loadReportsFinanceSnapshot(...a),
   loadReportsSalesSnapshot: (...a: unknown[]) => loadReportsSalesSnapshot(...a),
+  loadReportsOverviewSnapshot: (...a: unknown[]) => loadReportsOverviewSnapshot(...a),
 }));
 
 import { STAFF_ROLES } from "@/lib/access/departure-groups-access";
@@ -96,6 +98,13 @@ beforeEach(() => {
   loadRefundsPendingSummary.mockResolvedValue({ count: 0 });
   loadReportsFinanceSnapshot.mockResolvedValue({ bookings: [], payments: [], groups: [], milestones: [] });
   loadReportsSalesSnapshot.mockResolvedValue({ leads: [] });
+  loadReportsOverviewSnapshot.mockResolvedValue({
+    bookingsCurrent: [],
+    bookingsPrevious: [],
+    paymentsCurrent: [],
+    paymentsPrevious: [],
+    groups: [],
+  });
 });
 
 describe("loadDashboardData — gating follows the capability bundle it is given", () => {
@@ -239,5 +248,56 @@ describe("loadDashboardData — the KPI row is the role's own", () => {
     const ids = (await load("FINANCE", caps("FINANCE", { finance: { viewLedger: false } }))).kpis.map((k) => k.id);
     expect(ids).not.toContain("collections-period");
     expect(ids).not.toContain("outstanding-balance");
+  });
+});
+
+describe("loadDashboardData - the new tiles read only what they need", () => {
+  it("reads the Reports overview for a CEO, whose row lists revenue and gross margin", async () => {
+    const data = await load("CEO", caps("CEO"));
+    expect(loadReportsOverviewSnapshot).toHaveBeenCalledOnce();
+    const ids = data.kpis.map((k) => k.id);
+    expect(ids).toContain("revenue");
+    expect(ids).toContain("gross-margin");
+  });
+
+  it("shows an unknown margin as an em dash for a CEO with no revenue booked yet", async () => {
+    const data = await load("CEO", caps("CEO"));
+    expect(data.kpis.find((k) => k.id === "gross-margin")?.value).toBe("\u2014");
+  });
+
+  it("reads no overview for FINANCE, MARKETING, OPERATIONS, VISA or GUIDE", async () => {
+    for (const role of ["FINANCE", "MARKETING", "OPERATIONS", "VISA", "GUIDE"] as const) {
+      vi.clearAllMocks();
+      await load(role, caps(role));
+      expect(loadReportsOverviewSnapshot).not.toHaveBeenCalled();
+    }
+  });
+
+  it("drops gross margin but keeps revenue when a custom role may not see cost and margin", async () => {
+    const data = await load("CEO", caps("CEO", { reports: { viewCostAndMargin: false } }));
+    const ids = data.kpis.map((k) => k.id);
+    expect(ids).toContain("revenue");
+    expect(ids).not.toContain("gross-margin");
+  });
+
+  it("drops both Reports tiles and skips the read when a custom role has the overview switched off", async () => {
+    const data = await load("CEO", caps("CEO", { reports: { viewOverview: false } }));
+    expect(loadReportsOverviewSnapshot).not.toHaveBeenCalled();
+    const ids = data.kpis.map((k) => k.id);
+    expect(ids).not.toContain("revenue");
+    expect(ids).not.toContain("gross-margin");
+  });
+
+  it("counts a GUIDE's own open tasks", async () => {
+    loadTasksForStaff.mockResolvedValue([{ id: "t1", title: "a", due_at: new Date().toISOString(), departure_group_id: "g", group_name: "G" }, { id: "t2", title: "b", due_at: new Date().toISOString(), departure_group_id: "g", group_name: "G" }]);
+    const data = await load("GUIDE", caps("GUIDE"));
+    expect(data.kpis.find((k) => k.id === "my-open-tasks")?.value).toBe("2");
+  });
+
+  it("shows FINANCE the overdue balance and pending refunds from the reads it already makes", async () => {
+    loadRefundsPendingSummary.mockResolvedValue({ count: 4 });
+    const data = await load("FINANCE", caps("FINANCE"));
+    expect(data.kpis.find((k) => k.id === "refunds-pending")?.value).toBe("4");
+    expect(data.kpis.find((k) => k.id === "overdue-balance")).toBeDefined();
   });
 });

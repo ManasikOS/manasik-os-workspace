@@ -80,7 +80,7 @@ next fills the slot.
 **Files:** `lib/data/dashboard-repository.ts` (or extract `buildKpis` → `lib/data/dashboard.ts`), `lib/data/dashboard-layout.ts`, `lib/data/dashboard.test.ts`
 **Scope:** S
 
-### [ ] T5b: KPI tiles that need no new loader
+### [x] T5b: KPI tiles that need no new loader
 **Description:** Add tiles derivable from data already fetched: Groups at risk, My open tasks, My groups, Overdue amount, Refunds pending,
 Avg seat fill, Revenue, Gross margin.
 **Acceptance:**

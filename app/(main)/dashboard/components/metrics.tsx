@@ -9,6 +9,15 @@ import {
   Wallet,
   HandCoins,
   ClipboardCheck,
+  TriangleAlert,
+  ListChecks,
+  Clock,
+  Undo2,
+  TrendingUp,
+  Percent,
+  Truck,
+  Users,
+  Armchair,
   type LucideIcon,
 } from "lucide-react";
 import React from "react";
@@ -37,6 +46,16 @@ const KPI_PRESENTATION: Record<string, { icon: LucideIcon; tone: Tone }> = {
   "collections-period": { icon: Wallet, tone: "success" },
   "outstanding-balance": { icon: HandCoins, tone: "warning" },
   "group-readiness": { icon: ClipboardCheck, tone: "success" },
+  revenue: { icon: TrendingUp, tone: "success" },
+  "gross-margin": { icon: Percent, tone: "brand" },
+  "overdue-balance": { icon: Clock, tone: "danger" },
+  "refunds-pending": { icon: Undo2, tone: "warning" },
+  "groups-at-risk": { icon: TriangleAlert, tone: "danger" },
+  "open-tasks": { icon: ListChecks, tone: "info" },
+  "my-open-tasks": { icon: ListChecks, tone: "brand" },
+  "supplier-confirmations-pending": { icon: Truck, tone: "warning" },
+  "my-groups": { icon: Users, tone: "brand" },
+  "avg-seat-fill": { icon: Armchair, tone: "info" },
 };
 
 export default function DashboardMetrics({ kpis }: DashboardMetricsProps) {

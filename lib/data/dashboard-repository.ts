@@ -32,15 +32,21 @@ import {
   loadFinanceReceivables,
   loadRefundsPendingSummary,
 } from "@/lib/data/finance-repository";
-import { loadReportsFinanceSnapshot, loadReportsSalesSnapshot } from "@/lib/data/reports-repository";
-import { buildRevenueTrend } from "@/lib/data/reports";
+import {
+  loadReportsFinanceSnapshot,
+  loadReportsOverviewSnapshot,
+  loadReportsSalesSnapshot,
+} from "@/lib/data/reports-repository";
+import { buildRevenueTrend, computeExecutiveSummary } from "@/lib/data/reports";
 import { buildCollectionsSummary, buildReceivablesAging, buildPackageProfitability } from "@/lib/data/reports-finance";
 import { buildLeadFunnel, buildLeadSourcePerformance, buildSalesTeamPerformance } from "@/lib/data/reports-sales";
 import {
   dashboardPeriodLabel,
-  formatKpiDelta,
   buildStatusLine,
   selectKpis,
+  buildKpiCandidates,
+  formatCurrencyLKR,
+  type PeriodCount,
   toReportPeriod,
   trendGranularityFor,
   type DashboardPeriod,
@@ -50,7 +56,6 @@ import { planDashboardFetch } from "@/lib/data/dashboard-fetch-plan";
 import {
   DASHBOARD_KPI_CAP,
   resolveDashboardKpiOrder,
-  type DashboardKpiId,
   type DashboardPanelId,
 } from "@/lib/data/dashboard-layout";
 import { buildSeatPacePoints } from "@/lib/data/dashboard-pace";
@@ -60,7 +65,6 @@ import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/o
 import { createClient } from "@/utils/supabase/server";
 
 import type {
-  AdminKpi,
   ApprovalsSummary,
   AttentionRow,
   BusinessHealthData,
@@ -115,18 +119,6 @@ export async function loadInboxOwnerIntelligence(role: StaffRole, agencyId: stri
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-/** `5_200_000` → `LKR 5.2M`. Same shape as every other module's money KPI. */
-function formatCurrencyLKR(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "LKR 0";
-  if (value >= 1_000_000) {
-    return `LKR ${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  }
-  if (value >= 1_000) {
-    return `LKR ${(value / 1_000).toFixed(0)}K`;
-  }
-  return `LKR ${numberFormatter.format(value)}`;
-}
-
 function formatExactLKR(value: number): string {
   return `LKR ${numberFormatter.format(Math.round(value))}`;
 }
@@ -160,90 +152,6 @@ function isWithinIso(iso: string, fromIso: string, toIso: string): boolean {
 /* ── KPIs ─────────────────────────────────────────────────────────────────── */
 
 /** `previous` is `null` whenever the underlying data isn't a periodic figure (no delta to show). */
-interface PeriodCount {
-  current: number;
-  previous: number;
-}
-
-/**
- * Every KPI tile this render *can* build, keyed by id. Which of them the
- * person sees, and in what order, is `DASHBOARD_KPI_ORDER` + `selectKpis` —
- * this function only answers "what could be built from the reads that ran".
- * A figure whose read did not run is simply absent from the record.
- */
-function buildKpiCandidates(input: {
-  groups: OperationsGroupSummary[];
-  outstandingBalance: number;
-  periodLabel: string;
-  newInquiries: PeriodCount | null;
-  collections: PeriodCount | null;
-}): Partial<Record<DashboardKpiId, AdminKpi>> {
-  const kpis: Partial<Record<DashboardKpiId, AdminKpi>> = {};
-  const activeGroups = input.groups.filter((g) => g.groupStatus !== "COMPLETED" && g.groupStatus !== "CLOSED" && g.groupStatus !== "CANCELLED");
-
-  if (input.newInquiries) {
-    const trend = formatKpiDelta(input.newInquiries.current, input.newInquiries.previous, "previous period");
-    kpis["new-inquiries"] = {
-      id: "new-inquiries",
-      title: "New Inquiries",
-      value: String(input.newInquiries.current),
-      supportingText: input.periodLabel,
-      trend: trend?.trend,
-      trendType: trend?.trendType,
-      destination: "/leads",
-    };
-  }
-
-  kpis["active-pilgrims"] = {
-    id: "active-pilgrims",
-    title: "Active Pilgrims",
-    value: String(activeGroups.reduce((sum, g) => sum + g.pilgrimCount, 0)),
-    supportingText: `Across ${activeGroups.length} active group${activeGroups.length === 1 ? "" : "s"}`,
-    destination: "/pilgrims",
-  };
-
-  const departingSoon = activeGroups.filter((g) => g.daysUntilDeparture >= 0 && g.daysUntilDeparture <= 30);
-  kpis["departing-30"] = {
-    id: "departing-30",
-    title: "Departing in 30 Days",
-    value: String(departingSoon.reduce((sum, g) => sum + g.pilgrimCount, 0)),
-    supportingText: `Across ${departingSoon.length} departure group${departingSoon.length === 1 ? "" : "s"}`,
-    destination: "/departure-groups",
-  };
-
-  if (input.collections) {
-    const trend = formatKpiDelta(input.collections.current, input.collections.previous, "previous period");
-    kpis["collections-period"] = {
-      id: "collections-period",
-      title: `Collections (${input.periodLabel})`,
-      value: formatCurrencyLKR(input.collections.current),
-      trend: trend?.trend,
-      trendType: trend?.trendType,
-      destination: "/finance?view=receivables&subview=payments",
-    };
-    kpis["outstanding-balance"] = {
-      id: "outstanding-balance",
-      title: "Outstanding Balance",
-      value: formatCurrencyLKR(input.outstandingBalance),
-      // Point-in-time balance — no historical snapshot to diff against, so
-      // no delta rather than a fabricated one (open question in
-      // docs/modules/dashboard-module-implementation-plan.md §13.4).
-      destination: "/finance?view=receivables&subview=balances",
-    };
-  }
-
-  const readyCount = activeGroups.filter((g) => g.readinessStatus === "READY").length;
-  kpis["group-readiness"] = {
-    id: "group-readiness",
-    title: "Group Readiness",
-    value: `${readyCount} Ready`,
-    supportingText: "Next 30 days departures",
-    destination: "/departure-groups",
-  };
-
-  return kpis;
-}
-
 /* ── My Day ───────────────────────────────────────────────────────────────── */
 
 /**
@@ -558,9 +466,9 @@ export async function loadDashboardData(
   // resolves `null` ("not asked for"), and every figure derived from it below
   // keys off that `null` — not off the capability — so a skipped read can
   // never be mistaken for a real zero.
-  const plan = planDashboardFetch(blocks, caps, { staffId, agencyId });
+  const plan = planDashboardFetch(blocks, caps, { staffId, agencyId }, resolveDashboardKpiOrder(role));
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasks, openProposals, copilotToday, financeReport, salesReport] =
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasks, openProposals, copilotToday, financeReport, salesReport, overview] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
       plan.leads ? loadLeadDashboardFacts(supabase) : Promise.resolve(null),
@@ -577,6 +485,8 @@ export async function loadDashboardData(
       plan.financeReport ? loadReportsFinanceSnapshot(supabase, reportFilters, nowIso, reportsCan) : Promise.resolve(null),
       // Pipeline (§5.9) and Team Performance (§5.10) share one fact set.
       plan.salesReport ? loadReportsSalesSnapshot(supabase, reportFilters, nowIso) : Promise.resolve(null),
+      // Revenue / Gross Margin tiles - Reports' own executive summary, never a re-derivation.
+      plan.overview ? loadReportsOverviewSnapshot(supabase, reportFilters, nowIso, reportsCan) : Promise.resolve(null),
     ]);
 
   const leads = leadFacts ?? [];
@@ -740,6 +650,18 @@ export async function loadDashboardData(
         periodLabel,
         newInquiries: newInquiriesKpi,
         collections: collectionsKpi,
+        groupsAtRisk: opsKpis.groupsAtRisk,
+        supplierConfirmationsPending: opsKpis.supplierConfirmationsPending,
+        openTaskCount: snapshot.tasks.filter((t) => t.status !== "COMPLETE").length,
+        myOpenTaskCount: plan.myTasks ? myTasks.length : null,
+        overdueBalance: receivables ? overdueBalanceAmount : null,
+        refundsPending: refundsPending ? refundsPending.count : null,
+        executive: overview
+          ? {
+              summary: computeExecutiveSummary(overview.bookingsCurrent, overview.bookingsPrevious, overview.groups),
+              showMargin: reportsCan.viewCostAndMargin,
+            }
+          : null,
       }),
       DASHBOARD_KPI_CAP,
     ),

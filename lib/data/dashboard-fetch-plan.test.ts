@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import { baseDashboardCapabilities, visibleBlocks } from "@/lib/access/dashboard-access";
 import { STAFF_ROLES } from "@/lib/access/departure-groups-access";
 
-import { DASHBOARD_LAYOUTS, type DashboardPanelId } from "./dashboard-layout";
+import { DASHBOARD_KPI_ORDER, DASHBOARD_LAYOUTS, type DashboardPanelId } from "./dashboard-layout";
 import { planDashboardFetch } from "./dashboard-fetch-plan";
 
 const WHO = { staffId: "staff-1", agencyId: "agency-1" };
 
 function planFor(role: (typeof STAFF_ROLES)[number], who = WHO) {
   const caps = baseDashboardCapabilities(role);
-  return planDashboardFetch(visibleBlocks(DASHBOARD_LAYOUTS[role], caps), caps, who);
+  return planDashboardFetch(visibleBlocks(DASHBOARD_LAYOUTS[role], caps), caps, who, DASHBOARD_KPI_ORDER[role]);
 }
 
 describe("planDashboardFetch", () => {
@@ -23,6 +23,7 @@ describe("planDashboardFetch", () => {
       proposals: false,
       financeReport: false,
       salesReport: false,
+      overview: false,
       myTasks: true,
     });
   });
@@ -67,5 +68,34 @@ describe("planDashboardFetch", () => {
   it("needs an agency to read proposals", () => {
     const caps = baseDashboardCapabilities("ADMIN");
     expect(planDashboardFetch(DASHBOARD_LAYOUTS.ADMIN, caps, { staffId: "s", agencyId: null }).proposals).toBe(false);
+  });
+
+  describe("KPI-driven reads", () => {
+    const caps = baseDashboardCapabilities("ADMIN");
+    const kpisOnly: DashboardPanelId[] = ["kpis"];
+
+    it("reads the Reports overview only when the role's row lists revenue or gross margin and Reports overview is allowed", () => {
+      expect(planDashboardFetch(kpisOnly, caps, WHO, ["revenue"]).overview).toBe(true);
+      expect(planDashboardFetch(kpisOnly, caps, WHO, ["gross-margin"]).overview).toBe(true);
+      expect(planDashboardFetch(kpisOnly, caps, WHO, ["departing-30"]).overview).toBe(false);
+      expect(planFor("CEO").overview).toBe(true);
+      expect(planFor("FINANCE").overview).toBe(false);
+      expect(planFor("GUIDE").overview).toBe(false);
+    });
+
+    it("never reads the overview for a role without Reports overview, even if the tile is listed", () => {
+      const guide = baseDashboardCapabilities("GUIDE");
+      expect(planDashboardFetch(kpisOnly, guide, WHO, ["revenue"]).overview).toBe(false);
+    });
+
+    it("reads My tasks for the KPI alone when My Day is not shown", () => {
+      expect(planDashboardFetch(kpisOnly, caps, WHO, ["my-open-tasks"]).myTasks).toBe(true);
+      expect(planDashboardFetch(kpisOnly, caps, WHO, ["departing-30"]).myTasks).toBe(false);
+    });
+
+    it("reads pending refunds for the KPI alone when Collections and the rail are not shown", () => {
+      expect(planDashboardFetch(kpisOnly, caps, WHO, ["refunds-pending"]).refunds).toBe(true);
+      expect(planDashboardFetch(kpisOnly, caps, WHO, ["departing-30"]).refunds).toBe(false);
+    });
   });
 });

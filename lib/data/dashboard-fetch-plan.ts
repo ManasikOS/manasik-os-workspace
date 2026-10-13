@@ -12,7 +12,7 @@
  */
 
 import type { DashboardCapabilities } from "@/lib/access/dashboard-access";
-import type { DashboardPanelId } from "@/lib/data/dashboard-layout";
+import type { DashboardKpiId, DashboardPanelId } from "@/lib/data/dashboard-layout";
 
 export interface DashboardFetchPlan {
   /** Lead facts — KPI "New Inquiries" and the Attention Rail's lead rows. */
@@ -29,7 +29,9 @@ export interface DashboardFetchPlan {
   financeReport: boolean;
   /** Reports sales snapshot — Pipeline and Team Performance. */
   salesReport: boolean;
-  /** The signed-in person's own tasks — My Day. */
+  /** Reports overview snapshot — the Revenue and Gross Margin KPI tiles. */
+  overview: boolean;
+  /** The signed-in person's own tasks — My Day and the My Open Tasks tile. */
   myTasks: boolean;
 }
 
@@ -37,18 +39,22 @@ export function planDashboardFetch(
   blocks: readonly DashboardPanelId[],
   caps: DashboardCapabilities,
   who: { staffId: string | null; agencyId: string | null },
+  /** The role's KPI tile order — a tile that needs its own read only asks for it when listed. */
+  kpiIds: readonly DashboardKpiId[] = [],
 ): DashboardFetchPlan {
   const has = (id: DashboardPanelId): boolean => blocks.includes(id);
+  const kpi = (id: DashboardKpiId): boolean => has("kpis") && kpiIds.includes(id);
   const ledger = caps.finance.viewLedger;
 
   return {
     leads: caps.leads.viewModule && (has("kpis") || has("attention-rail")),
     receivables: ledger && (has("collections") || has("kpis") || has("ai-briefing")),
     payments: ledger && (has("collections") || has("kpis")),
-    refunds: ledger && (has("collections") || has("attention-rail")),
+    refunds: ledger && (has("collections") || has("attention-rail") || kpi("refunds-pending")),
     proposals: caps.operations.viewModule && who.agencyId !== null && has("approvals"),
     financeReport: caps.reports.viewFinance && has("revenue-trend"),
     salesReport: caps.reports.viewSales && (has("pipeline") || has("team-performance")),
-    myTasks: who.staffId !== null && has("my-day"),
+    overview: caps.reports.viewOverview && (kpi("revenue") || kpi("gross-margin")),
+    myTasks: who.staffId !== null && (has("my-day") || kpi("my-open-tasks")),
   };
 }
