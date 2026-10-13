@@ -103,7 +103,7 @@ Avg seat fill, Revenue, Gross margin.
 **Files:** `lib/data/dashboard-repository.ts`, `lib/types/dashboard.ts`, `app/(main)/dashboard/components/block-boundary.tsx` (new), `app/(main)/dashboard/page.tsx`
 **Scope:** M
 
-### [ ] T7: Recent Activity on the merged feed
+### [x] T7: Recent Activity on the merged feed
 **Description:** Replace the Operations-only activity slice with `loadMergedActivityFeed`; map real `type` per row.
 **Acceptance:**
 - [ ] A finance/visa/lead event appears with the correct type icon; no row hard-coded `"operations"`.

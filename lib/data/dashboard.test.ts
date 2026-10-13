@@ -4,7 +4,7 @@ import type { AdminKpi } from "@/lib/types/dashboard";
 
 import type { ExecutiveSummary } from "@/lib/data/reports";
 
-import { buildKpiCandidates, kpiTrendFromPercent, selectKpis } from "./dashboard";
+import { activityTypeFor, buildKpiCandidates, kpiTrendFromPercent, selectKpis } from "./dashboard";
 
 function kpi(id: string): AdminKpi {
   return { id, title: id, value: "1", destination: `/${id}` };
@@ -203,5 +203,19 @@ describe("kpiTrendFromPercent", () => {
     expect(kpiTrendFromPercent(-8, "previous period")).toEqual({ trend: "-8% vs previous period", trendType: "negative" });
     expect(kpiTrendFromPercent(0.2, "previous period")).toEqual({ trend: "Flat vs previous period", trendType: "neutral" });
     expect(kpiTrendFromPercent(null, "previous period")).toBeUndefined();
+  });
+});
+
+describe("activityTypeFor", () => {
+  it("maps the group log's entity types to the dashboard's activity categories", () => {
+    expect(activityTypeFor("PAYMENT")).toBe("payment");
+    expect(activityTypeFor("DOCUMENT")).toBe("document");
+    expect(activityTypeFor("VISA")).toBe("visa");
+  });
+
+  it("files every other entity type under operations", () => {
+    for (const entity of ["GROUP", "FLIGHT", "ACCOMMODATION", "ROOM", "TRANSPORT", "BOOKING", "PILGRIM", "TASK", "READINESS_ITEM", "SOMETHING_NEW"]) {
+      expect(activityTypeFor(entity)).toBe("operations");
+    }
   });
 });

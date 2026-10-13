@@ -124,6 +124,8 @@ export interface RecentActivityItem {
   timeAgo: string;
   avatarInitials: string;
   type: "document" | "payment" | "visa" | "lead" | "operations";
+  /** The departure group the event happened on - every row is a door into it. */
+  destination: string;
 }
 
 /** Top-risk-first slice of the agent's open queue (§5.7) — `null` for a role without Operations access. */

@@ -59,9 +59,13 @@ export default function RecentActivity({ activities }: RecentActivityProps) {
           }
         />
         <p className="text-xs text-muted-foreground mt-0.5">
-          Live audit log across sales and operations.
+          Latest changes across your departure groups.
         </p>
       </div>
+
+      {activities.length === 0 && (
+        <p className="text-sm text-muted-foreground">No recent activity.</p>
+      )}
 
       <div className="flex flex-col gap-3 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-px before:bg-border/60">
         {activities.map((act) => (
@@ -77,9 +81,12 @@ export default function RecentActivity({ activities }: RecentActivityProps) {
                   {act.actor}
                 </span>
                 <span className="text-muted-foreground">{act.action}</span>
-                <strong className="font-semibold text-foreground">
+                <Link
+                  href={act.destination}
+                  className="font-semibold text-foreground hover:underline"
+                >
                   {act.target}
-                </strong>
+                </Link>
               </div>
 
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">

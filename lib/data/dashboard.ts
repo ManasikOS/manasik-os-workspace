@@ -14,7 +14,7 @@ import { marginBelowTarget, type ExecutiveSummary, type TrendGranularity } from 
 import type { DashboardKpiId } from "@/lib/data/dashboard-layout";
 import type { OperationsGroupSummary } from "@/lib/types/operations";
 import type { Tone } from "@/lib/ui/tone";
-import type { AdminKpi, StatusLine } from "@/lib/types/dashboard";
+import type { AdminKpi, RecentActivityItem, StatusLine } from "@/lib/types/dashboard";
 
 export type { StatusLine };
 
@@ -385,4 +385,25 @@ export function buildKpiCandidates(input: {
   }
 
   return kpis;
+}
+
+/* ── Recent activity ──────────────────────────────────────────────────────── */
+
+/**
+ * The group activity log's `entity_type` -> the feed's category icon. Only
+ * payments, documents and visas have a category of their own; everything
+ * else a group can log (flights, rooms, tasks, bookings, ...) is operations.
+ * No "lead" here: lead activity is a different log with no Dashboard loader.
+ */
+export function activityTypeFor(entityType: string): RecentActivityItem["type"] {
+  switch (entityType) {
+    case "PAYMENT":
+      return "payment";
+    case "DOCUMENT":
+      return "document";
+    case "VISA":
+      return "visa";
+    default:
+      return "operations";
+  }
 }

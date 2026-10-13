@@ -397,3 +397,74 @@ describe("loadDashboardData - one failed read degrades one block, not the page",
     expect(data.blockErrors).toEqual({});
   });
 });
+
+describe("loadDashboardData - Recent Activity", () => {
+  const NOW = Date.now();
+  function activity(id: string, entityType: string, minutesAgo = 5) {
+    return {
+      id,
+      groupId: `g-${id}`,
+      groupName: `Group ${id}`,
+      groupCode: id,
+      actorName: "Aisha Khan",
+      actionType: "X",
+      entityType,
+      message: `did ${entityType}`,
+      isHighImpact: false,
+      isSystem: false,
+      createdAt: new Date(NOW - minutesAgo * 60_000).toISOString(),
+    };
+  }
+
+  function withActivity(rows: ReturnType<typeof activity>[]) {
+    buildOperationsSnapshot.mockResolvedValue({
+      nowIso: new Date().toISOString(),
+      groups: [],
+      tasks: [],
+      supplierRows: [],
+      flights: [],
+      accommodations: [],
+      transports: [],
+      guideBoard: [],
+      activity: rows,
+    });
+  }
+
+  it("types each row from its entity instead of calling everything operations", async () => {
+    withActivity([activity("1", "PAYMENT"), activity("2", "DOCUMENT"), activity("3", "VISA"), activity("4", "FLIGHT")]);
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.recentActivities.map((a) => a.type)).toEqual(["payment", "document", "visa", "operations"]);
+  });
+
+  it("links each row to its departure group", async () => {
+    withActivity([activity("1", "VISA")]);
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.recentActivities[0].destination).toBe("/departure-groups/g-1");
+  });
+
+  it("caps the feed at 8 rows, newest first", async () => {
+    withActivity(Array.from({ length: 12 }, (_, i) => activity(String(i), "TASK", i + 1)));
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.recentActivities).toHaveLength(8);
+    expect(data.recentActivities[0].id).toBe("0");
+  });
+
+  it("hides payment lines from a role that may not see the ledger, and still fills the feed", async () => {
+    withActivity([activity("p1", "PAYMENT"), ...Array.from({ length: 9 }, (_, i) => activity(`t${i}`, "TASK", i + 2))]);
+    const visa = await load("VISA", caps("VISA"));
+    expect(visa.recentActivities.some((a) => a.type === "payment")).toBe(false);
+    expect(visa.recentActivities).toHaveLength(8);
+  });
+
+  it("shows payment lines to a role with ledger access", async () => {
+    withActivity([activity("p1", "PAYMENT")]);
+    const finance = await load("FINANCE", caps("FINANCE"));
+    expect(finance.recentActivities.map((a) => a.type)).toEqual(["payment"]);
+  });
+
+  it("never reads a person's own security log - the feed comes from the already-scoped group activity", async () => {
+    withActivity([activity("1", "GROUP")]);
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.recentActivities.every((a) => a.destination.startsWith("/departure-groups/"))).toBe(true);
+  });
+});

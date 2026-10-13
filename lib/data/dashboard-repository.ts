@@ -44,6 +44,7 @@ import {
   dashboardPeriodLabel,
   buildStatusLine,
   selectKpis,
+  activityTypeFor,
   buildKpiCandidates,
   formatCurrencyLKR,
   type PeriodCount,
@@ -585,15 +586,27 @@ export async function loadDashboardData(
       }
     : null;
 
-  const activity = snapshot.activity.slice(0, 8).map((a) => ({
-    id: a.id,
-    actor: a.isSystem ? "System" : a.actorName,
-    action: a.message,
-    target: a.groupName,
-    timeAgo: timeAgo(a.createdAt, nowMs),
-    avatarInitials: a.isSystem ? "SY" : initials(a.actorName),
-    type: "operations" as const,
-  }));
+  // The group activity log, already scoped by `buildOperationsSnapshot` (a
+  // GUIDE sees only their assigned groups). Not `loadMergedActivityFeed`:
+  // that is one person's own log plus their account-security events, which
+  // would show an admin only their own actions on the landing page.
+  //
+  // Payment lines can carry amounts, and every role other than GUIDE reads
+  // every group's log, so they are shown only to a role that may see the
+  // ledger. Filtered *before* the cap so the feed still fills.
+  const activity = snapshot.activity
+    .filter((a) => a.entityType !== "PAYMENT" || financeCan.viewLedger)
+    .slice(0, 8)
+    .map((a) => ({
+      id: a.id,
+      actor: a.isSystem ? "System" : a.actorName,
+      action: a.message,
+      target: a.groupName,
+      timeAgo: timeAgo(a.createdAt, nowMs),
+      avatarInitials: a.isSystem ? "SY" : initials(a.actorName),
+      type: activityTypeFor(a.entityType),
+      destination: `/departure-groups/${a.groupId}`,
+    }));
 
   // `computeOperationsKpis()` is Operations' own derivation — reused here
   // rather than re-defining "at risk" or "supplier confirmations pending" a
