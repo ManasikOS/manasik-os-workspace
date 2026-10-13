@@ -20,10 +20,7 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
-import { capabilitiesForFinance } from "@/lib/access/finance-access";
-import { capabilitiesForLeads } from "@/lib/access/leads-access";
-import { capabilitiesForOperations } from "@/lib/access/operations-access";
-import { capabilitiesForReports } from "@/lib/access/reports-access";
+import type { DashboardCapabilities } from "@/lib/access/dashboard-access";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import { buildOperationsSnapshot } from "@/lib/data/operations-repository";
 import { computeOperationsKpis } from "@/lib/data/operations";
@@ -503,7 +500,14 @@ export async function loadDashboardData(
   role: StaffRole,
   staffId: string | null,
   agencyId: string | null,
-  period: DashboardPeriod = "THIS_QUARTER",
+  period: DashboardPeriod,
+  /**
+   * The signed-in person's resolved capabilities — base role plus any
+   * custom-role overrides (`getCurrentDashboardCapabilities()`). Taken as an
+   * argument rather than derived from `role` so a custom role's restrictions
+   * decide what is *fetched*, not just what is shown.
+   */
+  caps: DashboardCapabilities,
 ): Promise<DashboardData> {
   const supabase = await db();
   const nowMs = Date.now();
@@ -522,10 +526,10 @@ export async function loadDashboardData(
   // has no branch/journey/package/group filters of its own to set.
   const reportFilters: ReportFilters = { ...DEFAULT_REPORT_FILTERS, period: toReportPeriod(period) };
 
-  const financeCan = capabilitiesForFinance(role);
-  const leadsCan = capabilitiesForLeads(role);
-  const opsCan = capabilitiesForOperations(role);
-  const reportsCan = capabilitiesForReports(role);
+  const financeCan = caps.finance;
+  const leadsCan = caps.leads;
+  const opsCan = caps.operations;
+  const reportsCan = caps.reports;
 
   // `staff_group_assignments` scoping, not a name match — see the comment on
   // `loadActiveStore()` in `lib/data/operations-repository.ts`.

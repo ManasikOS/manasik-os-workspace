@@ -18,6 +18,7 @@ import AiBriefing from "./components/ai-briefing";
 import SetupGuideCard from "./components/setup-guide-card";
 import PeriodSelector from "./components/period-selector";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { getCurrentDashboardCapabilities } from "@/lib/data/dashboard-capabilities";
 import {
   loadDashboardData,
   loadInboxOwnerIntelligence,
@@ -174,9 +175,12 @@ export default async function DashboardPage({
   const resolvedSearchParams = await searchParams;
   const period = resolveDashboardPeriod(resolvedSearchParams.period);
 
+  // Base role + custom-role overrides; decides what is fetched, not just shown.
+  const caps = await getCurrentDashboardCapabilities();
+
   const [data, inboxIntelligence] = await Promise.all([
     withTiming("dashboard.loadData", () =>
-      loadDashboardData(role, staffId, agencyId, period),
+      loadDashboardData(role, staffId, agencyId, period, caps),
     ),
     loadInboxOwnerIntelligence(role, agencyId),
   ]);

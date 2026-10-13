@@ -21,7 +21,7 @@ the pure `BLOCK_GATES` / `visibleBlocks` functions. No page or repository change
 **Files:** `lib/access/dashboard-access.ts` (new), `lib/access/dashboard-access.test.ts` (new), `lib/data/dashboard-layout.ts` (ids only, if T3 types not yet merged)
 **Scope:** S
 
-### [ ] T2: Route repository and page through the capability bundle  ← closes G1
+### [x] T2: Route repository and page through the capability bundle  ← closes G1
 **Description:** Replace the four direct `capabilitiesFor*(role)` calls in `loadDashboardData` (and `loadInboxOwnerIntelligence`'s
 role check) with the bundle from T1, so custom-role restrictions are honoured everywhere the dashboard fetches or renders.
 **Acceptance:**
