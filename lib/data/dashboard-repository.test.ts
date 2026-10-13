@@ -16,7 +16,9 @@ const loadRefundsPendingSummary = vi.fn();
 const loadReportsFinanceSnapshot = vi.fn();
 const loadReportsSalesSnapshot = vi.fn();
 const loadReportsOverviewSnapshot = vi.fn();
+const reportHandledError = vi.fn();
 
+vi.mock("@/lib/observability/report-error", () => ({ reportHandledError: (...a: unknown[]) => reportHandledError(...a) }));
 vi.mock("@/lib/data/operations-repository", () => ({ buildOperationsSnapshot: (...a: unknown[]) => buildOperationsSnapshot(...a) }));
 vi.mock("@/lib/data/team-repository", () => ({
   loadAssignedGroupIds: (...a: unknown[]) => loadAssignedGroupIds(...a),
@@ -299,5 +301,99 @@ describe("loadDashboardData - the new tiles read only what they need", () => {
     const data = await load("FINANCE", caps("FINANCE"));
     expect(data.kpis.find((k) => k.id === "refunds-pending")?.value).toBe("4");
     expect(data.kpis.find((k) => k.id === "overdue-balance")).toBeDefined();
+  });
+});
+
+describe("loadDashboardData - one failed read degrades one block, not the page", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("reports no block errors and no notice when every read succeeds", async () => {
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.blockErrors).toEqual({});
+    expect(data.statusLine.message).not.toContain("couldn't be loaded");
+  });
+
+  it("marks only Collections when the receivables read throws, and still builds every other block", async () => {
+    loadFinanceReceivables.mockRejectedValue(new Error("db down"));
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.blockErrors).toEqual({ collections: true });
+    expect(data.collections).toBeNull();
+    expect(data.businessHealth).not.toBeNull();
+    expect(data.pipeline).not.toBeNull();
+    expect(data.approvals).not.toBeNull();
+  });
+
+  it("marks Collections when the refunds read throws, rather than showing 0 pending refunds", async () => {
+    loadRefundsPendingSummary.mockRejectedValue(new Error("db down"));
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.blockErrors.collections).toBe(true);
+    expect(data.collections).toBeNull();
+  });
+
+  it("never lets a failed ledger read look like All clear", async () => {
+    loadFinanceReceivables.mockRejectedValue(new Error("db down"));
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.statusLine.message).toContain("couldn't be loaded");
+    expect(data.statusLine.message).not.toContain("All clear");
+    expect(data.statusLine.tone).not.toBe("success");
+  });
+
+  it("marks Agent approvals when proposals cannot be read", async () => {
+    listAgencyOpenProposals.mockRejectedValue(new Error("db down"));
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.blockErrors).toEqual({ approvals: true });
+    expect(data.approvals).toBeNull();
+  });
+
+  it("marks Revenue trend when the finance report cannot be read", async () => {
+    loadReportsFinanceSnapshot.mockRejectedValue(new Error("db down"));
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.blockErrors).toEqual({ "revenue-trend": true });
+    expect(data.businessHealth).toBeNull();
+  });
+
+  it("marks Pipeline and Team performance when the sales report cannot be read", async () => {
+    loadReportsSalesSnapshot.mockRejectedValue(new Error("db down"));
+    const data = await load("ADMIN", caps("ADMIN"));
+    expect(data.blockErrors).toEqual({ pipeline: true, "team-performance": true });
+  });
+
+  it("marks My Day, not an empty list, when the person's tasks cannot be read", async () => {
+    loadTasksForStaff.mockRejectedValue(new Error("db down"));
+    const data = await load("GUIDE", caps("GUIDE"));
+    expect(data.blockErrors).toEqual({ "my-day": true });
+    expect(data.kpis.map((k) => k.id)).not.toContain("my-open-tasks");
+  });
+
+  it("drops only the Revenue and Margin tiles, with a notice, when the overview cannot be read", async () => {
+    loadReportsOverviewSnapshot.mockRejectedValue(new Error("db down"));
+    const data = await load("CEO", caps("CEO"));
+    const ids = data.kpis.map((k) => k.id);
+    expect(ids).not.toContain("revenue");
+    expect(ids).not.toContain("gross-margin");
+    expect(ids.length).toBeGreaterThan(0);
+    expect(data.blockErrors).toEqual({});
+    expect(data.statusLine.message).toContain("couldn't be loaded");
+  });
+
+  it("logs each failure and reports it as handled", async () => {
+    loadReportsFinanceSnapshot.mockRejectedValue(new Error("db down"));
+    await load("ADMIN", caps("ADMIN"));
+    expect(console.error).toHaveBeenCalled();
+    expect(reportHandledError).toHaveBeenCalledWith("dashboard.financeReport", expect.any(Error), expect.anything());
+  });
+
+  it("still fails the page when the Operations snapshot - what every block builds on - cannot be read", async () => {
+    buildOperationsSnapshot.mockRejectedValue(new Error("db down"));
+    await expect(load("ADMIN", caps("ADMIN"))).rejects.toThrow("db down");
+  });
+
+  it("does not mark a block the role does not render", async () => {
+    loadReportsSalesSnapshot.mockRejectedValue(new Error("db down"));
+    const data = await load("FINANCE", caps("FINANCE"));
+    expect(loadReportsSalesSnapshot).not.toHaveBeenCalled();
+    expect(data.blockErrors).toEqual({});
   });
 });

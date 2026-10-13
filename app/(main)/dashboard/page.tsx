@@ -30,8 +30,11 @@ import {
   splitDashboardBlocks,
   type DashboardBannerBlockId,
   type DashboardGridPanelId,
+  type DashboardPanelId,
 } from "@/lib/data/dashboard-layout";
 import { visibleBlocks } from "@/lib/access/dashboard-access";
+import { reportHandledError } from "@/lib/observability/report-error";
+import BlockBoundary, { BlockErrorCard } from "./components/block-boundary";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import type { DashboardData } from "@/lib/types/dashboard";
 import {
@@ -78,6 +81,27 @@ const PANEL_SPAN: Record<DashboardGridPanelId, string> = {
   "recent-activity": "lg:col-span-6",
 };
 
+/**
+ * What each block is called in an error card. A `Record` over every panel id
+ * so a new block cannot ship without a name.
+ */
+const BLOCK_LABEL: Record<DashboardPanelId, string> = {
+  "ai-briefing": "Briefing",
+  kpis: "Key figures",
+  "inbox-owner": "Inbox intelligence",
+  pipeline: "Pipeline",
+  "my-day": "My Day",
+  "upcoming-departures": "Upcoming departures",
+  "attention-rail": "Needs attention",
+  approvals: "Agent approvals",
+  "seat-fill-pace": "Seat fill pace",
+  "revenue-trend": "Revenue and receivables",
+  "readiness-heatmap": "Readiness",
+  collections: "Collections",
+  "team-performance": "Team performance",
+  "recent-activity": "Recent activity",
+};
+
 function renderDashboardPanels(
   layout: DashboardGridPanelId[],
   data: DashboardData,
@@ -86,6 +110,11 @@ function renderDashboardPanels(
   const panels: { id: DashboardGridPanelId; node: ReactNode }[] = [];
 
   for (const id of layout) {
+    // A failed read is not "nothing to show": say so, in the block's place.
+    if (data.blockErrors[id]) {
+      panels.push({ id, node: <BlockErrorCard label={BLOCK_LABEL[id]} /> });
+      continue;
+    }
     switch (id) {
       case "pipeline":
         if (data.pipeline)
@@ -167,7 +196,7 @@ function renderDashboardPanels(
     <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-flow-row-dense gap-6">
       {panels.map(({ id, node }) => (
         <div key={id} className={PANEL_SPAN[id]}>
-          {node}
+          <BlockBoundary label={BLOCK_LABEL[id]}>{node}</BlockBoundary>
         </div>
       ))}
     </div>
@@ -180,13 +209,26 @@ function renderDashboardBanner(
   data: DashboardData,
   role: StaffRole,
   name: string | null,
-  inboxIntelligence: InboxOwnerIntelligence | null,
+  inboxIntelligence: InboxOwnerIntelligence | null | "error",
+): ReactNode {
+  return (
+    <BlockBoundary key={id} label={BLOCK_LABEL[id]}>
+      {renderBannerBody(id, data, role, name, inboxIntelligence)}
+    </BlockBoundary>
+  );
+}
+
+function renderBannerBody(
+  id: DashboardBannerBlockId,
+  data: DashboardData,
+  role: StaffRole,
+  name: string | null,
+  inboxIntelligence: InboxOwnerIntelligence | null | "error",
 ): ReactNode {
   switch (id) {
     case "ai-briefing":
       return (
         <AiBriefing
-          key={id}
           staffName={name}
           role={role}
           status={data.statusLine}
@@ -196,10 +238,13 @@ function renderDashboardBanner(
         />
       );
     case "kpis":
-      return <DashboardMetrics key={id} kpis={data.kpis} />;
+      return <DashboardMetrics kpis={data.kpis} />;
     case "inbox-owner":
+      if (inboxIntelligence === "error") {
+        return <BlockErrorCard label={BLOCK_LABEL[id]} />;
+      }
       return inboxIntelligence ? (
-        <InboxIntelligencePanel key={id} data={inboxIntelligence} />
+        <InboxIntelligencePanel data={inboxIntelligence} />
       ) : null;
   }
 }
@@ -226,8 +271,14 @@ export default async function DashboardPage({
     withTiming("dashboard.loadData", () =>
       loadDashboardData(role, staffId, agencyId, period, caps, blocks),
     ),
+    // Optional like every other read: a failure here is an error card, not a
+    // failed page.
     banners.includes("inbox-owner")
-      ? loadInboxOwnerIntelligence(role, agencyId)
+      ? loadInboxOwnerIntelligence(role, agencyId).catch((error: unknown) => {
+          console.error("[dashboard] the inbox owner panel read failed:", error);
+          reportHandledError("dashboard.inboxOwner", error, { agencyId: agencyId ?? undefined });
+          return "error" as const;
+        })
       : Promise.resolve(null),
   ]);
 

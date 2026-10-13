@@ -91,7 +91,7 @@ Avg seat fill, Revenue, Gross margin.
 **Files:** `lib/data/dashboard-repository.ts`, `lib/data/dashboard.ts`, `lib/data/dashboard.test.ts`, `lib/types/dashboard.ts`
 **Scope:** S
 
-### [ ] T6: Per-block failure isolation
+### [x] T6: Per-block failure isolation
 **Description:** Loader failures degrade one block, not the page. `Promise.allSettled` in the repository; a rejected loader yields
 `{ status: "error" }` for its dependents; each rendered block is wrapped in the existing route error boundary pattern.
 **Acceptance:**

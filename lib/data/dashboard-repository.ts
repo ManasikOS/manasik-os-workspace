@@ -62,6 +62,7 @@ import { buildSeatPacePoints } from "@/lib/data/dashboard-pace";
 import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
 import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/operations";
+import { reportHandledError } from "@/lib/observability/report-error";
 import { createClient } from "@/utils/supabase/server";
 
 import type {
@@ -418,6 +419,19 @@ function buildLeadAttention(leads: DashboardLeadFacts[], nowMs: number) {
 
 /* ── Main entry point ─────────────────────────────────────────────────────── */
 
+/** The optional reads a Dashboard render can make; each can fail without taking the page down. */
+type DashboardRead =
+  | "leads"
+  | "receivables"
+  | "payments"
+  | "refunds"
+  | "myTasks"
+  | "proposals"
+  | "copilot"
+  | "financeReport"
+  | "salesReport"
+  | "overview";
+
 export async function loadDashboardData(
   role: StaffRole,
   staffId: string | null,
@@ -468,26 +482,48 @@ export async function loadDashboardData(
   // never be mistaken for a real zero.
   const plan = planDashboardFetch(blocks, caps, { staffId, agencyId }, resolveDashboardKpiOrder(role));
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasks, openProposals, copilotToday, financeReport, salesReport, overview] =
+  // One failed optional read must not blank the landing page. A failure is
+  // logged and reported, the read resolves `null` ("unknown", exactly like a
+  // skipped read), and the blocks that depend on it are marked in
+  // `blockErrors` below. The Operations snapshot is deliberately NOT
+  // wrapped: every block and the status line build on it, so without it
+  // there is nothing honest to show and the route's own error boundary
+  // takes over.
+  const failed = new Set<DashboardRead>();
+  const read = async <T>(name: DashboardRead, wanted: boolean, run: () => Promise<T>): Promise<T | null> => {
+    if (!wanted) return null;
+    try {
+      return await run();
+    } catch (error) {
+      failed.add(name);
+      console.error(`[dashboard] the "${name}" read failed; the blocks that need it degrade and the page still renders:`, error);
+      reportHandledError(`dashboard.${name}`, error, { agencyId: agencyId ?? undefined });
+      return null;
+    }
+  };
+
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
-      plan.leads ? loadLeadDashboardFacts(supabase) : Promise.resolve(null),
-      plan.receivables ? loadFinanceReceivables(supabase, financeCan) : Promise.resolve(null),
-      plan.payments ? loadFinancePayments(supabase) : Promise.resolve(null),
-      plan.refunds ? loadRefundsPendingSummary(supabase) : Promise.resolve(null),
-      plan.myTasks && staffId ? loadTasksForStaff(supabase, staffId) : Promise.resolve([]),
-      plan.proposals && agencyId ? listAgencyOpenProposals(agencyId, supabase) : Promise.resolve(null),
-      plan.proposals && agencyId ? getCopilotDailySummary(agencyId, supabase) : Promise.resolve(null),
-      // Business Health (§5.8) — gated on `viewFinance` alone since every
+      read("leads", plan.leads, () => loadLeadDashboardFacts(supabase)),
+      read("receivables", plan.receivables, () => loadFinanceReceivables(supabase, financeCan)),
+      read("payments", plan.payments, () => loadFinancePayments(supabase)),
+      read("refunds", plan.refunds, () => loadRefundsPendingSummary(supabase)),
+      staffId ? read("myTasks", plan.myTasks, () => loadTasksForStaff(supabase, staffId)) : Promise.resolve(null),
+      agencyId ? read("proposals", plan.proposals, () => listAgencyOpenProposals(agencyId, supabase)) : Promise.resolve(null),
+      agencyId ? read("copilot", plan.proposals, () => getCopilotDailySummary(agencyId, supabase)) : Promise.resolve(null),
+      // Business Health (§5.8) - gated on `viewFinance` alone since every
       // figure it shows (revenue, bookings, collections, receivables,
       // margin) is finance-flavoured; `viewCostAndMargin` narrows the
       // margin tab specifically, below.
-      plan.financeReport ? loadReportsFinanceSnapshot(supabase, reportFilters, nowIso, reportsCan) : Promise.resolve(null),
+      read("financeReport", plan.financeReport, () => loadReportsFinanceSnapshot(supabase, reportFilters, nowIso, reportsCan)),
       // Pipeline (§5.9) and Team Performance (§5.10) share one fact set.
-      plan.salesReport ? loadReportsSalesSnapshot(supabase, reportFilters, nowIso) : Promise.resolve(null),
+      read("salesReport", plan.salesReport, () => loadReportsSalesSnapshot(supabase, reportFilters, nowIso)),
       // Revenue / Gross Margin tiles - Reports' own executive summary, never a re-derivation.
-      plan.overview ? loadReportsOverviewSnapshot(supabase, reportFilters, nowIso, reportsCan) : Promise.resolve(null),
+      read("overview", plan.overview, () => loadReportsOverviewSnapshot(supabase, reportFilters, nowIso, reportsCan)),
     ]);
+
+  const myTasks = myTasksRead ?? [];
 
   const leads = leadFacts ?? [];
 
@@ -519,7 +555,7 @@ export async function loadDashboardData(
         }
       : null;
 
-  const collections = blocks.includes("collections") && receivables && payments
+  const collections = blocks.includes("collections") && receivables && payments && !failed.has("refunds")
     ? {
         thisMonth: formatCurrencyLKR(collectedThisMonth),
         due7Days: formatCurrencyLKR(
@@ -576,6 +612,9 @@ export async function loadDashboardData(
     overdueTaskCount,
     overdueBalanceLabel: receivables ? formatCurrencyLKR(overdueBalanceAmount) : null,
     overdueBalanceAmount: receivables ? overdueBalanceAmount : 0,
+    figuresUnavailable: (
+      ["leads", "receivables", "payments", "refunds", "myTasks", "overview"] as const
+    ).some((name) => failed.has(name)),
   });
 
   const leadAttention = leadFacts ? buildLeadAttention(leads, nowMs) : { items: [] as LeadAttentionMetric[] };
@@ -640,8 +679,20 @@ export async function loadDashboardData(
   // too, with no extra gating needed.
   const seatPace = buildSeatPacePoints(activeGroupsForStatus);
 
+  const blockErrors: DashboardData["blockErrors"] = {};
+  const markFailed = (id: DashboardPanelId, ...reads: DashboardRead[]) => {
+    if (blocks.includes(id) && reads.some((name) => failed.has(name))) blockErrors[id] = true;
+  };
+  markFailed("collections", "receivables", "payments", "refunds");
+  markFailed("approvals", "proposals");
+  markFailed("revenue-trend", "financeReport");
+  markFailed("pipeline", "salesReport");
+  markFailed("team-performance", "salesReport");
+  markFailed("my-day", "myTasks");
+
   return {
     statusLine,
+    blockErrors,
     kpis: selectKpis(
       resolveDashboardKpiOrder(role),
       buildKpiCandidates({
@@ -653,7 +704,7 @@ export async function loadDashboardData(
         groupsAtRisk: opsKpis.groupsAtRisk,
         supplierConfirmationsPending: opsKpis.supplierConfirmationsPending,
         openTaskCount: snapshot.tasks.filter((t) => t.status !== "COMPLETE").length,
-        myOpenTaskCount: plan.myTasks ? myTasks.length : null,
+        myOpenTaskCount: plan.myTasks && !failed.has("myTasks") ? myTasks.length : null,
         overdueBalance: receivables ? overdueBalanceAmount : null,
         refundsPending: refundsPending ? refundsPending.count : null,
         executive: overview

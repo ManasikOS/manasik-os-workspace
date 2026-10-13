@@ -103,6 +103,8 @@ export function buildStatusLine(input: {
   overdueTaskCount: number;
   overdueBalanceLabel: string | null;
   overdueBalanceAmount: number;
+  /** A read behind the briefing, KPI row or rail failed - the line must not claim "All clear" over data it never saw. */
+  figuresUnavailable?: boolean;
 }): StatusLine {
   const parts: string[] = [];
 
@@ -114,6 +116,9 @@ export function buildStatusLine(input: {
   }
   if (input.overdueBalanceAmount > 0 && input.overdueBalanceLabel) {
     parts.push(`${input.overdueBalanceLabel} overdue`);
+  }
+  if (input.figuresUnavailable) {
+    parts.push("Some figures couldn't be loaded");
   }
 
   if (parts.length === 0) {

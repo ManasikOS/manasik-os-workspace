@@ -62,7 +62,7 @@ T2,T3 ──► T16 e2e matrix ;  T4 ──► T17 perf baseline
 ### Phase 2 — KPIs, resilience, polish
 - [x] T5a Role-selected KPI row, cap 6 (S) — closes G2
 - [x] T5b KPI tiles that need no new loader (S)
-- [ ] T6 Per-block failure isolation (M) — closes G6
+- [x] T6 Per-block failure isolation (M) — closes G6
 - [ ] T7 Recent Activity on merged feed (S) — closes G5
 - [ ] T8 Zero-visible-blocks state + stale-doc fix (XS) — closes G7, C9
 ### Checkpoint B — existing blocks fully role-correct

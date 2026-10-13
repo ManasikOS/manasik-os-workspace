@@ -13,6 +13,7 @@ import type { RevenueTrendPoint } from "@/lib/data/reports";
 import type { AgingBucketRow, CollectionsSummary, PackageProfitabilityRow } from "@/lib/data/reports-finance";
 import type { FunnelStageRow, LeadSourceRow, SalesOwnerRow } from "@/lib/data/reports-sales";
 import type { SeatPacePoint } from "@/lib/data/dashboard-pace";
+import type { DashboardPanelId } from "@/lib/data/dashboard-layout";
 
 export interface StatusLine {
   tone: Tone;
@@ -154,6 +155,13 @@ export interface PipelineData {
 
 export interface DashboardData {
   statusLine: StatusLine;
+  /**
+   * Blocks whose own data could not be read this render. The page shows a
+   * muted error card in their place instead of an empty block that would
+   * read as "nothing to do" (`null` data alone cannot tell "not allowed"
+   * from "failed"). Only blocks the role actually renders appear here.
+   */
+  blockErrors: Partial<Record<DashboardPanelId, true>>;
   kpis: AdminKpi[];
   myDay: MyDayData;
   departureGroups: UpcomingDepartureGroup[];
