@@ -72,16 +72,11 @@ import ConfirmActionDialog, {
 import DepartureGroupsKPI from "./departure-groups-kpi-cards/departure-groups-kpi";
 
 /**
- * These three sheets/dialogs are the heaviest components on the list route
- * (the create sheet alone is ~900 lines with a full form + calendar), so
- * they're code-split and only mounted once the user has actually opened them
- * at least once — otherwise every visitor pays for their JS on first paint
- * whether or not they have permission to open them.
+ * These two sheets/dialogs are code-split and only mounted once the user has
+ * actually opened them at least once — otherwise every visitor pays for their
+ * JS on first paint whether or not they have permission to open them.
  */
 const ArchivedGroupsSheet = dynamic(() => import("./archived-groups-sheet"));
-const CreateDepartureGroupDialog = dynamic(
-  () => import("./create-departure-group-dialog"),
-);
 const ImportGroupsDialog = dynamic(() => import("./import-groups-dialog"));
 import { buildGroupColumns } from "./groups-table/groups-columns";
 import { DataTable } from "@/components/data-table/data-table";
@@ -122,10 +117,6 @@ interface DepartureGroupsListProps {
   role: StaffRole;
   /** From `staff_group_assignments`, for the "My Assigned Groups" saved view. */
   assignedGroupIds: string[];
-  /** From `?create=1` — opens the create sheet on mount. See finding C4. */
-  autoOpenCreate?: boolean;
-  /** From `?template=<id>` — preselected once the sheet is open, if it's a real, visible template. */
-  initialCreateTemplateId?: string | null;
 }
 
 const DepartureGroupsList = ({
@@ -134,25 +125,12 @@ const DepartureGroupsList = ({
   templates,
   role,
   assignedGroupIds,
-  autoOpenCreate = false,
-  initialCreateTemplateId = null,
 }: DepartureGroupsListProps) => {
   const router = useRouter();
   const can = useDepartureCapabilities(role);
 
   const [savedView, setSavedView] =
     useState<DepartureGroupSavedView>("All Groups");
-  // `?create=1` (see `autoOpenCreate`'s own comment) opens the sheet from
-  // its very first render via lazy initial state, rather than flipping it
-  // open in a mount effect — this is a one-time "what should this start
-  // as" decision from a server-provided prop, not a case of synchronising
-  // with anything that changes after mount, so the initializer form is both
-  // the simpler and the correct tool (an effect would render once closed,
-  // then immediately again open, which is exactly the extra render the
-  // lint rule this sidesteps warns about).
-  const [createOpen, setCreateOpen] = useState(
-    () => autoOpenCreate && can.createGroup,
-  );
   const [importOpen, setImportOpen] = useState(false);
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [pending, setPending] = useState<PendingGroupAction | null>(null);
@@ -160,9 +138,6 @@ const DepartureGroupsList = ({
   // Mount each code-split sheet/dialog only once it has actually been opened,
   // then keep it mounted (rather than unmount/remount on every close) so its
   // own internal state/animation behaves the same as before.
-  const [hasOpenedCreate, setHasOpenedCreate] = useState(
-    () => autoOpenCreate && can.createGroup,
-  );
   const [hasOpenedImport, setHasOpenedImport] = useState(false);
   const [hasOpenedArchived, setHasOpenedArchived] = useState(false);
 
@@ -339,16 +314,6 @@ const DepartureGroupsList = ({
 
   return (
     <>
-      {hasOpenedCreate && (
-        <CreateDepartureGroupDialog
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-          templates={templates}
-          role={role}
-          branches={branchOptions.map((b) => b.value)}
-          initialTemplateId={initialCreateTemplateId}
-        />
-      )}
       <ConfirmActionDialog
         pending={pending}
         onClose={() => setPending(null)}
@@ -381,13 +346,7 @@ const DepartureGroupsList = ({
           action={
             <div className="flex items-center gap-4">
               {can.createGroup && (
-                <Button
-                  // variant={"secondary"}
-                  onClick={() => {
-                    setHasOpenedCreate(true);
-                    setCreateOpen(true);
-                  }}
-                >
+                <Button onClick={() => router.push("/departure-groups/new")}>
                   <Plus /> Create Departure Group
                 </Button>
               )}

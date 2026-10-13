@@ -57,6 +57,7 @@ import {
   whatsappLink,
   type DocumentSort,
 } from "../utils";
+import { sendViaWhatsApp } from "@/lib/inbox/quick-chat/send-via-whatsapp";
 import { buildDocumentColumns } from "../documents-table/documents-columns";
 import { DocumentsDataTable } from "../documents-table/documents-data-table";
 import {
@@ -166,7 +167,12 @@ const DocumentsList = () => {
       buildDocumentColumns(sort, (s) => setSort(s as DocumentSort), nowIso, {
         onReview: (item) => setReviewItem(item),
         onSendWhatsapp: (item) =>
-          window.open(whatsappLink(item.whatsappNumber), "_blank"),
+          sendViaWhatsApp({
+            channel: "WHATSAPP",
+            to: item.whatsappNumber,
+            contactName: item.fullName,
+            fallbackUrl: whatsappLink(item.whatsappNumber),
+          }),
         onAssign: (item) => setAssignTarget(item),
       }),
     [sort, setSort, nowIso],

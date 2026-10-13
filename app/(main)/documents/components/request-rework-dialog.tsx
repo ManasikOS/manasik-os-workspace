@@ -27,6 +27,7 @@ import { reworkMessageFor } from "@/lib/data/documents-copy";
 import { requestReworkAction } from "../actions";
 import type { DocumentListItem } from "../types";
 import { whatsappLink } from "../utils";
+import { sendViaWhatsApp } from "@/lib/inbox/quick-chat/send-via-whatsapp";
 
 interface RequestReworkDialogProps {
   item: DocumentListItem | null;
@@ -66,7 +67,14 @@ const RequestReworkDialog = ({ item, open, onClose, onDone }: RequestReworkDialo
         return;
       }
       if (channel === "WHATSAPP") {
-        window.open(whatsappLink(item.whatsappNumber, message.trim()), "_blank");
+        // The document is already sent back for rework above; this only delivers the message.
+        sendViaWhatsApp({
+          channel: "WHATSAPP",
+          to: item.whatsappNumber,
+          contactName: item.fullName,
+          draft: message.trim(),
+          fallbackUrl: whatsappLink(item.whatsappNumber, message.trim()),
+        });
       }
       toast.add({ title: "Sent back for rework", description: item.fullName });
       onDone();

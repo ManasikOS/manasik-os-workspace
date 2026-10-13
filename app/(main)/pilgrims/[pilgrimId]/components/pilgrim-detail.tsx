@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ProgressBar, ToneBadge } from "@/components/ui/tone-badge";
 import { toast } from "@/components/ui/toast";
+import { sendViaWhatsApp } from "@/lib/inbox/quick-chat/send-via-whatsapp";
 import { percentTone } from "@/lib/ui/tone";
 import type { PilgrimCapabilities } from "@/lib/access/pilgrims-access";
 import type { PilgrimTabId } from "@/lib/access/pilgrims-access";
@@ -144,7 +145,12 @@ const PilgrimDetailView = ({
             <Button
               variant="outline_without_border"
               onClick={() =>
-                window.open(whatsappLink(person.whatsapp_number), "_blank")
+                sendViaWhatsApp({
+                  channel: "WHATSAPP",
+                  to: person.whatsapp_number,
+                  contactName: person.full_name,
+                  fallbackUrl: whatsappLink(person.whatsapp_number),
+                })
               }
             >
               <MessageCircle /> Send WhatsApp

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 import {
@@ -28,15 +28,23 @@ export default async function DepartureGroupsPage({
   // A role without module access must not be able to reach it by URL.
   if (!can.viewModule) notFound();
 
+  // Creating a group is its own page now. Bookmarks and links made while it
+  // was a dialog (`?create=1&template=<id>`) land there instead.
   const { create, template: templateParam } = await searchParams;
+  if (create === "1" && can.createGroup) {
+    redirect(
+      templateParam
+        ? `/departure-groups/new?template=${encodeURIComponent(templateParam)}`
+        : "/departure-groups/new",
+    );
+  }
 
   const [everyGroup, templates, assignedGroupIds] = await Promise.all([
     // Archived groups are fetched too, then split — the archived view reads from
     // the same list rather than a second round trip.
     listDepartureGroups({ includeArchived: true }),
-    // Only fetched for roles that can actually start a group. Drafts are
-    // only ever included for ADMIN — see `listPackageTemplateOptions()`'s
-    // own comment and the sheet's "Include drafts" toggle.
+    // Only fetched for roles that can actually start a group (the import
+    // dialog maps CSV rows to them). Drafts are only ever included for ADMIN.
     can.createGroup
       ? listPackageTemplateOptions({ includeDrafts: role === "ADMIN" })
       : Promise.resolve([]),
@@ -53,17 +61,6 @@ export default async function DepartureGroupsPage({
   const groups = visibleGroups.filter((group) => !group.archived);
   const archivedGroups = visibleGroups.filter((group) => group.archived);
 
-  // "Create Departure Group" deep link from the Packages list/detail screens
-  // (`/departure-groups?create=1&template=<id>`) — previously ignored
-  // entirely, landing on the plain group list (finding C4). The id is
-  // checked against the templates this role can actually see before being
-  // trusted, so a stale or tampered id can't preselect something this
-  // person couldn't otherwise pick from the list.
-  const initialCreateTemplateId =
-    create === "1" && templateParam && templates.some((t) => t.id === templateParam)
-      ? templateParam
-      : null;
-
   return (
     <DepartureCapabilitiesProvider value={can}>
     <DepartureGroupsList
@@ -72,8 +69,6 @@ export default async function DepartureGroupsPage({
       templates={templates}
       role={role}
       assignedGroupIds={assignedGroupIds}
-      autoOpenCreate={create === "1"}
-      initialCreateTemplateId={initialCreateTemplateId}
     />
     </DepartureCapabilitiesProvider>
   );

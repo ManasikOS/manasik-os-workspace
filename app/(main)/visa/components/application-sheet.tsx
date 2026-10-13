@@ -36,6 +36,7 @@ import {
   visaStatusTone,
   whatsappLink,
 } from "../utils";
+import { sendViaWhatsApp } from "@/lib/inbox/quick-chat/send-via-whatsapp";
 import RecordDecisionDialog from "./record-decision-dialog";
 import RecordIssueDialog from "./record-issue-dialog";
 import StatusCheckDialog from "./status-check-dialog";
@@ -288,7 +289,19 @@ const ApplicationSheet = ({ item, open, onClose, can }: ApplicationSheetProps) =
                   </Button>
                 )}
                 {item.whatsappNumber && (
-                  <Button size="sm" variant="ghost" render={<a href={whatsappLink(item.whatsappNumber)} target="_blank" rel="noreferrer" />}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      sendViaWhatsApp({
+                        channel: "WHATSAPP",
+                        to: item.whatsappNumber,
+                        contactName: item.fullName,
+                        fallbackUrl: whatsappLink(item.whatsappNumber),
+                        onOpened: onClose,
+                      })
+                    }
+                  >
                     Draft WhatsApp
                   </Button>
                 )}

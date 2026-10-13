@@ -1451,3 +1451,17 @@ paying for more Inngest executions was declined.
 knowledge ingest uses the `EMBED_DOCUMENT` job (T11), the Inngest code, route and packages are removed (T13, T14), and the outbox and its triggers are dropped
 by migration `20261227090000_drop_inngest_outbox.sql` (T15, applied after the code deploy). R8 points 2 and 3 are history. What remains is outside the
 repository: deleting the Inngest app and integration (see `docs/runbooks/inngest.md`).
+
+### R10 — Quick Chat is a thin client over the existing send actions
+
+**Decision.** The Quick Chat popup (bottom-left, every `(main)` page; spec `docs/inbox/quick-chat-popup-spec.md`) sends through the
+same server actions the Inbox uses (`sendStaffMessage`, `startWhatsAppChat`, `sendConversationTemplateAction`). There is no second
+send pipeline, no new table and no new migration. The window, template, consent and ownership rules are enforced by those actions;
+the popup's own decision logic (`lib/inbox/quick-chat/`) only decides what to *show*.
+
+1. **One conversation.** A message sent from the popup is an ordinary Inbox message in the ordinary conversation for that contact.
+2. **Sent means accepted.** A page's "sent" record (a quote, an invoice) is written only after the channel accepts the message
+   (`onSent`), never before.
+3. **Rollout.** Global `QUICK_CHAT_ENABLED` env flag, off by default; with it off every caller falls back to `wa.me`. A per-agency switch
+   (the `inbox_reply_queue_agencies` pattern) is the upgrade if one agency must go first.
+4. **Not the workspace.** Copilot, risk review, assignment, bulk actions, notes and the intelligence rail stay in `/inbox`.
