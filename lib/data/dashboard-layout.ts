@@ -202,3 +202,14 @@ export const DASHBOARD_KPI_ORDER: Record<StaffRole, DashboardKpiId[]> = {
 export function resolveDashboardKpiOrder(role: StaffRole): DashboardKpiId[] {
   return DASHBOARD_KPI_ORDER[role] ?? DASHBOARD_KPI_ORDER.GUIDE;
 }
+
+/**
+ * Shown when a person's role resolves to no renderable block at all - every
+ * built-in preset opens with the briefing and KPI row, so today this needs a
+ * hand-edited preset or a future block-level restriction, but a blank page
+ * with no explanation is the one outcome we never want.
+ */
+export function emptyDashboardMessage(role: StaffRole): string {
+  const label = role.charAt(0) + role.slice(1).toLowerCase();
+  return `No dashboard blocks are available for the ${label} role. Ask an administrator to review your access.`;
+}

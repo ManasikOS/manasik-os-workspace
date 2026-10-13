@@ -113,7 +113,7 @@ Avg seat fill, Revenue, Gross margin.
 **Files:** `lib/data/dashboard-repository.ts`, `lib/types/dashboard.ts`, `app/(main)/dashboard/components/recent-activity.tsx`, test
 **Scope:** S
 
-### [ ] T8: Zero-visible-blocks state + retire stale plan status
+### [x] T8: Zero-visible-blocks state + retire stale plan status
 **Acceptance:**
 - [ ] A role whose preset prunes to 0 blocks shows named empty state ("No dashboard blocks are available for <role>. Ask an admin."), not a blank grid.
 - [ ] `docs/modules/dashboard-module-implementation-plan.md` header updated to "Implemented through Phase 4; role matrix superseded by dashboard-role-blocks-spec.md".

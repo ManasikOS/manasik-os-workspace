@@ -8,6 +8,7 @@ import {
   DASHBOARD_KPI_ORDER,
   DASHBOARD_LAYOUTS,
   DASHBOARD_PANEL_IDS,
+  emptyDashboardMessage,
   resolveDashboardLayout,
   splitDashboardBlocks,
   type DashboardPanelId,
@@ -104,5 +105,13 @@ describe("DASHBOARD_KPI_ORDER", () => {
     expect(DASHBOARD_KPI_ORDER.OPERATIONS[0]).toBe("groups-at-risk");
     expect(DASHBOARD_KPI_ORDER.VISA[0]).toBe("visa-pending");
     expect(DASHBOARD_KPI_ORDER.GUIDE[0]).toBe("my-open-tasks");
+  });
+});
+
+describe("emptyDashboardMessage", () => {
+  it.each(STAFF_ROLES)("names the %s role and tells the person who can fix it", (role) => {
+    const message = emptyDashboardMessage(role);
+    expect(message.toLowerCase()).toContain(role.toLowerCase());
+    expect(message).toMatch(/administrator/i);
   });
 });

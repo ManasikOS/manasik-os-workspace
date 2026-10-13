@@ -1,6 +1,6 @@
 # Spec: Dashboard — role-driven block system (v2)
 
-Status: **DRAFT — awaiting review.** No code until approved.
+Status: **IN PROGRESS** - Phases 1-2 built (see `tasks/dashboard-todo.md`); §12 lists where the build departed from this text.
 Supersedes the *status* of [dashboard-module-implementation-plan.md](dashboard-module-implementation-plan.md)
 (that doc says "nothing implemented"; Phases 0–4 largely are — see §1). Its principles
 (assembler-not-deriver, every tile is a door, no fabricated numbers) stay in force and are not repeated.
@@ -252,3 +252,23 @@ Conventions: server-only repositories; `nowIso` injected (one clock); `null` = a
 4. **Custom roles:** preset = base role's layout, pruned by capabilities (my default). Alternative: store a per-role block list in `role_permissions` so admins can curate (needs migration + settings UI). Out of scope here unless you want it.
 5. **`guest-voice` capability key** — I couldn't confirm which access module gates feedback/complaints (`relationships-access.ts` is a placeholder "view only for all roles"). Ship it, or defer until that module has a real capability set?
 6. **Scope cut** — if this is too wide for one release, my order is: C1 (access leak) → C2/C3/C4 (registry + KPIs) → `visa-queue` → `supplier-payables` → `quotes-pending`/`campaign-pulse` → `inbox-sla` → `guest-voice`.
+
+---
+
+## 12. Amendments made during the build
+
+Recorded here because each differs from what §1-§11 say; the code and tests follow this list.
+
+| # | Was | Now | Why |
+|---|---|---|---|
+| A1 | §2 rule 2: "max 8 blocks per role" | Non-ADMIN presets are capped at 8 grid panels (tested); **ADMIN is exempt** | The matrix itself gives ADMIN 11 existing panels; the rule and the matrix contradicted each other |
+| A2 | `status-line` as its own block | It renders **inside `ai-briefing`**; there is no separate id | No standalone component exists; splitting is a UI change, not an access change |
+| A3 | `inbox-owner` gated on a capability | Gated on `inbox.viewModule` **plus** presence in the ADMIN/CEO presets, with the loader's role + entitlement check kept | Inbox access has no owner-panel capability to gate on; inventing one is an access-model change |
+| A4 | §3.1 / C7: Recent Activity on `loadMergedActivityFeed` | **Group activity log** from the Operations snapshot, typed by `entity_type`, linked to the group | `loadMergedActivityFeed` is one person's own log plus account-security events - wrong feed for a landing page |
+| A5 | Recent Activity includes lead events | **Not included** | Lead activity is a separate log with no dashboard loader; the plan forbids new loaders |
+| A6 | Payment lines visible to everyone | Hidden from roles without `finance.viewLedger` | Log lines can carry amounts; every non-GUIDE role reads all groups' logs |
+| A7 | Briefing "N awaiting approval" shown to any role with Operations access | Shown only where the `approvals` block is (ADMIN, OPERATIONS) | "A block absent from a role's layout is not fetched"; it also stops GUIDE seeing an agency-wide proposal count |
+| A8 | Gross Margin tile for any role with the overview | Omitted without `reports.viewCostAndMargin` | Cost fields are zeroed for those roles, which would show a false 100% |
+| A9 | Revenue tile always | Omitted when revenue spans several currencies | Cannot be added into one honest number |
+| A10 | Per-block `<Suspense>` streaming (C6) | **Failure isolation only**: each optional read is caught, logged and marks `blockErrors`; every block sits in an error boundary | Streaming needs each block to own its fetch - a repository rewrite (plan risk R3) |
+| A11 | Capability bundle of 9 modules | 6 (`finance, leads, operations, reports, departureGroups, inbox`) | Each module is one more `role_permissions` read per request (plan R1); add one with the block that needs it |

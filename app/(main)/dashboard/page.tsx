@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import PageHeader from "@/components/page-header";
+import { Card } from "@/components/ui/card";
 import DashboardMetrics from "./components/metrics";
 import MyDay from "./components/my-day";
 import UpcomingDepartures from "./components/upcoming-departures";
@@ -26,6 +27,7 @@ import {
 import { withTiming } from "@/lib/timing";
 import { resolveDashboardPeriod } from "@/lib/data/dashboard";
 import {
+  emptyDashboardMessage,
   resolveDashboardLayout,
   splitDashboardBlocks,
   type DashboardBannerBlockId,
@@ -266,6 +268,25 @@ export default async function DashboardPage({
   // which extra loaders run.
   const blocks = visibleBlocks(resolveDashboardLayout(role), caps);
   const { banners, panels } = splitDashboardBlocks(blocks);
+
+  // Nothing to render: say so, and read nothing.
+  if (blocks.length === 0) {
+    return (
+      <div className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto pb-10">
+        <PageHeader
+          title="Dashboard"
+          breadcrumb={[
+            { title: "Home", link: "/dashboard" },
+            { title: "Dashboard", link: "/dashboard" },
+          ]}
+          action={<PeriodSelector period={period} />}
+        />
+        <Card className="p-6 text-sm text-muted-foreground" role="status">
+          {emptyDashboardMessage(role)}
+        </Card>
+      </div>
+    );
+  }
 
   const [data, inboxIntelligence] = await Promise.all([
     withTiming("dashboard.loadData", () =>
