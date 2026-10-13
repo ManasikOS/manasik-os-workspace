@@ -36,15 +36,16 @@ export async function resolveDashboardCapabilities(
   const base = baseDashboardCapabilities(role);
   if (!roleId) return base;
 
-  const [finance, leads, operations, reports, departureGroups] = await Promise.all([
+  const [finance, leads, operations, reports, departureGroups, inbox] = await Promise.all([
     loadDynamicCapabilities(db, roleId, "finance", base.finance),
     loadDynamicCapabilities(db, roleId, "leads", base.leads),
     loadDynamicCapabilities(db, roleId, "operations", base.operations),
     loadDynamicCapabilities(db, roleId, "reports", base.reports),
     loadDynamicCapabilities(db, roleId, "departure_groups", base.departureGroups),
+    loadDynamicCapabilities(db, roleId, "inbox", base.inbox),
   ]);
 
-  return { finance, leads, operations, reports, departureGroups };
+  return { finance, leads, operations, reports, departureGroups, inbox };
 }
 
 /** One resolution per request (React `cache`). Call `requireUser()`/the page's auth first; this does not authenticate. */

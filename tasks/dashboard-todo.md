@@ -33,7 +33,7 @@ role check) with the bundle from T1, so custom-role restrictions are honoured ev
 **Files:** `lib/data/dashboard-repository.ts`, `app/(main)/dashboard/page.tsx`, `lib/data/dashboard-repository.test.ts` (new)
 **Scope:** M
 
-### [ ] T3: Registry owns every block; presets per spec §2 (existing blocks only)
+### [x] T3: Registry owns every block; presets per spec §2 (existing blocks only)
 **Description:** Add `status-line`, `ai-briefing`, `kpis`, `inbox-owner` to `DashboardPanelId`; make `page.tsx` render *only* from
 `visibleBlocks(resolveDashboardLayout(role), caps)`; rewrite `DASHBOARD_LAYOUTS` to the §2 matrix for existing blocks. Setup guide stays a
 fixed onboarding banner (not a role block) — documented in the file.

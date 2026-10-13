@@ -27,11 +27,17 @@ import { withTiming } from "@/lib/timing";
 import { resolveDashboardPeriod } from "@/lib/data/dashboard";
 import {
   resolveDashboardLayout,
-  type DashboardPanelId,
+  splitDashboardBlocks,
+  type DashboardBannerBlockId,
+  type DashboardGridPanelId,
 } from "@/lib/data/dashboard-layout";
+import { visibleBlocks } from "@/lib/access/dashboard-access";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import type { DashboardData } from "@/lib/types/dashboard";
-import { InboxIntelligencePanel } from "./components/inbox-intelligence-panel";
+import {
+  InboxIntelligencePanel,
+} from "./components/inbox-intelligence-panel";
+import type { InboxOwnerIntelligence } from "@/lib/data/dashboard-repository";
 
 /**
  * Dashboard — the landing route (`/` redirects here). A Server Component so
@@ -39,9 +45,11 @@ import { InboxIntelligencePanel } from "./components/inbox-intelligence-panel";
  * clock and fetched once per render, same reasoning as
  * `app/(main)/documents/page.tsx`. See `lib/data/dashboard-repository.ts` for
  * how each section is assembled and role-gated, and
- * `lib/data/dashboard-layout.ts` for which panels a role sees below the
- * status line and KPI row, and in what order
- * (docs/modules/dashboard-module-implementation-plan.md §4.2).
+ * `lib/data/dashboard-layout.ts` for which blocks a role's page prefers and
+ * in what order, and `lib/access/dashboard-access.ts` for which of those the
+ * signed-in person may actually see
+ * (docs/modules/dashboard-role-blocks-spec.md). Everything below the header
+ * and the setup guide is rendered from that one resolved list.
  */
 export const dynamic = "force-dynamic";
 
@@ -56,7 +64,7 @@ export const dynamic = "force-dynamic";
  * visible without a click. `grid-flow-row-dense` (set on the container)
  * backfills any gap a role's shorter panel list would otherwise leave.
  */
-const PANEL_SPAN: Record<DashboardPanelId, string> = {
+const PANEL_SPAN: Record<DashboardGridPanelId, string> = {
   pipeline: "lg:col-span-6",
   "my-day": "lg:col-span-6",
   "attention-rail": "lg:col-span-5",
@@ -71,11 +79,11 @@ const PANEL_SPAN: Record<DashboardPanelId, string> = {
 };
 
 function renderDashboardPanels(
-  layout: DashboardPanelId[],
+  layout: DashboardGridPanelId[],
   data: DashboardData,
   role: StaffRole,
 ) {
-  const panels: { id: DashboardPanelId; node: ReactNode }[] = [];
+  const panels: { id: DashboardGridPanelId; node: ReactNode }[] = [];
 
   for (const id of layout) {
     switch (id) {
@@ -166,6 +174,36 @@ function renderDashboardPanels(
   );
 }
 
+/** The full-width blocks above the grid — each a registry id, rendered in preset order. */
+function renderDashboardBanner(
+  id: DashboardBannerBlockId,
+  data: DashboardData,
+  role: StaffRole,
+  name: string | null,
+  inboxIntelligence: InboxOwnerIntelligence | null,
+): ReactNode {
+  switch (id) {
+    case "ai-briefing":
+      return (
+        <AiBriefing
+          key={id}
+          staffName={name}
+          role={role}
+          status={data.statusLine}
+          attentionRail={data.attentionRail}
+          approvals={data.approvals}
+          daily={data.copilotToday}
+        />
+      );
+    case "kpis":
+      return <DashboardMetrics key={id} kpis={data.kpis} />;
+    case "inbox-owner":
+      return inboxIntelligence ? (
+        <InboxIntelligencePanel key={id} data={inboxIntelligence} />
+      ) : null;
+  }
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -178,13 +216,21 @@ export default async function DashboardPage({
   // Base role + custom-role overrides; decides what is fetched, not just shown.
   const caps = await getCurrentDashboardCapabilities();
 
+  // The role's preset pruned to what this person's capabilities allow — the
+  // single list everything below renders from, and the input that decides
+  // which extra loaders run.
+  const { banners, panels } = splitDashboardBlocks(
+    visibleBlocks(resolveDashboardLayout(role), caps),
+  );
+
   const [data, inboxIntelligence] = await Promise.all([
     withTiming("dashboard.loadData", () =>
       loadDashboardData(role, staffId, agencyId, period, caps),
     ),
-    loadInboxOwnerIntelligence(role, agencyId),
+    banners.includes("inbox-owner")
+      ? loadInboxOwnerIntelligence(role, agencyId)
+      : Promise.resolve(null),
   ]);
-  const layout = resolveDashboardLayout(role);
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto pb-10">
@@ -199,20 +245,11 @@ export default async function DashboardPage({
 
       <SetupGuideCard />
 
-      <AiBriefing
-        staffName={name}
-        role={role}
-        status={data.statusLine}
-        attentionRail={data.attentionRail}
-        approvals={data.approvals}
-        daily={data.copilotToday}
-      />
+      {banners.map((id) =>
+        renderDashboardBanner(id, data, role, name, inboxIntelligence),
+      )}
 
-      <DashboardMetrics kpis={data.kpis} />
-
-      {inboxIntelligence && <InboxIntelligencePanel data={inboxIntelligence} />}
-
-      {renderDashboardPanels(layout, data, role)}
+      {renderDashboardPanels(panels, data, role)}
     </div>
   );
 }

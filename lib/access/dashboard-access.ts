@@ -13,6 +13,7 @@
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import { capabilitiesFor, type DepartureGroupCapabilities } from "@/lib/access/departure-groups-access";
 import { capabilitiesForFinance, type FinanceCapabilities } from "@/lib/access/finance-access";
+import { capabilitiesForInbox, type InboxCapabilities } from "@/lib/access/inbox-access";
 import { capabilitiesForLeads, type LeadCapabilities } from "@/lib/access/leads-access";
 import { capabilitiesForOperations, type OperationsCapabilities } from "@/lib/access/operations-access";
 import { capabilitiesForReports, type ReportsCapabilities } from "@/lib/access/reports-access";
@@ -25,6 +26,7 @@ export interface DashboardCapabilities {
   operations: OperationsCapabilities;
   reports: ReportsCapabilities;
   departureGroups: DepartureGroupCapabilities;
+  inbox: InboxCapabilities;
 }
 
 /** A base role's built-in set, before any custom-role override is merged in. */
@@ -35,6 +37,7 @@ export function baseDashboardCapabilities(role: StaffRole): DashboardCapabilitie
     operations: capabilitiesForOperations(role),
     reports: capabilitiesForReports(role),
     departureGroups: capabilitiesFor(role),
+    inbox: capabilitiesForInbox(role),
   };
 }
 
@@ -42,11 +45,21 @@ export function baseDashboardCapabilities(role: StaffRole): DashboardCapabilitie
  * One gate per block. A block is absent — and its data not fetched — when
  * its gate is false; there is no greyed-out teaser.
  *
- * `my-day`, `attention-rail` and `recent-activity` have no module gate of
- * their own: My Day is scoped to the signed-in staff member's tasks, and the
+ * `ai-briefing`, `kpis`, `my-day`, `attention-rail` and `recent-activity`
+ * have no module gate of their own: the briefing and KPI row assemble only
+ * from sections that are themselves gated (a gated-off figure is simply
+ * absent), My Day is scoped to the signed-in staff member's tasks, and the
  * other two filter their individual rows by the capabilities above.
+ *
+ * `inbox-owner` has no dedicated owner-panel capability to hang on, so this
+ * gate only stops a custom role with Inbox switched off. The panel's real
+ * audience (ADMIN/CEO) is its presence in those presets, and its loader
+ * additionally checks the role and the plan entitlement.
  */
 export const BLOCK_GATES: Record<DashboardPanelId, (caps: DashboardCapabilities) => boolean> = {
+  "ai-briefing": () => true,
+  kpis: () => true,
+  "inbox-owner": (c) => c.inbox.viewModule,
   "my-day": () => true,
   "attention-rail": () => true,
   "recent-activity": () => true,

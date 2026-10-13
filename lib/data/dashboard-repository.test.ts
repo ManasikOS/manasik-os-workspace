@@ -53,6 +53,7 @@ function caps(role: Role, overrides: { [K in keyof DashboardCapabilities]?: Part
     operations: { ...base.operations, ...overrides.operations },
     reports: { ...base.reports, ...overrides.reports },
     departureGroups: { ...base.departureGroups, ...overrides.departureGroups },
+    inbox: { ...base.inbox, ...overrides.inbox },
   };
 }
 

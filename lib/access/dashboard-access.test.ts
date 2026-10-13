@@ -16,6 +16,7 @@ function withOverrides(
     operations: { ...base.operations, ...overrides.operations },
     reports: { ...base.reports, ...overrides.reports },
     departureGroups: { ...base.departureGroups, ...overrides.departureGroups },
+    inbox: { ...base.inbox, ...overrides.inbox },
   };
 }
 
@@ -67,5 +68,18 @@ describe("visibleBlocks", () => {
     for (const id of ["upcoming-departures", "seat-fill-pace", "readiness-heatmap"] as const) {
       expect(visible).not.toContain(id);
     }
+  });
+
+  it("keeps the briefing and KPI row for every role — they are not module-gated", () => {
+    for (const role of STAFF_ROLES) {
+      const visible = visibleBlocks(["ai-briefing", "kpis"], baseDashboardCapabilities(role));
+      expect(visible).toEqual(["ai-briefing", "kpis"]);
+    }
+  });
+
+  it("removes the inbox owner panel when a custom role has Inbox switched off, even on an ADMIN base", () => {
+    const caps = withOverrides("ADMIN", { inbox: { viewModule: false } });
+    expect(visibleBlocks(DASHBOARD_LAYOUTS.ADMIN, caps)).not.toContain("inbox-owner");
+    expect(visibleBlocks(DASHBOARD_LAYOUTS.ADMIN, baseDashboardCapabilities("ADMIN"))).toContain("inbox-owner");
   });
 });
