@@ -20,6 +20,7 @@ function withOverrides(
     visa: { ...base.visa, ...overrides.visa },
     documents: { ...base.documents, ...overrides.documents },
     suppliers: { ...base.suppliers, ...overrides.suppliers },
+    quotes: { ...base.quotes, ...overrides.quotes },
   };
 }
 
@@ -115,5 +116,18 @@ describe("visibleBlocks", () => {
     expect(visibleBlocks(["supplier-payables"], withOverrides("ADMIN", { suppliers: { viewPayments: false } }))).toEqual([]);
     expect(visibleBlocks(["supplier-payables"], withOverrides("ADMIN", { suppliers: { viewCosts: false } }))).toEqual([]);
     expect(visibleBlocks(["supplier-payables"], withOverrides("ADMIN", { suppliers: { viewModule: false } }))).toEqual([]);
+  });
+
+  it("shows quotes pending to ADMIN, MARKETING, CEO and FINANCE - the roles with the Quotes module", () => {
+    for (const role of ["ADMIN", "MARKETING", "CEO", "FINANCE"] as const) {
+      expect(visibleBlocks(["quotes-pending"], baseDashboardCapabilities(role))).toEqual(["quotes-pending"]);
+    }
+    for (const role of ["OPERATIONS", "VISA", "GUIDE"] as const) {
+      expect(visibleBlocks(["quotes-pending"], baseDashboardCapabilities(role))).toEqual([]);
+    }
+  });
+
+  it("removes quotes pending when a custom role has the Quotes module off, even on an ADMIN base", () => {
+    expect(visibleBlocks(["quotes-pending"], withOverrides("ADMIN", { quotes: { viewModule: false } }))).toEqual([]);
   });
 });

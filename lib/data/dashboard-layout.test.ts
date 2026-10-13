@@ -144,3 +144,15 @@ describe("supplier-payables placement", () => {
     expect(panels.indexOf("supplier-payables")).toBe(panels.indexOf("collections") + 1);
   });
 });
+
+describe("quotes-pending placement", () => {
+  it("is shown to ADMIN, MARKETING, CEO and FINANCE only", () => {
+    const holders = STAFF_ROLES.filter((r) => DASHBOARD_LAYOUTS[r].includes("quotes-pending"));
+    expect([...holders].sort()).toEqual(["ADMIN", "CEO", "FINANCE", "MARKETING"]);
+  });
+
+  it("sits straight after the pipeline for MARKETING, whose job is the sales funnel", () => {
+    const panels = splitDashboardBlocks(DASHBOARD_LAYOUTS.MARKETING).panels;
+    expect(panels.indexOf("quotes-pending")).toBe(panels.indexOf("pipeline") + 1);
+  });
+});

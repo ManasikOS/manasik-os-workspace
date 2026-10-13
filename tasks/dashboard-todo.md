@@ -148,7 +148,7 @@ gate + preset row (spec §2) → KPI tile if listed in §4 → empty/denied/erro
 **Acceptance:** payments due ≤14d and unconfirmed commitments on groups ≤30d; gate `suppliers.viewPayments`; CEO sees totals only (no per-supplier rows); "Supplier payments due" KPI for FINANCE; OPERATIONS (viewPayments=false) never receives payment amounts.
 **Dependencies:** T3, T5a · **Scope:** M (loader may need a new aggregate read on `suppliers-repository` — R2 applies)
 
-### [ ] T12: `quotes-pending`
+### [x] T12: `quotes-pending`
 **Acceptance:** sent-unanswered, expiring ≤3d, unsent drafts; gate `leads.viewModule ∧ leads.viewQuotes`; margin column only if `viewMargin`; MARKETING/ADMIN full, CEO/FINANCE summary; "Open quotes" KPI for MARKETING.
 **Dependencies:** T3, T5a · **Scope:** M
 

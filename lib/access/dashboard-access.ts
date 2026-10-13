@@ -17,6 +17,7 @@ import { capabilitiesForFinance, type FinanceCapabilities } from "@/lib/access/f
 import { capabilitiesForInbox, type InboxCapabilities } from "@/lib/access/inbox-access";
 import { capabilitiesForLeads, type LeadCapabilities } from "@/lib/access/leads-access";
 import { capabilitiesForOperations, type OperationsCapabilities } from "@/lib/access/operations-access";
+import { capabilitiesForQuotes, type QuotesCapabilities } from "@/lib/access/quotes-access";
 import { capabilitiesForReports, type ReportsCapabilities } from "@/lib/access/reports-access";
 import { capabilitiesForSuppliers, type SupplierCapabilities } from "@/lib/access/suppliers-access";
 import { capabilitiesForVisa, type VisaCapabilities } from "@/lib/access/visa-access";
@@ -33,6 +34,7 @@ export interface DashboardCapabilities {
   visa: VisaCapabilities;
   documents: DocumentCapabilities;
   suppliers: SupplierCapabilities;
+  quotes: QuotesCapabilities;
 }
 
 /** A base role's built-in set, before any custom-role override is merged in. */
@@ -47,6 +49,7 @@ export function baseDashboardCapabilities(role: StaffRole): DashboardCapabilitie
     visa: capabilitiesForVisa(role),
     documents: capabilitiesForDocuments(role),
     suppliers: capabilitiesForSuppliers(role),
+    quotes: capabilitiesForQuotes(role),
   };
 }
 
@@ -86,6 +89,9 @@ export const BLOCK_GATES: Record<DashboardPanelId, (caps: DashboardCapabilities)
   // Money owed to suppliers: needs the cost figures *and* the payment ledger
   // (OPERATIONS manages commitments but has no `viewPayments`; the directory
   // loader would zero its amounts anyway).
+  // The Quotes page itself gates on the `quotes` module (not `leads.viewQuotes`,
+  // which the two capability sets seed independently).
+  "quotes-pending": (c) => c.quotes.viewModule,
   "supplier-payables": (c) => c.suppliers.viewModule && c.suppliers.viewCosts && c.suppliers.viewPayments,
   "document-review": (c) => c.documents.viewModule && !c.documents.scopedToPaymentProof,
   "visa-queue": (c) => c.visa.viewModule && !c.visa.viewPaymentBlockersOnly,

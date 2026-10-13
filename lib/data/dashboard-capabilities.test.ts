@@ -43,10 +43,10 @@ describe("resolveDashboardCapabilities", () => {
     expect(requested).toEqual([]);
   });
 
-  it("reads exactly the nine modules the dashboard gates on", async () => {
+  it("reads exactly the ten modules the dashboard gates on", async () => {
     const { db, requested } = fakeDb({});
     await resolveDashboardCapabilities(db, "ADMIN", "role-1");
-    expect([...requested].sort()).toEqual(["departure_groups", "documents", "finance", "inbox", "leads", "operations", "reports", "suppliers", "visa"]);
+    expect([...requested].sort()).toEqual(["departure_groups", "documents", "finance", "inbox", "leads", "operations", "quotes", "reports", "suppliers", "visa"]);
   });
 
   it("applies a custom role's saved override over the base role, only for that module", async () => {

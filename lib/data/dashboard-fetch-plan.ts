@@ -37,6 +37,8 @@ export interface DashboardFetchPlan {
   documents: boolean;
   /** Supplier directory - the Supplier payables block and the Supplier Payments Due tile. */
   suppliers: boolean;
+  /** Quote facts - the Quotes pending block and the Open Quotes / Accept Rate tiles. */
+  quotes: boolean;
   /** The signed-in person's own tasks — My Day and the My Open Tasks tile. */
   myTasks: boolean;
 }
@@ -69,6 +71,9 @@ export function planDashboardFetch(
       caps.suppliers.viewCosts &&
       caps.suppliers.viewPayments &&
       (has("supplier-payables") || kpi("supplier-payments-due")),
+    quotes:
+      caps.quotes.viewModule &&
+      (has("quotes-pending") || kpi("open-quotes") || kpi("quote-booking-rate")),
     myTasks: who.staffId !== null && (has("my-day") || kpi("my-open-tasks")),
   };
 }

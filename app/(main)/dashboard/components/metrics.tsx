@@ -21,6 +21,7 @@ import {
   Stamp,
   FileCheck,
   Banknote,
+  FileSignature,
   type LucideIcon,
 } from "lucide-react";
 import React from "react";
@@ -62,6 +63,8 @@ const KPI_PRESENTATION: Record<string, { icon: LucideIcon; tone: Tone }> = {
   "visa-pending": { icon: Stamp, tone: "info" },
   "docs-awaiting-review": { icon: FileCheck, tone: "info" },
   "supplier-payments-due": { icon: Banknote, tone: "warning" },
+  "open-quotes": { icon: FileSignature, tone: "info" },
+  "quote-booking-rate": { icon: Percent, tone: "success" },
 };
 
 export default function DashboardMetrics({ kpis }: DashboardMetricsProps) {

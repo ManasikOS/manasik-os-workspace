@@ -235,6 +235,26 @@ export interface SupplierPayablesData {
   totalSuppliers: number;
 }
 
+/** A sent quote about to lapse - a reference and a date, no customer or price. */
+export interface QuoteExpiringRow {
+  quoteId: string;
+  reference: string;
+  validUntil: string;
+  daysLeft: number;
+}
+
+/** Quotes pending (spec section 3.2) - the Quotes page's own pipeline definitions, counted. */
+export interface QuotePipelineData {
+  counts: { drafts: number; awaitingApproval: number; awaitingReply: number; expiringSoon: number; accepted: number };
+  /** Drafts, pending approval, sent and viewed - `OPEN_QUOTE_STATUSES`. */
+  open: number;
+  total: number;
+  /** Accepted over every quote, as the Quotes page shows it; `null` with no quotes. */
+  acceptRatePercent: number | null;
+  /** The soonest-lapsing few - `counts.expiringSoon` is the full number. */
+  expiring: QuoteExpiringRow[];
+}
+
 export interface DashboardData {
   statusLine: StatusLine;
   /**
@@ -258,6 +278,8 @@ export interface DashboardData {
   documentReview: DocumentReviewData | null;
   /** `null` for a role that may not see supplier payments. */
   supplierPayables: SupplierPayablesData | null;
+  /** `null` for a role without the Quotes module. */
+  quotePipeline: QuotePipelineData | null;
   teamPerformance: SalesOwnerRow[] | null;
   seatPace: SeatPacePoint[];
   leadAttention: {

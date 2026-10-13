@@ -8,6 +8,7 @@ const buildOperationsSnapshot = vi.fn();
 const loadAssignedGroupIds = vi.fn();
 const loadTasksForStaff = vi.fn();
 const loadLeadDashboardFacts = vi.fn();
+const loadQuoteDashboardFacts = vi.fn();
 const listAgencyOpenProposals = vi.fn();
 const getCopilotDailySummary = vi.fn();
 const loadFinanceReceivables = vi.fn();
@@ -30,7 +31,10 @@ vi.mock("@/lib/data/team-repository", () => ({
   loadAssignedGroupIds: (...a: unknown[]) => loadAssignedGroupIds(...a),
   loadTasksForStaff: (...a: unknown[]) => loadTasksForStaff(...a),
 }));
-vi.mock("@/lib/data/leads-repository", () => ({ loadLeadDashboardFacts: (...a: unknown[]) => loadLeadDashboardFacts(...a) }));
+vi.mock("@/lib/data/leads-repository", () => ({
+  loadLeadDashboardFacts: (...a: unknown[]) => loadLeadDashboardFacts(...a),
+  loadQuoteDashboardFacts: (...a: unknown[]) => loadQuoteDashboardFacts(...a),
+}));
 vi.mock("@/lib/data/departure-groups-agent", () => ({
   listAgencyOpenProposals: (...a: unknown[]) => listAgencyOpenProposals(...a),
   getCopilotDailySummary: (...a: unknown[]) => getCopilotDailySummary(...a),
@@ -68,6 +72,7 @@ function caps(role: Role, overrides: { [K in keyof DashboardCapabilities]?: Part
     visa: { ...base.visa, ...overrides.visa },
     documents: { ...base.documents, ...overrides.documents },
     suppliers: { ...base.suppliers, ...overrides.suppliers },
+    quotes: { ...base.quotes, ...overrides.quotes },
   };
 }
 
@@ -92,6 +97,7 @@ beforeEach(() => {
   loadAssignedGroupIds.mockResolvedValue([]);
   loadTasksForStaff.mockResolvedValue([]);
   loadLeadDashboardFacts.mockResolvedValue([]);
+  loadQuoteDashboardFacts.mockResolvedValue([]);
   listAgencyOpenProposals.mockResolvedValue([]);
   getCopilotDailySummary.mockResolvedValue(null);
   loadFinanceReceivables.mockResolvedValue([
@@ -600,5 +606,55 @@ describe("loadDashboardData - supplier payables", () => {
     expect(data.blockErrors["supplier-payables"]).toBe(true);
     expect(data.supplierPayables).toBeNull();
     expect(data.kpis.map((k) => k.id)).not.toContain("supplier-payments-due");
+  });
+});
+
+describe("loadDashboardData - quotes pending", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("reads quotes for MARKETING, ADMIN, CEO and FINANCE and builds the block", async () => {
+    for (const role of ["MARKETING", "ADMIN", "CEO", "FINANCE"] as const) {
+      vi.clearAllMocks();
+      loadQuoteDashboardFacts.mockResolvedValue([]);
+      const data = await load(role, caps(role));
+      expect(loadQuoteDashboardFacts).toHaveBeenCalledOnce();
+      expect(data.quotePipeline).not.toBeNull();
+    }
+  });
+
+  it("never reads quotes for OPERATIONS, VISA or GUIDE", async () => {
+    for (const role of ["OPERATIONS", "VISA", "GUIDE"] as const) {
+      vi.clearAllMocks();
+      const data = await load(role, caps(role));
+      expect(loadQuoteDashboardFacts).not.toHaveBeenCalled();
+      expect(data.quotePipeline).toBeNull();
+    }
+  });
+
+  it("builds the open-quotes tile for MARKETING from the module's open statuses", async () => {
+    const soon = new Date(Date.now() + 86_400_000).toISOString();
+    loadQuoteDashboardFacts.mockResolvedValue([
+      { id: "a", reference: "Q-A", status: "SENT", valid_until: soon, sent_at: null, created_at: soon },
+      { id: "b", reference: "Q-B", status: "DRAFT", valid_until: soon, sent_at: null, created_at: soon },
+      { id: "c", reference: "Q-C", status: "ACCEPTED", valid_until: soon, sent_at: null, created_at: soon },
+    ]);
+    const data = await load("MARKETING", caps("MARKETING"));
+    expect(data.kpis.find((k) => k.id === "open-quotes")?.value).toBe("2");
+  });
+
+  it("does not read quotes when a custom role has the Quotes module switched off", async () => {
+    const data = await load("MARKETING", caps("MARKETING", { quotes: { viewModule: false } }));
+    expect(loadQuoteDashboardFacts).not.toHaveBeenCalled();
+    expect(data.quotePipeline).toBeNull();
+  });
+
+  it("marks the block, not the page, when quotes cannot be read", async () => {
+    loadQuoteDashboardFacts.mockRejectedValue(new Error("db down"));
+    const data = await load("MARKETING", caps("MARKETING"));
+    expect(data.blockErrors["quotes-pending"]).toBe(true);
+    expect(data.quotePipeline).toBeNull();
+    expect(data.kpis.map((k) => k.id)).not.toContain("open-quotes");
   });
 });

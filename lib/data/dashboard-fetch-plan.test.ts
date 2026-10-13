@@ -27,6 +27,7 @@ describe("planDashboardFetch", () => {
       visaQueue: false,
       documents: false,
       suppliers: false,
+      quotes: false,
       myTasks: true,
     });
   });
@@ -171,6 +172,31 @@ describe("planDashboardFetch", () => {
       const caps = baseDashboardCapabilities("FINANCE");
       expect(planDashboardFetch(["kpis"], caps, WHO, ["supplier-payments-due"]).suppliers).toBe(true);
       expect(planDashboardFetch(["kpis"], caps, WHO, ["departing-30"]).suppliers).toBe(false);
+    });
+  });
+
+  describe("quotes pending", () => {
+    it("is read for ADMIN, MARKETING, CEO and FINANCE", () => {
+      for (const role of ["ADMIN", "MARKETING", "CEO", "FINANCE"] as const) {
+        expect(planFor(role).quotes).toBe(true);
+      }
+    });
+
+    it("is not read for roles without the Quotes module", () => {
+      for (const role of ["OPERATIONS", "VISA", "GUIDE"] as const) {
+        expect(planFor(role).quotes).toBe(false);
+      }
+    });
+
+    it("is read for the quote tiles alone when the block is not shown", () => {
+      const caps = baseDashboardCapabilities("MARKETING");
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["open-quotes"]).quotes).toBe(true);
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["quote-booking-rate"]).quotes).toBe(true);
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["departing-30"]).quotes).toBe(false);
+    });
+
+    it("is never read without the Quotes module, even if the block is asked for", () => {
+      expect(planDashboardFetch(["quotes-pending"], baseDashboardCapabilities("GUIDE"), WHO, []).quotes).toBe(false);
     });
   });
 });

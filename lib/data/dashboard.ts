@@ -217,6 +217,8 @@ export function buildKpiCandidates(input: {
   documentReview: { awaitingReview: number; missingDocuments: number } | null;
   /** The suppliers module's own per-currency payments-due KPI; `null` when the directory was not read. */
   supplierPayables: { paymentsDueByCurrency: Record<string, number> } | null;
+  /** The Quotes page's own counts; `null` when quotes were not read. */
+  quotePipeline: { open: number; expiringSoon: number; accepted: number; total: number; acceptRatePercent: number | null } | null;
 }): Partial<Record<DashboardKpiId, AdminKpi>> {
   const kpis: Partial<Record<DashboardKpiId, AdminKpi>> = {};
   const activeGroups = input.groups.filter((g) => !INACTIVE_GROUP_STATUSES.has(g.groupStatus));
@@ -390,6 +392,28 @@ export function buildKpiCandidates(input: {
       supportingText: others > 0 ? `+${others} more currenc${others === 1 ? "y" : "ies"}` : "Due within 14 days",
       destination: "/suppliers",
     };
+  }
+
+  if (input.quotePipeline) {
+    const q = input.quotePipeline;
+    kpis["open-quotes"] = {
+      id: "open-quotes",
+      title: "Open Quotes",
+      value: String(q.open),
+      supportingText: `${q.expiringSoon} expiring soon`,
+      destination: "/quotes",
+    };
+    // Accepted over every quote - the Quotes page's own "Accept rate". With no
+    // quotes there is no rate to state, so the tile is absent, not 0%.
+    if (q.acceptRatePercent !== null) {
+      kpis["quote-booking-rate"] = {
+        id: "quote-booking-rate",
+        title: "Quote Accept Rate",
+        value: `${q.acceptRatePercent}%`,
+        supportingText: `${q.accepted} of ${q.total} quotes accepted`,
+        destination: "/quotes",
+      };
+    }
   }
 
   if (input.executive) {

@@ -90,6 +90,7 @@ function input(overrides: Partial<Candidates> = {}): Candidates {
     visaQueue: null,
     documentReview: null,
     supplierPayables: null,
+    quotePipeline: null,
     ...overrides,
   };
 }
@@ -278,5 +279,38 @@ describe("buildKpiCandidates - supplier payments due", () => {
   it("shows a real zero when the directory was read and nothing is due", () => {
     const k = buildKpiCandidates(input({ supplierPayables: { paymentsDueByCurrency: {} } }));
     expect(k["supplier-payments-due"]?.value).toBe("LKR 0");
+  });
+});
+
+describe("buildKpiCandidates - quotes", () => {
+  it("omits both quote tiles when quotes were not read", () => {
+    const k = buildKpiCandidates(input({ quotePipeline: null }));
+    expect(k["open-quotes"]).toBeUndefined();
+    expect(k["quote-booking-rate"]).toBeUndefined();
+  });
+
+  it("shows open quotes with how many are about to lapse", () => {
+    const k = buildKpiCandidates(
+      input({ quotePipeline: { open: 12, expiringSoon: 3, accepted: 4, total: 20, acceptRatePercent: 20 } }),
+    );
+    expect(k["open-quotes"]?.value).toBe("12");
+    expect(k["open-quotes"]?.supportingText).toBe("3 expiring soon");
+    expect(k["open-quotes"]?.destination).toBe("/quotes");
+  });
+
+  it("shows the Quotes page's accept rate with its basis", () => {
+    const k = buildKpiCandidates(
+      input({ quotePipeline: { open: 12, expiringSoon: 3, accepted: 4, total: 20, acceptRatePercent: 20 } }),
+    );
+    expect(k["quote-booking-rate"]?.value).toBe("20%");
+    expect(k["quote-booking-rate"]?.supportingText).toBe("4 of 20 quotes accepted");
+  });
+
+  it("omits the accept rate, not shows 0%, when there are no quotes yet", () => {
+    const k = buildKpiCandidates(
+      input({ quotePipeline: { open: 0, expiringSoon: 0, accepted: 0, total: 0, acceptRatePercent: null } }),
+    );
+    expect(k["quote-booking-rate"]).toBeUndefined();
+    expect(k["open-quotes"]?.value).toBe("0");
   });
 });

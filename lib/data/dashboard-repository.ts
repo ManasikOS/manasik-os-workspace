@@ -25,7 +25,7 @@ import type { StaffRole } from "@/lib/access/departure-groups-access";
 import { buildOperationsSnapshot } from "@/lib/data/operations-repository";
 import { computeOperationsKpis } from "@/lib/data/operations";
 import { loadAssignedGroupIds, loadTasksForStaff, type StaffTaskWithGroup } from "@/lib/data/team-repository";
-import { loadLeadDashboardFacts, type DashboardLeadFacts } from "@/lib/data/leads-repository";
+import { loadLeadDashboardFacts, loadQuoteDashboardFacts, type DashboardLeadFacts } from "@/lib/data/leads-repository";
 import { getCopilotDailySummary, listAgencyOpenProposals } from "@/lib/data/departure-groups-agent";
 import {
   loadFinancePayments,
@@ -64,6 +64,7 @@ import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
 import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/operations";
 import { buildDocumentReview } from "@/lib/data/dashboard-documents";
+import { buildQuotePipeline } from "@/lib/data/dashboard-quotes";
 import { buildSupplierPayables } from "@/lib/data/dashboard-suppliers";
 import { toSupplierListItems } from "@/lib/data/suppliers";
 import { loadSupplierDirectory } from "@/lib/data/suppliers-repository";
@@ -443,7 +444,8 @@ type DashboardRead =
   | "overview"
   | "visaQueue"
   | "documentQueue"
-  | "supplierDirectory";
+  | "supplierDirectory"
+  | "quotes";
 
 export async function loadDashboardData(
   role: StaffRole,
@@ -515,7 +517,7 @@ export async function loadDashboardData(
     }
   };
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview, supplierPayables] =
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview, supplierPayables, quotePipeline] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
       read("leads", plan.leads, () => loadLeadDashboardFacts(supabase)),
@@ -545,6 +547,8 @@ export async function loadDashboardData(
       read("supplierDirectory", plan.suppliers, async () =>
         buildSupplierPayables(toSupplierListItems(await loadSupplierDirectory(supabase, caps.suppliers)), nowIso),
       ),
+      // Quotes pending - a column-limited read of lead_quotes, counted with the Quotes page's own rules.
+      read("quotes", plan.quotes, async () => buildQuotePipeline(await loadQuoteDashboardFacts(supabase), nowIso)),
     ]);
 
   const myTasks = myTasksRead ?? [];
@@ -649,7 +653,7 @@ export async function loadDashboardData(
     overdueBalanceLabel: receivables ? formatCurrencyLKR(overdueBalanceAmount) : null,
     overdueBalanceAmount: receivables ? overdueBalanceAmount : 0,
     figuresUnavailable: (
-      ["leads", "receivables", "payments", "refunds", "myTasks", "overview", "visaQueue", "documentQueue", "supplierDirectory"] as const
+      ["leads", "receivables", "payments", "refunds", "myTasks", "overview", "visaQueue", "documentQueue", "supplierDirectory", "quotes"] as const
     ).some((name) => failed.has(name)),
   });
 
@@ -728,6 +732,7 @@ export async function loadDashboardData(
   markFailed("visa-queue", "visaQueue");
   markFailed("document-review", "documentQueue");
   markFailed("supplier-payables", "supplierDirectory");
+  markFailed("quotes-pending", "quotes");
 
   return {
     statusLine,
@@ -747,6 +752,15 @@ export async function loadDashboardData(
         overdueBalance: receivables ? overdueBalanceAmount : null,
         refundsPending: refundsPending ? refundsPending.count : null,
         visaQueue: visaQueue ? visaQueue.counts : null,
+        quotePipeline: quotePipeline
+          ? {
+              open: quotePipeline.open,
+              expiringSoon: quotePipeline.counts.expiringSoon,
+              accepted: quotePipeline.counts.accepted,
+              total: quotePipeline.total,
+              acceptRatePercent: quotePipeline.acceptRatePercent,
+            }
+          : null,
         supplierPayables: supplierPayables
           ? { paymentsDueByCurrency: supplierPayables.paymentsDueByCurrency }
           : null,
@@ -772,6 +786,7 @@ export async function loadDashboardData(
     visaQueue,
     documentReview,
     supplierPayables,
+    quotePipeline,
     teamPerformance,
     seatPace,
     leadAttention,
