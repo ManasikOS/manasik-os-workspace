@@ -53,7 +53,7 @@ T2,T3 ──► T16 e2e matrix ;  T4 ──► T17 perf baseline
 ## Task list (index — full detail in dashboard-todo.md)
 
 ### Phase 1 — Access fix + spine
-- [ ] T1 Capability bundle + pure gate table (S)
+- [x] T1 Capability bundle + pure gate table (S)
 - [ ] T2 Route repository & page through the bundle (M) — **closes G1**
 - [ ] T3 Registry: structural blocks, gates, role presets (M) — closes G3
 - [ ] T4 Demand-driven fetch plan (M)

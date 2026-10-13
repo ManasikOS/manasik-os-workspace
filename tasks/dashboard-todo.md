@@ -9,7 +9,7 @@ Standing rules (spec §9): gate before fetch · `null` = absent, `0` = real zero
 
 ## Phase 1 — Access fix + spine
 
-### [ ] T1: Dashboard capability bundle + pure gate table
+### [x] T1: Dashboard capability bundle + pure gate table
 **Description:** Create the single resolver the page uses for permissions, merging custom-role overrides over code-level capabilities, and
 the pure `BLOCK_GATES` / `visibleBlocks` functions. No page or repository changes yet.
 **Acceptance:**

@@ -11,20 +11,28 @@
 
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 
-export type DashboardPanelId =
-  | "pipeline"
+/**
+ * Runtime list of every panel id — `BLOCK_GATES` (lib/access/dashboard-access.ts)
+ * is a `Record` over this union, so a block cannot be added here without
+ * also declaring who may see it. "revenue-trend" renders Revenue Trend
+ * stacked above Receivables Aging as one grid cell — see page.tsx's
+ * `renderDashboardPanels`.
+ */
+export const DASHBOARD_PANEL_IDS = [
+  "pipeline",
+  "my-day",
+  "upcoming-departures",
+  "attention-rail",
+  "approvals",
+  "seat-fill-pace",
+  "revenue-trend",
+  "readiness-heatmap",
+  "collections",
+  "team-performance",
+  "recent-activity",
+] as const;
 
-  | "my-day"
-  | "upcoming-departures"
-  | "attention-rail"
-  | "approvals"
-  | "seat-fill-pace"
-  /** Renders Revenue Trend stacked above Receivables Aging as one grid cell — see page.tsx's `renderDashboardPanels`. */
-  | "revenue-trend"
-  | "readiness-heatmap"
-  | "collections"
-  | "team-performance"
-  | "recent-activity";
+export type DashboardPanelId = (typeof DASHBOARD_PANEL_IDS)[number];
 
 /**
  * "Business Health" used to be one tabbed panel (revenue / collections /
