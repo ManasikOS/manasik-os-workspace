@@ -45,6 +45,8 @@ import {
   type DashboardPeriod,
 } from "@/lib/data/dashboard";
 import { rankAttentionRows } from "@/lib/data/dashboard-attention";
+import { planDashboardFetch } from "@/lib/data/dashboard-fetch-plan";
+import type { DashboardPanelId } from "@/lib/data/dashboard-layout";
 import { buildSeatPacePoints } from "@/lib/data/dashboard-pace";
 import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
@@ -508,6 +510,12 @@ export async function loadDashboardData(
    * decide what is *fetched*, not just what is shown.
    */
   caps: DashboardCapabilities,
+  /**
+   * The blocks this person's page will actually render
+   * (`visibleBlocks(resolveDashboardLayout(role), caps)`). A read no visible
+   * block consumes is not made — see `planDashboardFetch`.
+   */
+  blocks: readonly DashboardPanelId[],
 ): Promise<DashboardData> {
   const supabase = await db();
   const nowMs = Date.now();
@@ -527,8 +535,6 @@ export async function loadDashboardData(
   const reportFilters: ReportFilters = { ...DEFAULT_REPORT_FILTERS, period: toReportPeriod(period) };
 
   const financeCan = caps.finance;
-  const leadsCan = caps.leads;
-  const opsCan = caps.operations;
   const reportsCan = caps.reports;
 
   // `staff_group_assignments` scoping, not a name match — see the comment on
@@ -536,23 +542,29 @@ export async function loadDashboardData(
   const assignedGroupIds =
     role === "GUIDE" && staffId ? await loadAssignedGroupIds(supabase, staffId) : [];
 
+  // Which optional reads a visible block actually consumes. A skipped read
+  // resolves `null` ("not asked for"), and every figure derived from it below
+  // keys off that `null` — not off the capability — so a skipped read can
+  // never be mistaken for a real zero.
+  const plan = planDashboardFetch(blocks, caps, { staffId, agencyId });
+
   const [snapshot, leadFacts, receivables, payments, refundsPending, myTasks, openProposals, copilotToday, financeReport, salesReport] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
-      leadsCan.viewModule ? loadLeadDashboardFacts(supabase) : Promise.resolve(null),
-      financeCan.viewLedger ? loadFinanceReceivables(supabase, financeCan) : Promise.resolve(null),
-      financeCan.viewLedger ? loadFinancePayments(supabase) : Promise.resolve(null),
-      financeCan.viewLedger ? loadRefundsPendingSummary(supabase) : Promise.resolve(null),
-      staffId ? loadTasksForStaff(supabase, staffId) : Promise.resolve([]),
-      opsCan.viewModule && agencyId ? listAgencyOpenProposals(agencyId, supabase) : Promise.resolve(null),
-      opsCan.viewModule && agencyId ? getCopilotDailySummary(agencyId, supabase) : Promise.resolve(null),
+      plan.leads ? loadLeadDashboardFacts(supabase) : Promise.resolve(null),
+      plan.receivables ? loadFinanceReceivables(supabase, financeCan) : Promise.resolve(null),
+      plan.payments ? loadFinancePayments(supabase) : Promise.resolve(null),
+      plan.refunds ? loadRefundsPendingSummary(supabase) : Promise.resolve(null),
+      plan.myTasks && staffId ? loadTasksForStaff(supabase, staffId) : Promise.resolve([]),
+      plan.proposals && agencyId ? listAgencyOpenProposals(agencyId, supabase) : Promise.resolve(null),
+      plan.proposals && agencyId ? getCopilotDailySummary(agencyId, supabase) : Promise.resolve(null),
       // Business Health (§5.8) — gated on `viewFinance` alone since every
       // figure it shows (revenue, bookings, collections, receivables,
       // margin) is finance-flavoured; `viewCostAndMargin` narrows the
       // margin tab specifically, below.
-      reportsCan.viewFinance ? loadReportsFinanceSnapshot(supabase, reportFilters, nowIso, reportsCan) : Promise.resolve(null),
+      plan.financeReport ? loadReportsFinanceSnapshot(supabase, reportFilters, nowIso, reportsCan) : Promise.resolve(null),
       // Pipeline (§5.9) and Team Performance (§5.10) share one fact set.
-      reportsCan.viewSales ? loadReportsSalesSnapshot(supabase, reportFilters, nowIso) : Promise.resolve(null),
+      plan.salesReport ? loadReportsSalesSnapshot(supabase, reportFilters, nowIso) : Promise.resolve(null),
     ]);
 
   const leads = leadFacts ?? [];
@@ -570,7 +582,7 @@ export async function loadDashboardData(
       .reduce((sum, p) => sum + p.amount, 0) ?? 0;
 
   const collectionsKpi: PeriodCount | null =
-    financeCan.viewLedger && payments && comparisonPeriod
+    payments && comparisonPeriod
       ? {
           current: sumCompletedPayments(resolvedPeriod.fromIso, resolvedPeriod.toIso),
           previous: sumCompletedPayments(comparisonPeriod.fromIso, comparisonPeriod.toIso),
@@ -578,14 +590,14 @@ export async function loadDashboardData(
       : null;
 
   const newInquiriesKpi: PeriodCount | null =
-    leadsCan.viewModule && comparisonPeriod
+    leadFacts && comparisonPeriod
       ? {
           current: leads.filter((l) => isWithinIso(l.created_at, resolvedPeriod.fromIso, resolvedPeriod.toIso)).length,
           previous: leads.filter((l) => isWithinIso(l.created_at, comparisonPeriod.fromIso, comparisonPeriod.toIso)).length,
         }
       : null;
 
-  const collections = financeCan.viewLedger && receivables
+  const collections = blocks.includes("collections") && receivables && payments
     ? {
         thisMonth: formatCurrencyLKR(collectedThisMonth),
         due7Days: formatCurrencyLKR(
@@ -640,11 +652,11 @@ export async function loadDashboardData(
     groupsAtRiskCount: opsKpis.groupsAtRisk,
     groupsBlockedCount: activeGroupsForStatus.filter((g) => g.readinessStatus === "BLOCKED").length,
     overdueTaskCount,
-    overdueBalanceLabel: financeCan.viewLedger ? formatCurrencyLKR(overdueBalanceAmount) : null,
-    overdueBalanceAmount: financeCan.viewLedger ? overdueBalanceAmount : 0,
+    overdueBalanceLabel: receivables ? formatCurrencyLKR(overdueBalanceAmount) : null,
+    overdueBalanceAmount: receivables ? overdueBalanceAmount : 0,
   });
 
-  const leadAttention = leadsCan.viewModule ? buildLeadAttention(leads, nowMs) : { items: [] as LeadAttentionMetric[] };
+  const leadAttention = leadFacts ? buildLeadAttention(leads, nowMs) : { items: [] as LeadAttentionMetric[] };
 
   const groupDaysById = new Map(snapshot.groups.map((g) => [g.id, g.daysUntilDeparture]));
   const myDay = buildMyDay({
@@ -662,7 +674,7 @@ export async function loadDashboardData(
       supplierConfirmationsPending: opsKpis.supplierConfirmationsPending,
       minSupplierDays: minDays(pendingSupplierRows),
       leadItems: leadAttention.items,
-      refundsPendingCount: financeCan.viewLedger ? (refundsPending?.count ?? 0) : null,
+      refundsPendingCount: refundsPending ? refundsPending.count : null,
     }),
   );
 

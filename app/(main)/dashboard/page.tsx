@@ -219,13 +219,12 @@ export default async function DashboardPage({
   // The role's preset pruned to what this person's capabilities allow — the
   // single list everything below renders from, and the input that decides
   // which extra loaders run.
-  const { banners, panels } = splitDashboardBlocks(
-    visibleBlocks(resolveDashboardLayout(role), caps),
-  );
+  const blocks = visibleBlocks(resolveDashboardLayout(role), caps);
+  const { banners, panels } = splitDashboardBlocks(blocks);
 
   const [data, inboxIntelligence] = await Promise.all([
     withTiming("dashboard.loadData", () =>
-      loadDashboardData(role, staffId, agencyId, period, caps),
+      loadDashboardData(role, staffId, agencyId, period, caps, blocks),
     ),
     banners.includes("inbox-owner")
       ? loadInboxOwnerIntelligence(role, agencyId)

@@ -47,7 +47,7 @@ fixed onboarding banner (not a role block) — documented in the file.
 **Files:** `lib/data/dashboard-layout.ts`, `lib/access/dashboard-access.ts`, `app/(main)/dashboard/page.tsx`, `lib/data/dashboard-layout.test.ts` (new)
 **Scope:** M
 
-### [ ] T4: Demand-driven fetch plan
+### [x] T4: Demand-driven fetch plan
 **Description:** `loadDashboardData` receives the visible block list and runs each loader only if a visible block (or KPI/status line
 input) needs it; skipped loaders resolve `null`.
 **Acceptance:**

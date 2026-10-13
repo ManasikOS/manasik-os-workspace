@@ -56,7 +56,7 @@ T2,T3 ──► T16 e2e matrix ;  T4 ──► T17 perf baseline
 - [x] T1 Capability bundle + pure gate table (S)
 - [x] T2 Route repository & page through the bundle (M) — **closes G1**
 - [x] T3 Registry: structural blocks, gates, role presets (M) — closes G3
-- [ ] T4 Demand-driven fetch plan (M)
+- [x] T4 Demand-driven fetch plan (M)
 ### Checkpoint A — access leak closed, registry live
 
 ### Phase 2 — KPIs, resilience, polish
