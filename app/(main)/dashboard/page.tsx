@@ -14,6 +14,7 @@ import SeatFillPace from "./components/seat-fill-pace";
 import Pipeline from "./components/pipeline";
 import VisaQueue from "./components/visa-queue";
 import DocumentReview from "./components/document-review";
+import SupplierPayables from "./components/supplier-payables";
 import TeamPerformance from "./components/team-performance";
 import CollectionsAttention from "./components/collections-attention";
 import RecentActivity from "./components/recent-activity";
@@ -85,6 +86,7 @@ const PANEL_SPAN: Record<DashboardGridPanelId, string> = {
   "recent-activity": "lg:col-span-6",
   "visa-queue": "lg:col-span-6",
   "document-review": "lg:col-span-6",
+  "supplier-payables": "lg:col-span-6",
 };
 
 /**
@@ -108,6 +110,7 @@ const BLOCK_LABEL: Record<DashboardPanelId, string> = {
   "recent-activity": "Recent activity",
   "visa-queue": "Visa queue",
   "document-review": "Document review",
+  "supplier-payables": "Supplier payables",
 };
 
 function renderDashboardPanels(
@@ -193,6 +196,9 @@ function renderDashboardPanels(
         break;
       case "visa-queue":
         if (data.visaQueue) panels.push({ id, node: <VisaQueue data={data.visaQueue} /> });
+        break;
+      case "supplier-payables":
+        if (data.supplierPayables) panels.push({ id, node: <SupplierPayables data={data.supplierPayables} /> });
         break;
       case "document-review":
         if (data.documentReview) panels.push({ id, node: <DocumentReview data={data.documentReview} /> });

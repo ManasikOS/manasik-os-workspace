@@ -64,6 +64,9 @@ import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
 import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/operations";
 import { buildDocumentReview } from "@/lib/data/dashboard-documents";
+import { buildSupplierPayables } from "@/lib/data/dashboard-suppliers";
+import { toSupplierListItems } from "@/lib/data/suppliers";
+import { loadSupplierDirectory } from "@/lib/data/suppliers-repository";
 import { buildVisaQueue } from "@/lib/data/dashboard-visa";
 import { toDocumentListItems } from "@/lib/data/documents";
 import { loadDocumentQueue } from "@/lib/data/documents-repository";
@@ -439,7 +442,8 @@ type DashboardRead =
   | "salesReport"
   | "overview"
   | "visaQueue"
-  | "documentQueue";
+  | "documentQueue"
+  | "supplierDirectory";
 
 export async function loadDashboardData(
   role: StaffRole,
@@ -511,7 +515,7 @@ export async function loadDashboardData(
     }
   };
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview] =
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview, supplierPayables] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
       read("leads", plan.leads, () => loadLeadDashboardFacts(supabase)),
@@ -535,6 +539,11 @@ export async function loadDashboardData(
       // Document review - the Documents module's own rows and derivations, trimmed to group-level counts.
       read("documentQueue", plan.documents, async () =>
         buildDocumentReview(toDocumentListItems(await loadDocumentQueue(supabase), nowIso)),
+      ),
+      // Supplier payables - the directory view, with the person's own capabilities
+      // so the loader itself strips amounts they may not see.
+      read("supplierDirectory", plan.suppliers, async () =>
+        buildSupplierPayables(toSupplierListItems(await loadSupplierDirectory(supabase, caps.suppliers)), nowIso),
       ),
     ]);
 
@@ -640,7 +649,7 @@ export async function loadDashboardData(
     overdueBalanceLabel: receivables ? formatCurrencyLKR(overdueBalanceAmount) : null,
     overdueBalanceAmount: receivables ? overdueBalanceAmount : 0,
     figuresUnavailable: (
-      ["leads", "receivables", "payments", "refunds", "myTasks", "overview", "visaQueue", "documentQueue"] as const
+      ["leads", "receivables", "payments", "refunds", "myTasks", "overview", "visaQueue", "documentQueue", "supplierDirectory"] as const
     ).some((name) => failed.has(name)),
   });
 
@@ -718,6 +727,7 @@ export async function loadDashboardData(
   markFailed("my-day", "myTasks");
   markFailed("visa-queue", "visaQueue");
   markFailed("document-review", "documentQueue");
+  markFailed("supplier-payables", "supplierDirectory");
 
   return {
     statusLine,
@@ -737,6 +747,9 @@ export async function loadDashboardData(
         overdueBalance: receivables ? overdueBalanceAmount : null,
         refundsPending: refundsPending ? refundsPending.count : null,
         visaQueue: visaQueue ? visaQueue.counts : null,
+        supplierPayables: supplierPayables
+          ? { paymentsDueByCurrency: supplierPayables.paymentsDueByCurrency }
+          : null,
         documentReview: documentReview
           ? { awaitingReview: documentReview.counts.awaitingReview, missingDocuments: documentReview.counts.missingDocuments }
           : null,
@@ -758,6 +771,7 @@ export async function loadDashboardData(
     pipeline,
     visaQueue,
     documentReview,
+    supplierPayables,
     teamPerformance,
     seatPace,
     leadAttention,

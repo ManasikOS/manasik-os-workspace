@@ -144,7 +144,7 @@ gate + preset row (spec §2) → KPI tile if listed in §4 → empty/denied/erro
 **Acceptance:** awaiting-review / rejected / passport-expiring-before-departure counts + top rows from `loadDocumentQueue`; gate `documents.viewModule`; VISA + OPERATIONS only; sensitive traveller data respects `viewSensitiveTravellerData` (names masked if denied).
 **Dependencies:** T3 · **Files:** as T9 pattern · **Scope:** M
 
-### [ ] T11: `supplier-payables`
+### [x] T11: `supplier-payables`
 **Acceptance:** payments due ≤14d and unconfirmed commitments on groups ≤30d; gate `suppliers.viewPayments`; CEO sees totals only (no per-supplier rows); "Supplier payments due" KPI for FINANCE; OPERATIONS (viewPayments=false) never receives payment amounts.
 **Dependencies:** T3, T5a · **Scope:** M (loader may need a new aggregate read on `suppliers-repository` — R2 applies)
 

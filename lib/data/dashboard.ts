@@ -215,6 +215,8 @@ export function buildKpiCandidates(input: {
   visaQueue: { readyToSubmit: number; submittedPending: number; visaIssues: number; issued: number } | null;
   /** The documents module's own KPI counts; `null` when the document queue was not read. */
   documentReview: { awaitingReview: number; missingDocuments: number } | null;
+  /** The suppliers module's own per-currency payments-due KPI; `null` when the directory was not read. */
+  supplierPayables: { paymentsDueByCurrency: Record<string, number> } | null;
 }): Partial<Record<DashboardKpiId, AdminKpi>> {
   const kpis: Partial<Record<DashboardKpiId, AdminKpi>> = {};
   const activeGroups = input.groups.filter((g) => !INACTIVE_GROUP_STATUSES.has(g.groupStatus));
@@ -372,6 +374,21 @@ export function buildKpiCandidates(input: {
       value: String(input.documentReview.awaitingReview),
       supportingText: `${input.documentReview.missingDocuments} missing`,
       destination: "/documents",
+    };
+  }
+
+  if (input.supplierPayables) {
+    // Per currency, never converted - the largest is the headline and the
+    // rest are counted, exactly as the Suppliers page's own KPI card does.
+    const entries = Object.entries(input.supplierPayables.paymentsDueByCurrency).sort((a, b) => b[1] - a[1]);
+    const [currency, amount] = entries[0] ?? ["LKR", 0];
+    const others = Math.max(0, entries.length - 1);
+    kpis["supplier-payments-due"] = {
+      id: "supplier-payments-due",
+      title: "Supplier Payments Due",
+      value: formatCurrencyCompact(currency, amount),
+      supportingText: others > 0 ? `+${others} more currenc${others === 1 ? "y" : "ies"}` : "Due within 14 days",
+      destination: "/suppliers",
     };
   }
 

@@ -19,10 +19,12 @@ const loadReportsOverviewSnapshot = vi.fn();
 const reportHandledError = vi.fn();
 const loadVisaQueue = vi.fn();
 const loadDocumentQueue = vi.fn();
+const loadSupplierDirectory = vi.fn();
 
 vi.mock("@/lib/observability/report-error", () => ({ reportHandledError: (...a: unknown[]) => reportHandledError(...a) }));
 vi.mock("@/lib/data/visa-repository", () => ({ loadVisaQueue: (...a: unknown[]) => loadVisaQueue(...a) }));
 vi.mock("@/lib/data/documents-repository", () => ({ loadDocumentQueue: (...a: unknown[]) => loadDocumentQueue(...a) }));
+vi.mock("@/lib/data/suppliers-repository", () => ({ loadSupplierDirectory: (...a: unknown[]) => loadSupplierDirectory(...a) }));
 vi.mock("@/lib/data/operations-repository", () => ({ buildOperationsSnapshot: (...a: unknown[]) => buildOperationsSnapshot(...a) }));
 vi.mock("@/lib/data/team-repository", () => ({
   loadAssignedGroupIds: (...a: unknown[]) => loadAssignedGroupIds(...a),
@@ -65,6 +67,7 @@ function caps(role: Role, overrides: { [K in keyof DashboardCapabilities]?: Part
     inbox: { ...base.inbox, ...overrides.inbox },
     visa: { ...base.visa, ...overrides.visa },
     documents: { ...base.documents, ...overrides.documents },
+    suppliers: { ...base.suppliers, ...overrides.suppliers },
   };
 }
 
@@ -108,6 +111,7 @@ beforeEach(() => {
   loadReportsSalesSnapshot.mockResolvedValue({ leads: [] });
   loadVisaQueue.mockResolvedValue([]);
   loadDocumentQueue.mockResolvedValue([]);
+  loadSupplierDirectory.mockResolvedValue([]);
   loadReportsOverviewSnapshot.mockResolvedValue({
     bookingsCurrent: [],
     bookingsPrevious: [],
@@ -546,5 +550,55 @@ describe("loadDashboardData - document review", () => {
     expect(data.blockErrors["document-review"]).toBe(true);
     expect(data.documentReview).toBeNull();
     expect(data.kpis.map((k) => k.id)).not.toContain("docs-awaiting-review");
+  });
+});
+
+describe("loadDashboardData - supplier payables", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("reads the supplier directory for FINANCE, ADMIN and CEO and builds the block", async () => {
+    for (const role of ["FINANCE", "ADMIN", "CEO"] as const) {
+      vi.clearAllMocks();
+      loadSupplierDirectory.mockResolvedValue([]);
+      const data = await load(role, caps(role));
+      expect(loadSupplierDirectory).toHaveBeenCalledOnce();
+      expect(data.supplierPayables).not.toBeNull();
+    }
+  });
+
+  it("passes the person's own supplier capabilities so the loader strips amounts they may not see", async () => {
+    await load("FINANCE", caps("FINANCE"));
+    const passed = loadSupplierDirectory.mock.calls[0][1];
+    expect(passed).toMatchObject({ viewCosts: true, viewPayments: true });
+  });
+
+  it("shows FINANCE the supplier payments tile", async () => {
+    const data = await load("FINANCE", caps("FINANCE"));
+    expect(data.kpis.map((k) => k.id)).toContain("supplier-payments-due");
+  });
+
+  it("never reads the directory for OPERATIONS, MARKETING, VISA or GUIDE", async () => {
+    for (const role of ["OPERATIONS", "MARKETING", "VISA", "GUIDE"] as const) {
+      vi.clearAllMocks();
+      const data = await load(role, caps(role));
+      expect(loadSupplierDirectory).not.toHaveBeenCalled();
+      expect(data.supplierPayables).toBeNull();
+    }
+  });
+
+  it("does not read it when a custom role has supplier payments switched off", async () => {
+    const data = await load("FINANCE", caps("FINANCE", { suppliers: { viewPayments: false } }));
+    expect(loadSupplierDirectory).not.toHaveBeenCalled();
+    expect(data.supplierPayables).toBeNull();
+  });
+
+  it("marks the block, not the page, when the directory cannot be read", async () => {
+    loadSupplierDirectory.mockRejectedValue(new Error("db down"));
+    const data = await load("FINANCE", caps("FINANCE"));
+    expect(data.blockErrors["supplier-payables"]).toBe(true);
+    expect(data.supplierPayables).toBeNull();
+    expect(data.kpis.map((k) => k.id)).not.toContain("supplier-payments-due");
   });
 });

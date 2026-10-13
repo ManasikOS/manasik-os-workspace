@@ -19,6 +19,7 @@ function withOverrides(
     inbox: { ...base.inbox, ...overrides.inbox },
     visa: { ...base.visa, ...overrides.visa },
     documents: { ...base.documents, ...overrides.documents },
+    suppliers: { ...base.suppliers, ...overrides.suppliers },
   };
 }
 
@@ -99,5 +100,20 @@ describe("visibleBlocks", () => {
     expect(visibleBlocks(["document-review"], withOverrides("VISA", { documents: { viewModule: false } }))).toEqual([]);
     expect(visibleBlocks(["document-review"], withOverrides("VISA", { documents: { scopedToPaymentProof: true } }))).toEqual([]);
     expect(visibleBlocks(["document-review"], baseDashboardCapabilities("GUIDE"))).toEqual([]);
+  });
+
+  it("shows supplier payables only to a role that may see supplier costs and payments", () => {
+    for (const role of ["ADMIN", "CEO", "FINANCE"] as const) {
+      expect(visibleBlocks(["supplier-payables"], baseDashboardCapabilities(role))).toEqual(["supplier-payables"]);
+    }
+    for (const role of ["OPERATIONS", "MARKETING", "VISA", "GUIDE"] as const) {
+      expect(visibleBlocks(["supplier-payables"], baseDashboardCapabilities(role))).toEqual([]);
+    }
+  });
+
+  it("removes supplier payables when a custom role loses payments or costs, even on an ADMIN base", () => {
+    expect(visibleBlocks(["supplier-payables"], withOverrides("ADMIN", { suppliers: { viewPayments: false } }))).toEqual([]);
+    expect(visibleBlocks(["supplier-payables"], withOverrides("ADMIN", { suppliers: { viewCosts: false } }))).toEqual([]);
+    expect(visibleBlocks(["supplier-payables"], withOverrides("ADMIN", { suppliers: { viewModule: false } }))).toEqual([]);
   });
 });

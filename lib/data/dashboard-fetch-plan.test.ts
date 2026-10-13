@@ -26,6 +26,7 @@ describe("planDashboardFetch", () => {
       overview: false,
       visaQueue: false,
       documents: false,
+      suppliers: false,
       myTasks: true,
     });
   });
@@ -144,6 +145,32 @@ describe("planDashboardFetch", () => {
       const caps = baseDashboardCapabilities("VISA");
       expect(planDashboardFetch(["kpis"], caps, WHO, ["docs-awaiting-review"]).documents).toBe(true);
       expect(planDashboardFetch(["kpis"], caps, WHO, ["departing-30"]).documents).toBe(false);
+    });
+  });
+
+  describe("supplier payables", () => {
+    it("is read for ADMIN, CEO and FINANCE", () => {
+      for (const role of ["ADMIN", "CEO", "FINANCE"] as const) {
+        expect(planFor(role).suppliers).toBe(true);
+      }
+    });
+
+    it("is not read for roles that may not see supplier payments", () => {
+      for (const role of ["OPERATIONS", "MARKETING", "VISA", "GUIDE"] as const) {
+        expect(planFor(role).suppliers).toBe(false);
+      }
+    });
+
+    it("is never read without payments access, even if the block and tile are asked for", () => {
+      const base = baseDashboardCapabilities("FINANCE");
+      const caps = { ...base, suppliers: { ...base.suppliers, viewPayments: false } };
+      expect(planDashboardFetch(["supplier-payables"], caps, WHO, ["supplier-payments-due"]).suppliers).toBe(false);
+    });
+
+    it("is read for the KPI alone when the block is not shown", () => {
+      const caps = baseDashboardCapabilities("FINANCE");
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["supplier-payments-due"]).suppliers).toBe(true);
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["departing-30"]).suppliers).toBe(false);
     });
   });
 });

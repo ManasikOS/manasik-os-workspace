@@ -209,6 +209,32 @@ export interface DocumentReviewData {
   totalDocuments: number;
 }
 
+/** One supplier on the Supplier payables block - business-level amounts only, no contact details. */
+export interface SupplierPayableRow {
+  supplierId: string;
+  name: string;
+  supplierType: string;
+  currency: string;
+  outstandingAmount: number;
+  dueAt: string;
+  /** Negative when overdue. */
+  daysUntilDue: number;
+  overdue: boolean;
+  hasIssue: boolean;
+}
+
+/** Supplier payables (spec section 3.2) - the suppliers module's own KPI derivation, trimmed to what the block shows. */
+export interface SupplierPayablesData {
+  /** Per currency - nothing is converted. */
+  paymentsDueByCurrency: Record<string, number>;
+  confirmationsPending: number;
+  supplierIssues: number;
+  /** Suppliers with a payment due in total - `suppliers` is only the soonest few. */
+  dueSupplierCount: number;
+  suppliers: SupplierPayableRow[];
+  totalSuppliers: number;
+}
+
 export interface DashboardData {
   statusLine: StatusLine;
   /**
@@ -230,6 +256,8 @@ export interface DashboardData {
   visaQueue: VisaQueueData | null;
   /** `null` for a role without the Document review block (or without Documents access). */
   documentReview: DocumentReviewData | null;
+  /** `null` for a role that may not see supplier payments. */
+  supplierPayables: SupplierPayablesData | null;
   teamPerformance: SalesOwnerRow[] | null;
   seatPace: SeatPacePoint[];
   leadAttention: {

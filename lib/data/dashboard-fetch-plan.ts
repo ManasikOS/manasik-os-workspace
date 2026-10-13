@@ -35,6 +35,8 @@ export interface DashboardFetchPlan {
   visaQueue: boolean;
   /** Document queue - the Document review block and the Docs Awaiting Review tile. */
   documents: boolean;
+  /** Supplier directory - the Supplier payables block and the Supplier Payments Due tile. */
+  suppliers: boolean;
   /** The signed-in person's own tasks — My Day and the My Open Tasks tile. */
   myTasks: boolean;
 }
@@ -62,6 +64,11 @@ export function planDashboardFetch(
     visaQueue: caps.visa.viewModule && !caps.visa.viewPaymentBlockersOnly && (has("visa-queue") || kpi("visa-pending")),
     documents:
       caps.documents.viewModule && !caps.documents.scopedToPaymentProof && (has("document-review") || kpi("docs-awaiting-review")),
+    suppliers:
+      caps.suppliers.viewModule &&
+      caps.suppliers.viewCosts &&
+      caps.suppliers.viewPayments &&
+      (has("supplier-payables") || kpi("supplier-payments-due")),
     myTasks: who.staffId !== null && (has("my-day") || kpi("my-open-tasks")),
   };
 }

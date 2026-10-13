@@ -18,6 +18,7 @@ import { capabilitiesForInbox, type InboxCapabilities } from "@/lib/access/inbox
 import { capabilitiesForLeads, type LeadCapabilities } from "@/lib/access/leads-access";
 import { capabilitiesForOperations, type OperationsCapabilities } from "@/lib/access/operations-access";
 import { capabilitiesForReports, type ReportsCapabilities } from "@/lib/access/reports-access";
+import { capabilitiesForSuppliers, type SupplierCapabilities } from "@/lib/access/suppliers-access";
 import { capabilitiesForVisa, type VisaCapabilities } from "@/lib/access/visa-access";
 import type { DashboardPanelId } from "@/lib/data/dashboard-layout";
 
@@ -31,6 +32,7 @@ export interface DashboardCapabilities {
   inbox: InboxCapabilities;
   visa: VisaCapabilities;
   documents: DocumentCapabilities;
+  suppliers: SupplierCapabilities;
 }
 
 /** A base role's built-in set, before any custom-role override is merged in. */
@@ -44,6 +46,7 @@ export function baseDashboardCapabilities(role: StaffRole): DashboardCapabilitie
     inbox: capabilitiesForInbox(role),
     visa: capabilitiesForVisa(role),
     documents: capabilitiesForDocuments(role),
+    suppliers: capabilitiesForSuppliers(role),
   };
 }
 
@@ -80,6 +83,10 @@ export const BLOCK_GATES: Record<DashboardPanelId, (caps: DashboardCapabilities)
   // simply not offered to them.
   // A role limited to payment proofs sees a one-document-type slice on the
   // Documents page; the block's counts would not match it, so it is not offered.
+  // Money owed to suppliers: needs the cost figures *and* the payment ledger
+  // (OPERATIONS manages commitments but has no `viewPayments`; the directory
+  // loader would zero its amounts anyway).
+  "supplier-payables": (c) => c.suppliers.viewModule && c.suppliers.viewCosts && c.suppliers.viewPayments,
   "document-review": (c) => c.documents.viewModule && !c.documents.scopedToPaymentProof,
   "visa-queue": (c) => c.visa.viewModule && !c.visa.viewPaymentBlockersOnly,
   pipeline: (c) => c.reports.viewSales,

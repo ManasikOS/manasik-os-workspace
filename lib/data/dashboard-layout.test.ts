@@ -132,3 +132,15 @@ describe("document-review placement", () => {
     expect(panels.slice(0, 2)).toEqual(["visa-queue", "document-review"]);
   });
 });
+
+describe("supplier-payables placement", () => {
+  it("is shown to ADMIN, CEO and FINANCE only", () => {
+    const holders = STAFF_ROLES.filter((r) => DASHBOARD_LAYOUTS[r].includes("supplier-payables"));
+    expect([...holders].sort()).toEqual(["ADMIN", "CEO", "FINANCE"]);
+  });
+
+  it("sits right after Collections for FINANCE, whose job is money in and out", () => {
+    const panels = splitDashboardBlocks(DASHBOARD_LAYOUTS.FINANCE).panels;
+    expect(panels.indexOf("supplier-payables")).toBe(panels.indexOf("collections") + 1);
+  });
+});

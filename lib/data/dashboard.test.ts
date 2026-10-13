@@ -89,6 +89,7 @@ function input(overrides: Partial<Candidates> = {}): Candidates {
     executive: null,
     visaQueue: null,
     documentReview: null,
+    supplierPayables: null,
     ...overrides,
   };
 }
@@ -259,5 +260,23 @@ describe("buildKpiCandidates - documents", () => {
   it("shows a real zero when the queue was read and nothing is waiting", () => {
     const k = buildKpiCandidates(input({ documentReview: { awaitingReview: 0, missingDocuments: 0 } }));
     expect(k["docs-awaiting-review"]?.value).toBe("0");
+  });
+});
+
+describe("buildKpiCandidates - supplier payments due", () => {
+  it("omits the tile when the supplier directory was not read", () => {
+    expect(buildKpiCandidates(input({ supplierPayables: null }))["supplier-payments-due"]).toBeUndefined();
+  });
+
+  it("shows the largest currency due, noting how many others there are", () => {
+    const k = buildKpiCandidates(input({ supplierPayables: { paymentsDueByCurrency: { LKR: 2_000_000, SAR: 5_000 } } }));
+    expect(k["supplier-payments-due"]?.value).toBe("LKR 2M");
+    expect(k["supplier-payments-due"]?.supportingText).toBe("+1 more currency");
+    expect(k["supplier-payments-due"]?.destination).toBe("/suppliers");
+  });
+
+  it("shows a real zero when the directory was read and nothing is due", () => {
+    const k = buildKpiCandidates(input({ supplierPayables: { paymentsDueByCurrency: {} } }));
+    expect(k["supplier-payments-due"]?.value).toBe("LKR 0");
   });
 });
