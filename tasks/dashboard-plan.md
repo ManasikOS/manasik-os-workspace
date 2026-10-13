@@ -60,7 +60,7 @@ T2,T3 ──► T16 e2e matrix ;  T4 ──► T17 perf baseline
 ### Checkpoint A — access leak closed, registry live
 
 ### Phase 2 — KPIs, resilience, polish
-- [ ] T5a Role-selected KPI row, cap 6 (S) — closes G2
+- [x] T5a Role-selected KPI row, cap 6 (S) — closes G2
 - [ ] T5b KPI tiles that need no new loader (S)
 - [ ] T6 Per-block failure isolation (M) — closes G6
 - [ ] T7 Recent Activity on merged feed (S) — closes G5

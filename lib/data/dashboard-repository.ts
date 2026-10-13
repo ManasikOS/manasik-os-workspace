@@ -40,13 +40,19 @@ import {
   dashboardPeriodLabel,
   formatKpiDelta,
   buildStatusLine,
+  selectKpis,
   toReportPeriod,
   trendGranularityFor,
   type DashboardPeriod,
 } from "@/lib/data/dashboard";
 import { rankAttentionRows } from "@/lib/data/dashboard-attention";
 import { planDashboardFetch } from "@/lib/data/dashboard-fetch-plan";
-import type { DashboardPanelId } from "@/lib/data/dashboard-layout";
+import {
+  DASHBOARD_KPI_CAP,
+  resolveDashboardKpiOrder,
+  type DashboardKpiId,
+  type DashboardPanelId,
+} from "@/lib/data/dashboard-layout";
 import { buildSeatPacePoints } from "@/lib/data/dashboard-pace";
 import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
@@ -159,19 +165,25 @@ interface PeriodCount {
   previous: number;
 }
 
-function buildKpis(input: {
+/**
+ * Every KPI tile this render *can* build, keyed by id. Which of them the
+ * person sees, and in what order, is `DASHBOARD_KPI_ORDER` + `selectKpis` —
+ * this function only answers "what could be built from the reads that ran".
+ * A figure whose read did not run is simply absent from the record.
+ */
+function buildKpiCandidates(input: {
   groups: OperationsGroupSummary[];
   outstandingBalance: number;
   periodLabel: string;
   newInquiries: PeriodCount | null;
   collections: PeriodCount | null;
-}): AdminKpi[] {
-  const kpis: AdminKpi[] = [];
+}): Partial<Record<DashboardKpiId, AdminKpi>> {
+  const kpis: Partial<Record<DashboardKpiId, AdminKpi>> = {};
   const activeGroups = input.groups.filter((g) => g.groupStatus !== "COMPLETED" && g.groupStatus !== "CLOSED" && g.groupStatus !== "CANCELLED");
 
   if (input.newInquiries) {
     const trend = formatKpiDelta(input.newInquiries.current, input.newInquiries.previous, "previous period");
-    kpis.push({
+    kpis["new-inquiries"] = {
       id: "new-inquiries",
       title: "New Inquiries",
       value: String(input.newInquiries.current),
@@ -179,37 +191,37 @@ function buildKpis(input: {
       trend: trend?.trend,
       trendType: trend?.trendType,
       destination: "/leads",
-    });
+    };
   }
 
-  kpis.push({
+  kpis["active-pilgrims"] = {
     id: "active-pilgrims",
     title: "Active Pilgrims",
     value: String(activeGroups.reduce((sum, g) => sum + g.pilgrimCount, 0)),
     supportingText: `Across ${activeGroups.length} active group${activeGroups.length === 1 ? "" : "s"}`,
     destination: "/pilgrims",
-  });
+  };
 
   const departingSoon = activeGroups.filter((g) => g.daysUntilDeparture >= 0 && g.daysUntilDeparture <= 30);
-  kpis.push({
+  kpis["departing-30"] = {
     id: "departing-30",
     title: "Departing in 30 Days",
     value: String(departingSoon.reduce((sum, g) => sum + g.pilgrimCount, 0)),
     supportingText: `Across ${departingSoon.length} departure group${departingSoon.length === 1 ? "" : "s"}`,
     destination: "/departure-groups",
-  });
+  };
 
   if (input.collections) {
     const trend = formatKpiDelta(input.collections.current, input.collections.previous, "previous period");
-    kpis.push({
+    kpis["collections-period"] = {
       id: "collections-period",
       title: `Collections (${input.periodLabel})`,
       value: formatCurrencyLKR(input.collections.current),
       trend: trend?.trend,
       trendType: trend?.trendType,
       destination: "/finance?view=receivables&subview=payments",
-    });
-    kpis.push({
+    };
+    kpis["outstanding-balance"] = {
       id: "outstanding-balance",
       title: "Outstanding Balance",
       value: formatCurrencyLKR(input.outstandingBalance),
@@ -217,17 +229,17 @@ function buildKpis(input: {
       // no delta rather than a fabricated one (open question in
       // docs/modules/dashboard-module-implementation-plan.md §13.4).
       destination: "/finance?view=receivables&subview=balances",
-    });
+    };
   }
 
   const readyCount = activeGroups.filter((g) => g.readinessStatus === "READY").length;
-  kpis.push({
+  kpis["group-readiness"] = {
     id: "group-readiness",
     title: "Group Readiness",
     value: `${readyCount} Ready`,
     supportingText: "Next 30 days departures",
     destination: "/departure-groups",
-  });
+  };
 
   return kpis;
 }
@@ -720,13 +732,17 @@ export async function loadDashboardData(
 
   return {
     statusLine,
-    kpis: buildKpis({
-      groups: snapshot.groups,
-      outstandingBalance,
-      periodLabel,
-      newInquiries: newInquiriesKpi,
-      collections: collectionsKpi,
-    }),
+    kpis: selectKpis(
+      resolveDashboardKpiOrder(role),
+      buildKpiCandidates({
+        groups: snapshot.groups,
+        outstandingBalance,
+        periodLabel,
+        newInquiries: newInquiriesKpi,
+        collections: collectionsKpi,
+      }),
+      DASHBOARD_KPI_CAP,
+    ),
     myDay,
     departureGroups: buildDepartureGroups(snapshot.groups),
     attentionRail,

@@ -69,7 +69,7 @@ input) needs it; skipped loaders resolve `null`.
 
 ## Phase 2 — KPIs, resilience, polish
 
-### [ ] T5a: Role-selected KPI row, cap 6
+### [x] T5a: Role-selected KPI row, cap 6
 **Description:** `buildKpis` takes the role's ordered tile list (spec §4) and returns at most 6; a tile whose gate fails is dropped and the
 next fills the slot.
 **Acceptance:**

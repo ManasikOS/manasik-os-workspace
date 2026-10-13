@@ -125,3 +125,80 @@ export const DASHBOARD_LAYOUTS: Record<StaffRole, DashboardPanelId[]> = {
 export function resolveDashboardLayout(role: StaffRole): DashboardPanelId[] {
   return DASHBOARD_LAYOUTS[role] ?? DASHBOARD_LAYOUTS.GUIDE;
 }
+
+/**
+ * KPI tiles (spec section 4). The row is the role's own list, filled in
+ * order: a tile whose figure cannot be built for this person (its read was
+ * gated off, or the tile has no builder yet) is skipped and the next one
+ * takes the slot — never rendered as `0`.
+ *
+ * Ids without a builder are skipped until one lands (T5b); the lists are
+ * data and are final.
+ */
+export type DashboardKpiId =
+  | "new-inquiries"
+  | "active-pilgrims"
+  | "departing-30"
+  | "collections-period"
+  | "outstanding-balance"
+  | "group-readiness"
+  | "revenue"
+  | "gross-margin"
+  | "overdue-balance"
+  | "refunds-pending"
+  | "supplier-payments-due"
+  | "open-quotes"
+  | "quote-booking-rate"
+  | "avg-seat-fill"
+  | "groups-at-risk"
+  | "open-tasks"
+  | "supplier-confirmations-pending"
+  | "visa-pending"
+  | "docs-awaiting-review"
+  | "my-open-tasks"
+  | "my-groups";
+
+/** One row of tiles never carries more than this — five-second readability, spec section 2. */
+export const DASHBOARD_KPI_CAP = 6;
+
+export const DASHBOARD_KPI_ORDER: Record<StaffRole, DashboardKpiId[]> = {
+  ADMIN: [
+    "new-inquiries",
+    "active-pilgrims",
+    "departing-30",
+    "collections-period",
+    "outstanding-balance",
+    "group-readiness",
+  ],
+  CEO: ["revenue", "collections-period", "outstanding-balance", "gross-margin", "group-readiness", "new-inquiries"],
+  FINANCE: [
+    "collections-period",
+    "outstanding-balance",
+    "overdue-balance",
+    "refunds-pending",
+    "supplier-payments-due",
+    "departing-30",
+  ],
+  MARKETING: [
+    "new-inquiries",
+    "open-quotes",
+    "quote-booking-rate",
+    "active-pilgrims",
+    "departing-30",
+    "avg-seat-fill",
+  ],
+  OPERATIONS: [
+    "groups-at-risk",
+    "group-readiness",
+    "departing-30",
+    "open-tasks",
+    "supplier-confirmations-pending",
+    "active-pilgrims",
+  ],
+  VISA: ["visa-pending", "docs-awaiting-review", "departing-30", "my-open-tasks"],
+  GUIDE: ["my-open-tasks", "my-groups", "departing-30"],
+};
+
+export function resolveDashboardKpiOrder(role: StaffRole): DashboardKpiId[] {
+  return DASHBOARD_KPI_ORDER[role] ?? DASHBOARD_KPI_ORDER.GUIDE;
+}

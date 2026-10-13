@@ -38,7 +38,7 @@ vi.mock("@/lib/data/reports-repository", () => ({
 
 import { STAFF_ROLES } from "@/lib/access/departure-groups-access";
 import { baseDashboardCapabilities, visibleBlocks, type DashboardCapabilities } from "@/lib/access/dashboard-access";
-import { DASHBOARD_LAYOUTS, type DashboardPanelId } from "@/lib/data/dashboard-layout";
+import { DASHBOARD_KPI_CAP, DASHBOARD_KPI_ORDER, DASHBOARD_LAYOUTS, type DashboardPanelId } from "@/lib/data/dashboard-layout";
 
 import { loadDashboardData } from "./dashboard-repository";
 
@@ -216,5 +216,28 @@ describe("loadDashboardData — skipped reads are 'unknown', never zero", () => 
     expect(data.statusLine.message).not.toMatch(/NaN|undefined/);
     expect(data.kpis.every((k) => !/NaN|undefined/.test(`${k.value}${k.trend ?? ""}`))).toBe(true);
     expect(data.kpis.map((k) => k.id)).not.toContain("outstanding-balance");
+  });
+});
+
+describe("loadDashboardData — the KPI row is the role's own", () => {
+  it.each(STAFF_ROLES)("%s: tiles come only from its list, in its order, within the cap", async (role) => {
+    const data = await load(role, caps(role));
+    const order = DASHBOARD_KPI_ORDER[role];
+    const ids = data.kpis.map((k) => k.id);
+    expect(ids.length).toBeLessThanOrEqual(DASHBOARD_KPI_CAP);
+    for (const id of ids) expect(order).toContain(id);
+    expect(ids).toEqual(order.filter((id) => ids.includes(id)));
+  });
+
+  it("shows a CEO the collections and outstanding tiles but not the pilgrim-count tiles", async () => {
+    const ids = (await load("CEO", caps("CEO"))).kpis.map((k) => k.id);
+    expect(ids).toContain("collections-period");
+    expect(ids).not.toContain("active-pilgrims");
+  });
+
+  it("lets a custom role with the ledger off lose the finance tiles even though its base role lists them", async () => {
+    const ids = (await load("FINANCE", caps("FINANCE", { finance: { viewLedger: false } }))).kpis.map((k) => k.id);
+    expect(ids).not.toContain("collections-period");
+    expect(ids).not.toContain("outstanding-balance");
   });
 });

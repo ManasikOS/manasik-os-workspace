@@ -12,7 +12,7 @@ import type { ReportPeriod } from "@/app/(main)/reports/types";
 import { percentDelta } from "@/lib/data/reports-period";
 import type { TrendGranularity } from "@/lib/data/reports";
 import type { Tone } from "@/lib/ui/tone";
-import type { StatusLine } from "@/lib/types/dashboard";
+import type { AdminKpi, StatusLine } from "@/lib/types/dashboard";
 
 export type { StatusLine };
 
@@ -116,4 +116,25 @@ export function buildStatusLine(input: {
 
   const tone: Tone = input.groupsBlockedCount > 0 || input.overdueBalanceAmount > 0 ? "danger" : "warning";
   return { tone, message: parts.join(" · ") };
+}
+
+/**
+ * Fills a role's KPI row: walks `order`, takes each tile that was built, and
+ * stops at `cap`. A tile that was not built (its read was gated off, or it
+ * has no builder yet) is skipped so the next one takes its slot — the row
+ * shrinks rather than showing a zero it cannot source.
+ */
+export function selectKpis(
+  order: readonly string[],
+  built: Readonly<Record<string, AdminKpi | undefined>>,
+  cap: number,
+): AdminKpi[] {
+  const row: AdminKpi[] = [];
+  for (const id of order) {
+    const tile = built[id];
+    if (!tile) continue;
+    row.push(tile);
+    if (row.length >= cap) break;
+  }
+  return row;
 }
