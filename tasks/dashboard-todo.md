@@ -185,6 +185,7 @@ gate + preset row (spec §2) → KPI tile if listed in §4 → empty/denied/erro
 **Dependencies:** T3 (T9–T14 for full matrix) · **Files:** `e2e/dashboard-roles.spec.ts` (new), maybe `e2e/support/*` · **Scope:** M
 
 ### [ ] T17: Render-time baseline + budget
+**Status: PARTIAL (2026-10-13).** Done: structural read budget pinned in CI (`lib/data/dashboard-read-budget.test.ts`), p50/p95 summariser (`scripts/perf/summarise-perf-log.ts`), results file with method and blank timing table (`docs/progress/2026-10-13-dashboard-v2-performance.md`). **Not done:** measured wall-clock p50/p95 and the millisecond budget - need a signed-in session on a seeded 20-group/500-pilgrim agency. Tick this task only after that round is recorded.
 **Acceptance:**
 - [ ] `withTiming("dashboard.loadData")` p50/p95 recorded for ADMIN (worst case) and GUIDE on a seeded 20-group/500-pilgrim agency; numbers + method in the plan file.
 - [ ] Budget set from the baseline; a test or script flags regressions beyond it.
