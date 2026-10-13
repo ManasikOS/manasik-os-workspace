@@ -282,6 +282,16 @@ export interface CampaignPulseData {
   total: number;
 }
 
+/** Inbox block (spec section 3.2) - the Inbox rail's own queue counts; SLA figures `null` when the plan has no SLA. */
+export interface InboxSlaData {
+  mine: number;
+  needsReply: number;
+  unassigned: number;
+  slaBreached: number | null;
+  nearingDeadline: number | null;
+  slaAvailable: boolean;
+}
+
 export interface DashboardData {
   statusLine: StatusLine;
   /**
@@ -309,6 +319,8 @@ export interface DashboardData {
   quotePipeline: QuotePipelineData | null;
   /** `null` for a role without the Campaign pulse block (or without the Marketing module). */
   campaignPulse: CampaignPulseData | null;
+  /** `null` for a role without the Inbox block (or without Inbox access). */
+  inboxSla: InboxSlaData | null;
   teamPerformance: SalesOwnerRow[] | null;
   seatPace: SeatPacePoint[];
   leadAttention: {

@@ -65,6 +65,8 @@ import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports
 import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/operations";
 import { buildDocumentReview } from "@/lib/data/dashboard-documents";
 import { buildCampaignPulse } from "@/lib/data/dashboard-campaigns";
+import { buildInboxSla } from "@/lib/data/dashboard-inbox";
+import { loadQueueCounts } from "@/lib/data/inbox-queue-repository";
 import { listCampaignsWithMetrics } from "@/lib/data/campaigns-repository";
 import { buildQuotePipeline } from "@/lib/data/dashboard-quotes";
 import { buildSupplierPayables } from "@/lib/data/dashboard-suppliers";
@@ -448,7 +450,8 @@ type DashboardRead =
   | "documentQueue"
   | "supplierDirectory"
   | "quotes"
-  | "campaigns";
+  | "campaigns"
+  | "inboxQueues";
 
 export async function loadDashboardData(
   role: StaffRole,
@@ -520,7 +523,7 @@ export async function loadDashboardData(
     }
   };
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview, supplierPayables, quotePipeline, campaignPulse] =
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview, supplierPayables, quotePipeline, campaignPulse, inboxSla] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
       read("leads", plan.leads, () => loadLeadDashboardFacts(supabase)),
@@ -554,6 +557,16 @@ export async function loadDashboardData(
       read("quotes", plan.quotes, async () => buildQuotePipeline(await loadQuoteDashboardFacts(supabase), nowIso)),
       // Campaign pulse - the Campaigns module's own per-campaign metrics (its heaviest read; budgeted in T17).
       read("campaigns", plan.campaigns, async () => buildCampaignPulse(await listCampaignsWithMetrics(supabase), nowIso)),
+      // Inbox - the rail's own queue counts (one RPC), with the plan's SLA entitlement
+      // deciding whether the two SLA figures exist at all.
+      read("inboxQueues", plan.inboxSla, async () => {
+        const [counts, entitlements] = await Promise.all([
+          loadQueueCounts(supabase, staffId),
+          agencyId ? resolveEntitlements(supabase, agencyId) : Promise.resolve(null),
+        ]);
+        const availability = resolveInboxFeatureAvailability({ entitlements, inboxQueuesV2: false });
+        return buildInboxSla(counts, availability.sla);
+      }),
     ]);
 
   const myTasks = myTasksRead ?? [];
@@ -739,6 +752,7 @@ export async function loadDashboardData(
   markFailed("supplier-payables", "supplierDirectory");
   markFailed("quotes-pending", "quotes");
   markFailed("campaign-pulse", "campaigns");
+  markFailed("inbox-sla", "inboxQueues");
 
   return {
     statusLine,
@@ -794,6 +808,7 @@ export async function loadDashboardData(
     supplierPayables,
     quotePipeline,
     campaignPulse,
+    inboxSla,
     teamPerformance,
     seatPace,
     leadAttention,

@@ -73,7 +73,7 @@ T2,T3 ──► T16 e2e matrix ;  T4 ──► T17 perf baseline
 - [x] T11 `supplier-payables` (M)
 - [x] T12 `quotes-pending` (M)
 - [x] T13 `campaign-pulse` (M)
-- [ ] T14 `inbox-sla` (M)
+- [x] T14 `inbox-sla` (M)
 - [ ] T15 `guest-voice` (M) — **BLOCKED** on spec Q5
 ### Checkpoint C — G4 closed
 

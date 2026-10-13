@@ -45,6 +45,7 @@ export const DASHBOARD_PANEL_IDS = [
   "supplier-payables",
   "quotes-pending",
   "campaign-pulse",
+  "inbox-sla",
 ] as const;
 
 export type DashboardPanelId = (typeof DASHBOARD_PANEL_IDS)[number];
@@ -88,6 +89,7 @@ export const DASHBOARD_LAYOUTS: Record<StaffRole, DashboardPanelId[]> = {
     "kpis",
     "inbox-owner",
     "my-day",
+    "inbox-sla",
     "attention-rail",
     "approvals",
     "upcoming-departures",
@@ -130,6 +132,7 @@ export const DASHBOARD_LAYOUTS: Record<StaffRole, DashboardPanelId[]> = {
     "ai-briefing",
     "kpis",
     "my-day",
+    "inbox-sla",
     "pipeline",
     "quotes-pending",
     "campaign-pulse",

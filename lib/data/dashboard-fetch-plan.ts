@@ -41,6 +41,8 @@ export interface DashboardFetchPlan {
   quotes: boolean;
   /** Campaigns with metrics - the Campaign pulse block only. */
   campaigns: boolean;
+  /** Inbox queue counts - the Inbox block only. */
+  inboxSla: boolean;
   /** The signed-in person's own tasks — My Day and the My Open Tasks tile. */
   myTasks: boolean;
 }
@@ -77,6 +79,7 @@ export function planDashboardFetch(
       caps.quotes.viewModule &&
       (has("quotes-pending") || kpi("open-quotes") || kpi("quote-booking-rate")),
     campaigns: caps.marketing.viewModule && has("campaign-pulse"),
+    inboxSla: caps.inbox.viewModule && has("inbox-sla"),
     myTasks: who.staffId !== null && (has("my-day") || kpi("my-open-tasks")),
   };
 }

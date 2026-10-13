@@ -96,6 +96,9 @@ export const BLOCK_GATES: Record<DashboardPanelId, (caps: DashboardCapabilities)
   // which the two capability sets seed independently).
   // The Campaigns page gates on the `marketing` module, not `leads.viewModule`
   // (which the sidebar uses for the nav link).
+  // The Inbox's own counts; the plan's SLA entitlement is a separate, billing
+  // gate applied to the two SLA figures inside the block, not to its presence.
+  "inbox-sla": (c) => c.inbox.viewModule,
   "campaign-pulse": (c) => c.marketing.viewModule,
   "quotes-pending": (c) => c.quotes.viewModule,
   "supplier-payables": (c) => c.suppliers.viewModule && c.suppliers.viewCosts && c.suppliers.viewPayments,

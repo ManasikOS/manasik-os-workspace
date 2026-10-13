@@ -10,6 +10,8 @@ const loadTasksForStaff = vi.fn();
 const loadLeadDashboardFacts = vi.fn();
 const loadQuoteDashboardFacts = vi.fn();
 const listCampaignsWithMetrics = vi.fn();
+const loadQueueCounts = vi.fn();
+const resolveEntitlements = vi.fn();
 const listAgencyOpenProposals = vi.fn();
 const getCopilotDailySummary = vi.fn();
 const loadFinanceReceivables = vi.fn();
@@ -28,6 +30,8 @@ vi.mock("@/lib/data/visa-repository", () => ({ loadVisaQueue: (...a: unknown[]) 
 vi.mock("@/lib/data/documents-repository", () => ({ loadDocumentQueue: (...a: unknown[]) => loadDocumentQueue(...a) }));
 vi.mock("@/lib/data/suppliers-repository", () => ({ loadSupplierDirectory: (...a: unknown[]) => loadSupplierDirectory(...a) }));
 vi.mock("@/lib/data/campaigns-repository", () => ({ listCampaignsWithMetrics: (...a: unknown[]) => listCampaignsWithMetrics(...a) }));
+vi.mock("@/lib/data/inbox-queue-repository", () => ({ loadQueueCounts: (...a: unknown[]) => loadQueueCounts(...a) }));
+vi.mock("@/lib/billing/entitlements", () => ({ resolveEntitlements: (...a: unknown[]) => resolveEntitlements(...a) }));
 vi.mock("@/lib/data/operations-repository", () => ({ buildOperationsSnapshot: (...a: unknown[]) => buildOperationsSnapshot(...a) }));
 vi.mock("@/lib/data/team-repository", () => ({
   loadAssignedGroupIds: (...a: unknown[]) => loadAssignedGroupIds(...a),
@@ -102,6 +106,8 @@ beforeEach(() => {
   loadLeadDashboardFacts.mockResolvedValue([]);
   loadQuoteDashboardFacts.mockResolvedValue([]);
   listCampaignsWithMetrics.mockResolvedValue([]);
+  loadQueueCounts.mockResolvedValue({});
+  resolveEntitlements.mockResolvedValue({ features: { sla: true } });
   listAgencyOpenProposals.mockResolvedValue([]);
   getCopilotDailySummary.mockResolvedValue(null);
   loadFinanceReceivables.mockResolvedValue([
@@ -698,5 +704,52 @@ describe("loadDashboardData - campaign pulse", () => {
     const data = await load("MARKETING", caps("MARKETING"));
     expect(data.blockErrors["campaign-pulse"]).toBe(true);
     expect(data.campaignPulse).toBeNull();
+  });
+});
+
+describe("loadDashboardData - inbox SLA", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("reads the queue counts for ADMIN and MARKETING, for the signed-in staff member", async () => {
+    for (const role of ["ADMIN", "MARKETING"] as const) {
+      vi.clearAllMocks();
+      loadQueueCounts.mockResolvedValue({ MINE: 3, UNASSIGNED: 2, SLA_BREACHED: 1 });
+      resolveEntitlements.mockResolvedValue({ features: { sla: true } });
+      const data = await load(role, caps(role));
+      expect(loadQueueCounts).toHaveBeenCalledOnce();
+      expect(loadQueueCounts.mock.calls[0][1]).toBe("staff-1");
+      expect(data.inboxSla).toMatchObject({ mine: 3, unassigned: 2, slaBreached: 1, slaAvailable: true });
+    }
+  });
+
+  it("omits the SLA figures when the plan does not include SLA", async () => {
+    loadQueueCounts.mockResolvedValue({ MINE: 3, SLA_BREACHED: 9 });
+    resolveEntitlements.mockResolvedValue({ features: {} });
+    const data = await load("MARKETING", caps("MARKETING"));
+    expect(data.inboxSla).toMatchObject({ mine: 3, slaAvailable: false, slaBreached: null });
+  });
+
+  it("never reads queue counts for roles whose page does not show the block", async () => {
+    for (const role of ["CEO", "FINANCE", "OPERATIONS", "VISA", "GUIDE"] as const) {
+      vi.clearAllMocks();
+      const data = await load(role, caps(role));
+      expect(loadQueueCounts).not.toHaveBeenCalled();
+      expect(data.inboxSla).toBeNull();
+    }
+  });
+
+  it("does not read them when a custom role has the Inbox module switched off", async () => {
+    const data = await load("MARKETING", caps("MARKETING", { inbox: { viewModule: false } }));
+    expect(loadQueueCounts).not.toHaveBeenCalled();
+    expect(data.inboxSla).toBeNull();
+  });
+
+  it("marks the block, not the page, when the counts cannot be read", async () => {
+    loadQueueCounts.mockRejectedValue(new Error("rpc down"));
+    const data = await load("MARKETING", caps("MARKETING"));
+    expect(data.blockErrors["inbox-sla"]).toBe(true);
+    expect(data.inboxSla).toBeNull();
   });
 });

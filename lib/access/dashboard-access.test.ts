@@ -138,4 +138,12 @@ describe("visibleBlocks", () => {
     expect(visibleBlocks(["campaign-pulse"], baseDashboardCapabilities("GUIDE"))).toEqual([]);
     expect(visibleBlocks(["campaign-pulse"], withOverrides("ADMIN", { marketing: { viewModule: false } }))).toEqual([]);
   });
+
+  it("shows the inbox SLA block to a role with the Inbox module, and removes it when a custom role loses it", () => {
+    for (const role of ["ADMIN", "MARKETING", "OPERATIONS"] as const) {
+      expect(visibleBlocks(["inbox-sla"], baseDashboardCapabilities(role))).toEqual(["inbox-sla"]);
+    }
+    expect(visibleBlocks(["inbox-sla"], baseDashboardCapabilities("GUIDE"))).toEqual([]);
+    expect(visibleBlocks(["inbox-sla"], withOverrides("ADMIN", { inbox: { viewModule: false } }))).toEqual([]);
+  });
 });

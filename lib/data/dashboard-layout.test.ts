@@ -165,3 +165,10 @@ describe("campaign-pulse placement", () => {
     expect(panels.indexOf("campaign-pulse")).toBe(panels.indexOf("quotes-pending") + 1);
   });
 });
+
+describe("inbox-sla placement", () => {
+  it("is shown to ADMIN and MARKETING, and is not crowded into OPERATIONS at its panel cap", () => {
+    const holders = STAFF_ROLES.filter((r) => DASHBOARD_LAYOUTS[r].includes("inbox-sla"));
+    expect([...holders].sort()).toEqual(["ADMIN", "MARKETING"]);
+  });
+});

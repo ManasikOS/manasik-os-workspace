@@ -156,7 +156,7 @@ gate + preset row (spec §2) → KPI tile if listed in §4 → empty/denied/erro
 **Acceptance:** active/scheduled campaigns, last send outcome, audience size from `campaigns-repository`; gate `leads.viewModule`; MARKETING + ADMIN only.
 **Dependencies:** T3 · **Scope:** M
 
-### [ ] T14: `inbox-sla`
+### [x] T14: `inbox-sla`
 **Acceptance:** my open conversations, SLA breaches, unassigned count; gate `inbox.viewModule`; scope = own for non-ADMIN, agency-wide for ADMIN; respects inbox entitlement/feature availability (reuse `resolveInboxFeatureAvailability`); absent when inbox not entitled.
 **Dependencies:** T3 · **Scope:** M
 
