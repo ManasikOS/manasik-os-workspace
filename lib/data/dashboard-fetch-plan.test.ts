@@ -28,6 +28,7 @@ describe("planDashboardFetch", () => {
       documents: false,
       suppliers: false,
       quotes: false,
+      campaigns: false,
       myTasks: true,
     });
   });
@@ -197,6 +198,23 @@ describe("planDashboardFetch", () => {
 
     it("is never read without the Quotes module, even if the block is asked for", () => {
       expect(planDashboardFetch(["quotes-pending"], baseDashboardCapabilities("GUIDE"), WHO, []).quotes).toBe(false);
+    });
+  });
+
+  describe("campaign pulse", () => {
+    it("is read for MARKETING and ADMIN, whose presets show the block", () => {
+      expect(planFor("MARKETING").campaigns).toBe(true);
+      expect(planFor("ADMIN").campaigns).toBe(true);
+    });
+
+    it("is not read for any other role, even those with the Marketing module (CEO, FINANCE, OPERATIONS)", () => {
+      for (const role of ["CEO", "FINANCE", "OPERATIONS", "VISA", "GUIDE"] as const) {
+        expect(planFor(role).campaigns).toBe(false);
+      }
+    });
+
+    it("is never read without the Marketing module, even if the block is asked for", () => {
+      expect(planDashboardFetch(["campaign-pulse"], baseDashboardCapabilities("GUIDE"), WHO, []).campaigns).toBe(false);
     });
   });
 });

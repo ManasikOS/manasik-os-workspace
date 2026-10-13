@@ -16,6 +16,7 @@ import { capabilitiesForDocuments, type DocumentCapabilities } from "@/lib/acces
 import { capabilitiesForFinance, type FinanceCapabilities } from "@/lib/access/finance-access";
 import { capabilitiesForInbox, type InboxCapabilities } from "@/lib/access/inbox-access";
 import { capabilitiesForLeads, type LeadCapabilities } from "@/lib/access/leads-access";
+import { capabilitiesForMarketing, type MarketingCapabilities } from "@/lib/access/marketing-access";
 import { capabilitiesForOperations, type OperationsCapabilities } from "@/lib/access/operations-access";
 import { capabilitiesForQuotes, type QuotesCapabilities } from "@/lib/access/quotes-access";
 import { capabilitiesForReports, type ReportsCapabilities } from "@/lib/access/reports-access";
@@ -35,6 +36,7 @@ export interface DashboardCapabilities {
   documents: DocumentCapabilities;
   suppliers: SupplierCapabilities;
   quotes: QuotesCapabilities;
+  marketing: MarketingCapabilities;
 }
 
 /** A base role's built-in set, before any custom-role override is merged in. */
@@ -50,6 +52,7 @@ export function baseDashboardCapabilities(role: StaffRole): DashboardCapabilitie
     documents: capabilitiesForDocuments(role),
     suppliers: capabilitiesForSuppliers(role),
     quotes: capabilitiesForQuotes(role),
+    marketing: capabilitiesForMarketing(role),
   };
 }
 
@@ -91,6 +94,9 @@ export const BLOCK_GATES: Record<DashboardPanelId, (caps: DashboardCapabilities)
   // loader would zero its amounts anyway).
   // The Quotes page itself gates on the `quotes` module (not `leads.viewQuotes`,
   // which the two capability sets seed independently).
+  // The Campaigns page gates on the `marketing` module, not `leads.viewModule`
+  // (which the sidebar uses for the nav link).
+  "campaign-pulse": (c) => c.marketing.viewModule,
   "quotes-pending": (c) => c.quotes.viewModule,
   "supplier-payables": (c) => c.suppliers.viewModule && c.suppliers.viewCosts && c.suppliers.viewPayments,
   "document-review": (c) => c.documents.viewModule && !c.documents.scopedToPaymentProof,

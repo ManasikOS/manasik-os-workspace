@@ -152,7 +152,7 @@ gate + preset row (spec §2) → KPI tile if listed in §4 → empty/denied/erro
 **Acceptance:** sent-unanswered, expiring ≤3d, unsent drafts; gate `leads.viewModule ∧ leads.viewQuotes`; margin column only if `viewMargin`; MARKETING/ADMIN full, CEO/FINANCE summary; "Open quotes" KPI for MARKETING.
 **Dependencies:** T3, T5a · **Scope:** M
 
-### [ ] T13: `campaign-pulse`
+### [x] T13: `campaign-pulse`
 **Acceptance:** active/scheduled campaigns, last send outcome, audience size from `campaigns-repository`; gate `leads.viewModule`; MARKETING + ADMIN only.
 **Dependencies:** T3 · **Scope:** M
 

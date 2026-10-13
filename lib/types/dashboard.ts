@@ -255,6 +255,33 @@ export interface QuotePipelineData {
   expiring: QuoteExpiringRow[];
 }
 
+/** One active campaign on the Campaign pulse block - progress against its own targets, no spend or revenue. */
+export interface CampaignPulseRow {
+  campaignId: string;
+  name: string;
+  channel: string;
+  /** Negative when the end date has passed; `null` when the campaign has none. */
+  daysToEnd: number | null;
+  /** Still ACTIVE after its end date - one to close or extend. */
+  pastEnd: boolean;
+  leads: number;
+  targetLeads: number | null;
+  qualifiedLeads: number;
+  bookings: number;
+  targetBookings: number | null;
+  /** Live seats left on the linked departure; `null` when the campaign has none linked. */
+  seatsLeft: number | null;
+  linkedGroupName: string | null;
+}
+
+/** Campaign pulse (spec section 3.2) - the Campaigns module's own per-campaign metrics, trimmed. */
+export interface CampaignPulseData {
+  counts: { active: number; scheduled: number; paused: number };
+  /** The ending-soonest active campaigns - `counts.active` is the full number. */
+  campaigns: CampaignPulseRow[];
+  total: number;
+}
+
 export interface DashboardData {
   statusLine: StatusLine;
   /**
@@ -280,6 +307,8 @@ export interface DashboardData {
   supplierPayables: SupplierPayablesData | null;
   /** `null` for a role without the Quotes module. */
   quotePipeline: QuotePipelineData | null;
+  /** `null` for a role without the Campaign pulse block (or without the Marketing module). */
+  campaignPulse: CampaignPulseData | null;
   teamPerformance: SalesOwnerRow[] | null;
   seatPace: SeatPacePoint[];
   leadAttention: {

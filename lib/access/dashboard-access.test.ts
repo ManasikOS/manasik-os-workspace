@@ -21,6 +21,7 @@ function withOverrides(
     documents: { ...base.documents, ...overrides.documents },
     suppliers: { ...base.suppliers, ...overrides.suppliers },
     quotes: { ...base.quotes, ...overrides.quotes },
+    marketing: { ...base.marketing, ...overrides.marketing },
   };
 }
 
@@ -129,5 +130,12 @@ describe("visibleBlocks", () => {
 
   it("removes quotes pending when a custom role has the Quotes module off, even on an ADMIN base", () => {
     expect(visibleBlocks(["quotes-pending"], withOverrides("ADMIN", { quotes: { viewModule: false } }))).toEqual([]);
+  });
+
+  it("shows campaign pulse to a role with the Marketing module, and removes it when a custom role loses it", () => {
+    expect(visibleBlocks(["campaign-pulse"], baseDashboardCapabilities("MARKETING"))).toEqual(["campaign-pulse"]);
+    expect(visibleBlocks(["campaign-pulse"], baseDashboardCapabilities("ADMIN"))).toEqual(["campaign-pulse"]);
+    expect(visibleBlocks(["campaign-pulse"], baseDashboardCapabilities("GUIDE"))).toEqual([]);
+    expect(visibleBlocks(["campaign-pulse"], withOverrides("ADMIN", { marketing: { viewModule: false } }))).toEqual([]);
   });
 });

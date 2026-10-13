@@ -64,6 +64,8 @@ import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
 import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/operations";
 import { buildDocumentReview } from "@/lib/data/dashboard-documents";
+import { buildCampaignPulse } from "@/lib/data/dashboard-campaigns";
+import { listCampaignsWithMetrics } from "@/lib/data/campaigns-repository";
 import { buildQuotePipeline } from "@/lib/data/dashboard-quotes";
 import { buildSupplierPayables } from "@/lib/data/dashboard-suppliers";
 import { toSupplierListItems } from "@/lib/data/suppliers";
@@ -445,7 +447,8 @@ type DashboardRead =
   | "visaQueue"
   | "documentQueue"
   | "supplierDirectory"
-  | "quotes";
+  | "quotes"
+  | "campaigns";
 
 export async function loadDashboardData(
   role: StaffRole,
@@ -517,7 +520,7 @@ export async function loadDashboardData(
     }
   };
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview, supplierPayables, quotePipeline] =
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview, supplierPayables, quotePipeline, campaignPulse] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
       read("leads", plan.leads, () => loadLeadDashboardFacts(supabase)),
@@ -549,6 +552,8 @@ export async function loadDashboardData(
       ),
       // Quotes pending - a column-limited read of lead_quotes, counted with the Quotes page's own rules.
       read("quotes", plan.quotes, async () => buildQuotePipeline(await loadQuoteDashboardFacts(supabase), nowIso)),
+      // Campaign pulse - the Campaigns module's own per-campaign metrics (its heaviest read; budgeted in T17).
+      read("campaigns", plan.campaigns, async () => buildCampaignPulse(await listCampaignsWithMetrics(supabase), nowIso)),
     ]);
 
   const myTasks = myTasksRead ?? [];
@@ -733,6 +738,7 @@ export async function loadDashboardData(
   markFailed("document-review", "documentQueue");
   markFailed("supplier-payables", "supplierDirectory");
   markFailed("quotes-pending", "quotes");
+  markFailed("campaign-pulse", "campaigns");
 
   return {
     statusLine,
@@ -787,6 +793,7 @@ export async function loadDashboardData(
     documentReview,
     supplierPayables,
     quotePipeline,
+    campaignPulse,
     teamPerformance,
     seatPace,
     leadAttention,

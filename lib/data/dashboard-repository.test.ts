@@ -9,6 +9,7 @@ const loadAssignedGroupIds = vi.fn();
 const loadTasksForStaff = vi.fn();
 const loadLeadDashboardFacts = vi.fn();
 const loadQuoteDashboardFacts = vi.fn();
+const listCampaignsWithMetrics = vi.fn();
 const listAgencyOpenProposals = vi.fn();
 const getCopilotDailySummary = vi.fn();
 const loadFinanceReceivables = vi.fn();
@@ -26,6 +27,7 @@ vi.mock("@/lib/observability/report-error", () => ({ reportHandledError: (...a: 
 vi.mock("@/lib/data/visa-repository", () => ({ loadVisaQueue: (...a: unknown[]) => loadVisaQueue(...a) }));
 vi.mock("@/lib/data/documents-repository", () => ({ loadDocumentQueue: (...a: unknown[]) => loadDocumentQueue(...a) }));
 vi.mock("@/lib/data/suppliers-repository", () => ({ loadSupplierDirectory: (...a: unknown[]) => loadSupplierDirectory(...a) }));
+vi.mock("@/lib/data/campaigns-repository", () => ({ listCampaignsWithMetrics: (...a: unknown[]) => listCampaignsWithMetrics(...a) }));
 vi.mock("@/lib/data/operations-repository", () => ({ buildOperationsSnapshot: (...a: unknown[]) => buildOperationsSnapshot(...a) }));
 vi.mock("@/lib/data/team-repository", () => ({
   loadAssignedGroupIds: (...a: unknown[]) => loadAssignedGroupIds(...a),
@@ -73,6 +75,7 @@ function caps(role: Role, overrides: { [K in keyof DashboardCapabilities]?: Part
     documents: { ...base.documents, ...overrides.documents },
     suppliers: { ...base.suppliers, ...overrides.suppliers },
     quotes: { ...base.quotes, ...overrides.quotes },
+    marketing: { ...base.marketing, ...overrides.marketing },
   };
 }
 
@@ -98,6 +101,7 @@ beforeEach(() => {
   loadTasksForStaff.mockResolvedValue([]);
   loadLeadDashboardFacts.mockResolvedValue([]);
   loadQuoteDashboardFacts.mockResolvedValue([]);
+  listCampaignsWithMetrics.mockResolvedValue([]);
   listAgencyOpenProposals.mockResolvedValue([]);
   getCopilotDailySummary.mockResolvedValue(null);
   loadFinanceReceivables.mockResolvedValue([
@@ -656,5 +660,43 @@ describe("loadDashboardData - quotes pending", () => {
     expect(data.blockErrors["quotes-pending"]).toBe(true);
     expect(data.quotePipeline).toBeNull();
     expect(data.kpis.map((k) => k.id)).not.toContain("open-quotes");
+  });
+});
+
+describe("loadDashboardData - campaign pulse", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("reads campaigns for MARKETING and ADMIN and builds the block", async () => {
+    for (const role of ["MARKETING", "ADMIN"] as const) {
+      vi.clearAllMocks();
+      listCampaignsWithMetrics.mockResolvedValue([]);
+      const data = await load(role, caps(role));
+      expect(listCampaignsWithMetrics).toHaveBeenCalledOnce();
+      expect(data.campaignPulse).not.toBeNull();
+    }
+  });
+
+  it("never reads campaigns for roles whose page does not show the block", async () => {
+    for (const role of ["CEO", "FINANCE", "OPERATIONS", "VISA", "GUIDE"] as const) {
+      vi.clearAllMocks();
+      const data = await load(role, caps(role));
+      expect(listCampaignsWithMetrics).not.toHaveBeenCalled();
+      expect(data.campaignPulse).toBeNull();
+    }
+  });
+
+  it("does not read campaigns when a custom role has the Marketing module switched off", async () => {
+    const data = await load("MARKETING", caps("MARKETING", { marketing: { viewModule: false } }));
+    expect(listCampaignsWithMetrics).not.toHaveBeenCalled();
+    expect(data.campaignPulse).toBeNull();
+  });
+
+  it("marks the block, not the page, when campaigns cannot be read", async () => {
+    listCampaignsWithMetrics.mockRejectedValue(new Error("db down"));
+    const data = await load("MARKETING", caps("MARKETING"));
+    expect(data.blockErrors["campaign-pulse"]).toBe(true);
+    expect(data.campaignPulse).toBeNull();
   });
 });

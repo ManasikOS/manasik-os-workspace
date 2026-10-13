@@ -156,3 +156,12 @@ describe("quotes-pending placement", () => {
     expect(panels.indexOf("quotes-pending")).toBe(panels.indexOf("pipeline") + 1);
   });
 });
+
+describe("campaign-pulse placement", () => {
+  it("is shown to ADMIN and MARKETING only, right after quotes pending", () => {
+    const holders = STAFF_ROLES.filter((r) => DASHBOARD_LAYOUTS[r].includes("campaign-pulse"));
+    expect([...holders].sort()).toEqual(["ADMIN", "MARKETING"]);
+    const panels = splitDashboardBlocks(DASHBOARD_LAYOUTS.MARKETING).panels;
+    expect(panels.indexOf("campaign-pulse")).toBe(panels.indexOf("quotes-pending") + 1);
+  });
+});

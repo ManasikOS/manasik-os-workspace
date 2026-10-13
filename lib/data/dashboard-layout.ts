@@ -44,6 +44,7 @@ export const DASHBOARD_PANEL_IDS = [
   "document-review",
   "supplier-payables",
   "quotes-pending",
+  "campaign-pulse",
 ] as const;
 
 export type DashboardPanelId = (typeof DASHBOARD_PANEL_IDS)[number];
@@ -95,6 +96,7 @@ export const DASHBOARD_LAYOUTS: Record<StaffRole, DashboardPanelId[]> = {
     "readiness-heatmap",
     "pipeline",
     "quotes-pending",
+    "campaign-pulse",
     "collections",
     "supplier-payables",
     "team-performance",
@@ -130,6 +132,7 @@ export const DASHBOARD_LAYOUTS: Record<StaffRole, DashboardPanelId[]> = {
     "my-day",
     "pipeline",
     "quotes-pending",
+    "campaign-pulse",
     "attention-rail",
     "seat-fill-pace",
     "team-performance",
