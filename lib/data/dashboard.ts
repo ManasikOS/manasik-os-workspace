@@ -213,6 +213,8 @@ export function buildKpiCandidates(input: {
   executive: { summary: ExecutiveSummary; showMargin: boolean } | null;
   /** The visa module's own KPI counts; `null` when the visa queue was not read. */
   visaQueue: { readyToSubmit: number; submittedPending: number; visaIssues: number; issued: number } | null;
+  /** The documents module's own KPI counts; `null` when the document queue was not read. */
+  documentReview: { awaitingReview: number; missingDocuments: number } | null;
 }): Partial<Record<DashboardKpiId, AdminKpi>> {
   const kpis: Partial<Record<DashboardKpiId, AdminKpi>> = {};
   const activeGroups = input.groups.filter((g) => !INACTIVE_GROUP_STATUSES.has(g.groupStatus));
@@ -360,6 +362,16 @@ export function buildKpiCandidates(input: {
       value: String(input.visaQueue.readyToSubmit + input.visaQueue.submittedPending),
       supportingText: `${input.visaQueue.visaIssues} need rework`,
       destination: "/visa",
+    };
+  }
+
+  if (input.documentReview) {
+    kpis["docs-awaiting-review"] = {
+      id: "docs-awaiting-review",
+      title: "Docs Awaiting Review",
+      value: String(input.documentReview.awaitingReview),
+      supportingText: `${input.documentReview.missingDocuments} missing`,
+      destination: "/documents",
     };
   }
 

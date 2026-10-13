@@ -123,3 +123,12 @@ describe("visa-queue placement", () => {
     expect(splitDashboardBlocks(DASHBOARD_LAYOUTS.VISA).panels[0]).toBe("visa-queue");
   });
 });
+
+describe("document-review placement", () => {
+  it("is shown to VISA only, directly after the visa queue", () => {
+    const holders = STAFF_ROLES.filter((r) => DASHBOARD_LAYOUTS[r].includes("document-review"));
+    expect(holders).toEqual(["VISA"]);
+    const panels = splitDashboardBlocks(DASHBOARD_LAYOUTS.VISA).panels;
+    expect(panels.slice(0, 2)).toEqual(["visa-queue", "document-review"]);
+  });
+});

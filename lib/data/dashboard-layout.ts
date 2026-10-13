@@ -41,6 +41,7 @@ export const DASHBOARD_PANEL_IDS = [
   "team-performance",
   "recent-activity",
   "visa-queue",
+  "document-review",
 ] as const;
 
 export type DashboardPanelId = (typeof DASHBOARD_PANEL_IDS)[number];
@@ -120,7 +121,16 @@ export const DASHBOARD_LAYOUTS: Record<StaffRole, DashboardPanelId[]> = {
     "seat-fill-pace",
     "recent-activity",
   ],
-  VISA: ["ai-briefing", "kpis", "visa-queue", "my-day", "attention-rail", "upcoming-departures", "recent-activity"],
+  VISA: [
+    "ai-briefing",
+    "kpis",
+    "visa-queue",
+    "document-review",
+    "my-day",
+    "attention-rail",
+    "upcoming-departures",
+    "recent-activity",
+  ],
   GUIDE: ["ai-briefing", "kpis", "upcoming-departures", "my-day", "recent-activity"],
 };
 

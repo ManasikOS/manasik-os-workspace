@@ -19,6 +19,7 @@ import {
   Users,
   Armchair,
   Stamp,
+  FileCheck,
   type LucideIcon,
 } from "lucide-react";
 import React from "react";
@@ -58,6 +59,7 @@ const KPI_PRESENTATION: Record<string, { icon: LucideIcon; tone: Tone }> = {
   "my-groups": { icon: Users, tone: "brand" },
   "avg-seat-fill": { icon: Armchair, tone: "info" },
   "visa-pending": { icon: Stamp, tone: "info" },
+  "docs-awaiting-review": { icon: FileCheck, tone: "info" },
 };
 
 export default function DashboardMetrics({ kpis }: DashboardMetricsProps) {

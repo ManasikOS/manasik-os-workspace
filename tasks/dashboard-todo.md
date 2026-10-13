@@ -140,7 +140,7 @@ gate + preset row (spec §2) → KPI tile if listed in §4 → empty/denied/erro
 **Verification:** mapper unit tests (stage bucketing, ordering, empty); capability test; manual as VISA.
 **Dependencies:** T3, T5a · **Files:** `lib/data/dashboard-visa.ts`(+test), `components/visa-queue.tsx`, `dashboard-layout.ts`/`dashboard-access.ts` (1 line each), `lib/types/dashboard.ts` · **Scope:** M
 
-### [ ] T10: `document-review`
+### [x] T10: `document-review`
 **Acceptance:** awaiting-review / rejected / passport-expiring-before-departure counts + top rows from `loadDocumentQueue`; gate `documents.viewModule`; VISA + OPERATIONS only; sensitive traveller data respects `viewSensitiveTravellerData` (names masked if denied).
 **Dependencies:** T3 · **Files:** as T9 pattern · **Scope:** M
 

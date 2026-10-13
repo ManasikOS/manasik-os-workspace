@@ -12,6 +12,7 @@
 
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import { capabilitiesFor, type DepartureGroupCapabilities } from "@/lib/access/departure-groups-access";
+import { capabilitiesForDocuments, type DocumentCapabilities } from "@/lib/access/documents-access";
 import { capabilitiesForFinance, type FinanceCapabilities } from "@/lib/access/finance-access";
 import { capabilitiesForInbox, type InboxCapabilities } from "@/lib/access/inbox-access";
 import { capabilitiesForLeads, type LeadCapabilities } from "@/lib/access/leads-access";
@@ -29,6 +30,7 @@ export interface DashboardCapabilities {
   departureGroups: DepartureGroupCapabilities;
   inbox: InboxCapabilities;
   visa: VisaCapabilities;
+  documents: DocumentCapabilities;
 }
 
 /** A base role's built-in set, before any custom-role override is merged in. */
@@ -41,6 +43,7 @@ export function baseDashboardCapabilities(role: StaffRole): DashboardCapabilitie
     departureGroups: capabilitiesFor(role),
     inbox: capabilitiesForInbox(role),
     visa: capabilitiesForVisa(role),
+    documents: capabilitiesForDocuments(role),
   };
 }
 
@@ -75,6 +78,9 @@ export const BLOCK_GATES: Record<DashboardPanelId, (caps: DashboardCapabilities)
   // A role limited to payment blockers sees a filtered, redacted slice on the
   // Visa page itself; the block's counts would not match that slice, so it is
   // simply not offered to them.
+  // A role limited to payment proofs sees a one-document-type slice on the
+  // Documents page; the block's counts would not match it, so it is not offered.
+  "document-review": (c) => c.documents.viewModule && !c.documents.scopedToPaymentProof,
   "visa-queue": (c) => c.visa.viewModule && !c.visa.viewPaymentBlockersOnly,
   pipeline: (c) => c.reports.viewSales,
   "team-performance": (c) => c.reports.viewSales,

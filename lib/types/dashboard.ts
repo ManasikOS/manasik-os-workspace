@@ -183,6 +183,32 @@ export interface VisaQueueData {
   totalApplications: number;
 }
 
+/** One group on the Document review block - group-level counts only, never a traveller. */
+export interface DocumentReviewGroupRow {
+  groupId: string;
+  groupName: string;
+  groupCode: string;
+  daysToDeparture: number;
+  pilgrimCount: number;
+  readinessPercent: number;
+  awaitingReview: number;
+  expiringSoon: number;
+  rejected: number;
+  missingDocuments: number;
+  /** The single most urgent next step, worded as a verb ("Review 4"). */
+  action: string;
+  blockers: string[];
+}
+
+/** Document review (spec section 3.2) - the Documents module's own derivations, trimmed to what the block shows. */
+export interface DocumentReviewData {
+  counts: { missingDocuments: number; awaitingReview: number; rejected: number; aiFlagged: number; expiringSoon: number };
+  groups: DocumentReviewGroupRow[];
+  /** Groups needing attention in total - `groups` is only the top few. */
+  actionableGroupCount: number;
+  totalDocuments: number;
+}
+
 export interface DashboardData {
   statusLine: StatusLine;
   /**
@@ -202,6 +228,8 @@ export interface DashboardData {
   pipeline: PipelineData | null;
   /** `null` for a role without the Visa queue block (or without Visa access). */
   visaQueue: VisaQueueData | null;
+  /** `null` for a role without the Document review block (or without Documents access). */
+  documentReview: DocumentReviewData | null;
   teamPerformance: SalesOwnerRow[] | null;
   seatPace: SeatPacePoint[];
   leadAttention: {

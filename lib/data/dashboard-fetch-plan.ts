@@ -33,6 +33,8 @@ export interface DashboardFetchPlan {
   overview: boolean;
   /** Visa applications - the Visa queue block and the Visa Pending tile. */
   visaQueue: boolean;
+  /** Document queue - the Document review block and the Docs Awaiting Review tile. */
+  documents: boolean;
   /** The signed-in person's own tasks — My Day and the My Open Tasks tile. */
   myTasks: boolean;
 }
@@ -58,6 +60,8 @@ export function planDashboardFetch(
     salesReport: caps.reports.viewSales && (has("pipeline") || has("team-performance")),
     overview: caps.reports.viewOverview && (kpi("revenue") || kpi("gross-margin")),
     visaQueue: caps.visa.viewModule && !caps.visa.viewPaymentBlockersOnly && (has("visa-queue") || kpi("visa-pending")),
+    documents:
+      caps.documents.viewModule && !caps.documents.scopedToPaymentProof && (has("document-review") || kpi("docs-awaiting-review")),
     myTasks: who.staffId !== null && (has("my-day") || kpi("my-open-tasks")),
   };
 }

@@ -18,6 +18,7 @@ function withOverrides(
     departureGroups: { ...base.departureGroups, ...overrides.departureGroups },
     inbox: { ...base.inbox, ...overrides.inbox },
     visa: { ...base.visa, ...overrides.visa },
+    documents: { ...base.documents, ...overrides.documents },
   };
 }
 
@@ -90,5 +91,13 @@ describe("visibleBlocks", () => {
     expect(visibleBlocks(["visa-queue"], withOverrides("VISA", { visa: { viewModule: false } }))).toEqual([]);
     expect(visibleBlocks(["visa-queue"], withOverrides("VISA", { visa: { viewPaymentBlockersOnly: true } }))).toEqual([]);
     expect(visibleBlocks(["visa-queue"], baseDashboardCapabilities("FINANCE"))).toEqual([]);
+  });
+
+  it("shows document review only to a role with the Documents module that is not limited to payment proofs", () => {
+    const base = baseDashboardCapabilities("VISA");
+    expect(visibleBlocks(["document-review"], base)).toEqual(["document-review"]);
+    expect(visibleBlocks(["document-review"], withOverrides("VISA", { documents: { viewModule: false } }))).toEqual([]);
+    expect(visibleBlocks(["document-review"], withOverrides("VISA", { documents: { scopedToPaymentProof: true } }))).toEqual([]);
+    expect(visibleBlocks(["document-review"], baseDashboardCapabilities("GUIDE"))).toEqual([]);
   });
 });

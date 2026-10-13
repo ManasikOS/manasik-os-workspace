@@ -63,7 +63,10 @@ import { buildSeatPacePoints } from "@/lib/data/dashboard-pace";
 import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
 import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/operations";
+import { buildDocumentReview } from "@/lib/data/dashboard-documents";
 import { buildVisaQueue } from "@/lib/data/dashboard-visa";
+import { toDocumentListItems } from "@/lib/data/documents";
+import { loadDocumentQueue } from "@/lib/data/documents-repository";
 import { toVisaListItems } from "@/lib/data/visa";
 import { loadVisaQueue } from "@/lib/data/visa-repository";
 import { reportHandledError } from "@/lib/observability/report-error";
@@ -435,7 +438,8 @@ type DashboardRead =
   | "financeReport"
   | "salesReport"
   | "overview"
-  | "visaQueue";
+  | "visaQueue"
+  | "documentQueue";
 
 export async function loadDashboardData(
   role: StaffRole,
@@ -507,7 +511,7 @@ export async function loadDashboardData(
     }
   };
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue] =
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
       read("leads", plan.leads, () => loadLeadDashboardFacts(supabase)),
@@ -528,6 +532,10 @@ export async function loadDashboardData(
       read("overview", plan.overview, () => loadReportsOverviewSnapshot(supabase, reportFilters, nowIso, reportsCan)),
       // Visa queue - the visa module's own rows and derivations, trimmed to group-level counts.
       read("visaQueue", plan.visaQueue, async () => buildVisaQueue(toVisaListItems(await loadVisaQueue(supabase), nowIso))),
+      // Document review - the Documents module's own rows and derivations, trimmed to group-level counts.
+      read("documentQueue", plan.documents, async () =>
+        buildDocumentReview(toDocumentListItems(await loadDocumentQueue(supabase), nowIso)),
+      ),
     ]);
 
   const myTasks = myTasksRead ?? [];
@@ -632,7 +640,7 @@ export async function loadDashboardData(
     overdueBalanceLabel: receivables ? formatCurrencyLKR(overdueBalanceAmount) : null,
     overdueBalanceAmount: receivables ? overdueBalanceAmount : 0,
     figuresUnavailable: (
-      ["leads", "receivables", "payments", "refunds", "myTasks", "overview", "visaQueue"] as const
+      ["leads", "receivables", "payments", "refunds", "myTasks", "overview", "visaQueue", "documentQueue"] as const
     ).some((name) => failed.has(name)),
   });
 
@@ -709,6 +717,7 @@ export async function loadDashboardData(
   markFailed("team-performance", "salesReport");
   markFailed("my-day", "myTasks");
   markFailed("visa-queue", "visaQueue");
+  markFailed("document-review", "documentQueue");
 
   return {
     statusLine,
@@ -728,6 +737,9 @@ export async function loadDashboardData(
         overdueBalance: receivables ? overdueBalanceAmount : null,
         refundsPending: refundsPending ? refundsPending.count : null,
         visaQueue: visaQueue ? visaQueue.counts : null,
+        documentReview: documentReview
+          ? { awaitingReview: documentReview.counts.awaitingReview, missingDocuments: documentReview.counts.missingDocuments }
+          : null,
         executive: overview
           ? {
               summary: computeExecutiveSummary(overview.bookingsCurrent, overview.bookingsPrevious, overview.groups),
@@ -745,6 +757,7 @@ export async function loadDashboardData(
     businessHealth,
     pipeline,
     visaQueue,
+    documentReview,
     teamPerformance,
     seatPace,
     leadAttention,

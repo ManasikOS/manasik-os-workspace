@@ -25,6 +25,7 @@ describe("planDashboardFetch", () => {
       salesReport: false,
       overview: false,
       visaQueue: false,
+      documents: false,
       myTasks: true,
     });
   });
@@ -120,6 +121,29 @@ describe("planDashboardFetch", () => {
       const caps = baseDashboardCapabilities("VISA");
       expect(planDashboardFetch(["kpis"], caps, WHO, ["visa-pending"]).visaQueue).toBe(true);
       expect(planDashboardFetch(["kpis"], caps, WHO, ["departing-30"]).visaQueue).toBe(false);
+    });
+  });
+
+  describe("document review", () => {
+    it("is read for VISA, whose preset shows the block and whose row lists the tile", () => {
+      expect(planFor("VISA").documents).toBe(true);
+    });
+
+    it("is not read for roles without the block or the tile", () => {
+      for (const role of ["ADMIN", "CEO", "FINANCE", "MARKETING", "GUIDE"] as const) {
+        expect(planFor(role).documents).toBe(false);
+      }
+    });
+
+    it("is never read for a role limited to payment proofs, even if asked for", () => {
+      const caps = { ...baseDashboardCapabilities("VISA"), documents: { ...baseDashboardCapabilities("VISA").documents, scopedToPaymentProof: true } };
+      expect(planDashboardFetch(["document-review"], caps, WHO, ["docs-awaiting-review"]).documents).toBe(false);
+    });
+
+    it("is read for the KPI alone when the block is not shown", () => {
+      const caps = baseDashboardCapabilities("VISA");
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["docs-awaiting-review"]).documents).toBe(true);
+      expect(planDashboardFetch(["kpis"], caps, WHO, ["departing-30"]).documents).toBe(false);
     });
   });
 });

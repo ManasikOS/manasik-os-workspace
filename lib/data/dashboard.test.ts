@@ -88,6 +88,7 @@ function input(overrides: Partial<Candidates> = {}): Candidates {
     refundsPending: null,
     executive: null,
     visaQueue: null,
+    documentReview: null,
     ...overrides,
   };
 }
@@ -240,5 +241,23 @@ describe("buildKpiCandidates - visa", () => {
       input({ visaQueue: { readyToSubmit: 0, submittedPending: 0, visaIssues: 0, issued: 0 } }),
     );
     expect(k["visa-pending"]?.value).toBe("0");
+  });
+});
+
+describe("buildKpiCandidates - documents", () => {
+  it("omits Docs Awaiting Review when the document queue was not read", () => {
+    expect(buildKpiCandidates(input({ documentReview: null }))["docs-awaiting-review"]).toBeUndefined();
+  });
+
+  it("shows documents awaiting review and how many are missing", () => {
+    const k = buildKpiCandidates(input({ documentReview: { awaitingReview: 6, missingDocuments: 14 } }));
+    expect(k["docs-awaiting-review"]?.value).toBe("6");
+    expect(k["docs-awaiting-review"]?.supportingText).toBe("14 missing");
+    expect(k["docs-awaiting-review"]?.destination).toBe("/documents");
+  });
+
+  it("shows a real zero when the queue was read and nothing is waiting", () => {
+    const k = buildKpiCandidates(input({ documentReview: { awaitingReview: 0, missingDocuments: 0 } }));
+    expect(k["docs-awaiting-review"]?.value).toBe("0");
   });
 });

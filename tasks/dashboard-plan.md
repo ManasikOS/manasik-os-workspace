@@ -69,7 +69,7 @@ T2,T3 ──► T16 e2e matrix ;  T4 ──► T17 perf baseline
 
 ### Phase 3 — New blocks (each independently shippable; order = value/risk)
 - [x] T9 `visa-queue` (M)
-- [ ] T10 `document-review` (M)
+- [x] T10 `document-review` (M)
 - [ ] T11 `supplier-payables` (M)
 - [ ] T12 `quotes-pending` (M)
 - [ ] T13 `campaign-pulse` (M)
