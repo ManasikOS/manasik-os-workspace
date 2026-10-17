@@ -81,7 +81,7 @@ All of the audit's 22 findings (SEC-1 to SEC-11, BUG-1 to BUG-11) have been acti
 
 | # | Severity | Finding | Evidence |
 |---|---|---|---|
-| 1 | **High, launch gate** | **Browser acceptance has never been demonstrated.** Checklist items for FIN-03, FIN-05, MED-03 and others are open "blocked until a signed-in non-production environment exists". | `docs/inbox/checklist.md` lines 128, 153, 197 |
+| 1 | **High, launch gate** | **Browser acceptance is incomplete.** *Correction 17 Oct:* TASK-032 records a local stack and 43 specs with 42 passing, so the earlier "never demonstrated" was too strong. Still open: 9 unwritten specs (O4, C4, C6, X3, F1 to F6), colour contrast (A6), and checklist items marked blocked on a signed-in environment that may now exist. Also, staging drift is large (gate check G15: 99 objects differ). | `docs/inbox/checklist.md` lines 128, 153, 197; TASK-032 Status |
 | 2 | **High, launch gate** | **Live RLS tests not run.** `supabase/tests/database/inbox_voice_transcripts_rls.test.sql` (20 assertions) is written but never executed; voice transcripts are therefore unproven for cross-agency denial. | checklist line 169 |
 | 3 | Medium | **Voice transcription provider call is unproven** (model audio support and request shape untested against a real provider). Checkpoint P4a blocks enabling by default. | checklist lines 183, 198 |
 | 4 | Medium | **Bulk close has no confirmation and no undo.** A customer message reopens the chat, but a mis-click on up to 50 chats is silent. | tech doc §27 |
