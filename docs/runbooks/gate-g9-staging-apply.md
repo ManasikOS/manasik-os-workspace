@@ -45,7 +45,7 @@ select proname from pg_proc where proname in ('gate_disposable_agency_leftovers'
 select count(*) from public.agencies where slug like 'e2e-gate-%';
 ```
 
-I ran this same proof on the local rebuilt database on 17 Oct: 13 of 13 ok, rolled back, no leftovers. **Stop if** any assertion fails, or if the proof needs `pgtap` and the target does not have it (the earlier gate tests ran there in rolled-back transactions, so it should).
+I ran this same proof on the local rebuilt database on 17 Oct: 13 of 13 ok, rolled back, no leftovers. **It was also run on staging on 17 Oct, rolled back: 13 of 13 ok** (see `docs/progress/2026-10-17-g9-staging-rolled-back-proofs.md`). Through the Supabase MCP only the last result set is returned, so wrap each assertion as `insert into proof_results(r) select ok(…)` into a temp table and return it as one JSON row at the end. **Stop if** any assertion fails, or if the proof needs `pgtap` and the target does not have it (the earlier gate tests ran there in rolled-back transactions, so it should).
 
 Repeat step 1 for `20270215090000_quick_chat_record_send.sql` first if you chose to apply it. It has no database test file of its own, so its proof is only that the file runs inside a `begin; … rollback;` without error.
 
