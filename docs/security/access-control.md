@@ -62,6 +62,23 @@ A capability check answers "can this role do X". Tenancy scoping answers
 the role/capability check scopes the action. A query missing either is a
 bug.
 
+## Decision record: Inbox visibility for read-only roles
+
+**Decided 2026-10-17 (owner).** CEO, FINANCE and VISA can open the Inbox and read **every** conversation in their agency, with no
+write capability (`lib/access/inbox-access.ts`). GUIDE cannot open it. ADMIN, MARKETING and OPERATIONS can reply, assign, close and
+convert; only ADMIN can delete a conversation.
+
+- **Why:** the CEO needs the overview; Finance and Visa follow customers' payment and document questions and need to see the thread
+  behind a receipt or a passport. Limiting them to linked conversations was considered and rejected for now because it would hide the
+  context they act on.
+- **What stays protected for them:** passport photos and AI-read passport numbers are not shown to roles without
+  sensitive-traveller-data rights (audit SEC-3); saving to Documents, assigning a visa officer and reviewing passport fields need the
+  matching Documents, Visa and sensitive-data capabilities on top of Inbox access.
+- **Enforcement:** the page returns not-found without `viewModule`; every Server Action re-checks its capability; the database
+  policies re-check role and agency. A hidden button is never the boundary.
+- **Pinned by:** `lib/access/inbox-access.test.ts` ("read-only roles"). Changing this table must change that test and this record.
+- **Revisit when:** an agency asks for per-role conversation scoping, or a read-only role is given customer-facing duties.
+
 ## Testing access changes
 
 - Add a test under `tests/<domain>/` for any new capability that gates a

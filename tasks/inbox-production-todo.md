@@ -48,7 +48,7 @@ Inbox-only fast check: `npx vitest run app/inbox lib/inbox lib/access/inbox-acce
   - Accept: per the decision; `docs/inbox/spam-state-contract.md` and tech doc §27 updated; tests cover spam then new message.
   - Verify: unit tests in `lib/inbox/reply/` and the contract test; lint, typecheck.
   - Depends: owner decision · Files: reply gate, tests, 2 docs
-- [ ] **T9 (XS, decision) Read-only roles.** Record the decision on CEO, Finance and Visa visibility in `docs/security/access-control.md`; if limiting, add a repository filter and a test.
+- [x] **T9 (XS, decision) Read-only roles.** Record the decision on CEO, Finance and Visa visibility in `docs/security/access-control.md`; if limiting, add a repository filter and a test.
   - Accept: decision written; if changed, a role-matrix test proves the new scope.
   - Verify: `lib/access` test; `inbox-shortcuts-denied-and-unavailable` spec still passes.
   - Depends: owner decision · Files: access doc (+ repository, test if changed)
