@@ -341,3 +341,17 @@
     animation: none;
   }
 }
+
+/* Inbox text contrast (WCAG 2.1 AA, 4.5:1). Scoped to the Inbox page only, because the global green (#10b981, 2.3:1 on white) and
+   muted grey (#737373, 4.42:1 on the selected row) belong to the design system. Dark mode keeps its own, already passing, values. */
+.inbox-aa-contrast {
+  --primary: #047857;
+  --primary-hover: #065f46;
+  --muted-foreground: #6b6b6b;
+}
+
+.dark .inbox-aa-contrast {
+  --primary: #1fae7e;
+  --primary-hover: #29c591;
+  --muted-foreground: oklch(0.708 0 0);
+}

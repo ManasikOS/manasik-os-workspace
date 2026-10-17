@@ -20,7 +20,7 @@ export default async function InboxStandaloneLayout({
   if (agencySuspended) return <SuspendedPage />;
 
   return (
-    <main className="h-dvh overflow-hidden bg-background">
+    <main className="inbox-aa-contrast h-dvh overflow-hidden bg-background">
       <Suspense fallback={null}>
         <RouteProgressBar />
       </Suspense>
