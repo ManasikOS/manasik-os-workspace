@@ -60,6 +60,10 @@ Migrations (A–C) are strictly sequential. F and G do not wait for anything.
 
 ## 5. The checklist
 
+> **BLOCKER found 2026-10-17 (new item A0):** Vercel answers `402 DEPLOYMENT_DISABLED` for staging and production (including `workspace.manasikos.com`). See `docs/progress/2026-10-17-gate-first-run-staging.md`. No browser spec, gate check against the app, or launch is possible until it is cleared.
+
+- [ ] **A0 [Y] Clear the Vercel billing/plan block** for team ManasikOS. Verify: `/api/health` answers 200 on staging and on `workspace.manasikos.com`; then the 13 scheduled jobs recover (gate G4).
+
 ### A. Backup and comparison (nothing changes yet)
 
 - [ ] **A1 [Y] Take a staging backup** (Supabase backup or branch) and note its time here: `__________`. Verify: you can see it in the dashboard.
@@ -209,5 +213,6 @@ The baseline is taken from the dress-rehearsal run (H1) and the pilot's first 24
 | 2026-10-17 | T1, T7, T8, T9 | done; see section 3 |
 | 2026-10-17 | F1 / T16 (G9) | code, unit tests, local migration test and baseline done; migration still to apply to staging |
 | 2026-10-17 | G9 and Quick Chat migrations | applied to staging (Manasik OS) after rolled-back proofs; verified read-only; G9 itself still to be run with GATE_META_APP_SECRET |
+| 2026-10-17 | First gate run on staging | G2, G3, G5 PASS; G1, G4, G6, G8, G9 FAIL only because Vercel returns 402; G15 94 differ (was 99). New blocker A0 |
 | 2026-10-17 | C1 (partial) | 256 migrations built a fresh local database with no errors; fingerprint matched the old baseline apart from the two new functions. Not yet recorded as the formal C1/T5 proof against staging |
 | | | |
