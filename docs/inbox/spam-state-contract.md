@@ -35,8 +35,10 @@ round trip returns the chat to where it started.
 - One audit event (`SPAM_MARKED` / `SPAM_RESTORED`) is written per changed conversation.
 - Bulk sends, payment or Finance changes, document verification, risk resolution and AI proposal approval remain impossible in
   bulk. Tag changes remain deferred (decision D6).
-- Spam marking does not delete, send or publish anything, and it does not change what the WhatsApp assistant does with an
-  incoming message: it is an organisational state plus Copilot enrichment skipping.
+- Spam marking does not delete, send or publish anything. **Since 2026-10-17 the automatic assistant does not reply to a spam
+  chat** (decision T8): `runAssistantTurn` (`lib/agent/whatsapp/drain.ts`) stops before it types, runs intake, creates a lead or
+  calls the model, and logs `assistant_reply_suppressed`; the quiet-lead nudge sweep skips spam chats too. A customer's message in
+  a spam chat is still stored. Staff can still reply by hand. Restoring the chat lets the assistant answer again from the next message.
 
 ## Release order
 

@@ -641,7 +641,7 @@ Always: read [`feature-development-workflow.md`](../standards/feature-developmen
 ## 27. Known limits and caveats
 
 - **Departure changes / Group changes** queues exist but have no predicate and are hidden.
-- **Spam** stops Copilot reading a chat; it does **not** stop a WhatsApp assistant from replying to a later message (see the spam contract).
+- **Spam** stops Copilot reading a chat and, since 2026-10-17, stops the automatic assistant replying and the quiet-lead nudge (see the spam contract). Staff can still reply by hand.
 - **"Someone is writing"** is advisory; two people can still send.
 - **Outcomes**: first-response time, within-target rate, conversion rates, draft acceptance and triage corrections are *not measurable yet*; AI cost excludes image and voice work (treat it as a floor).
 - **Channel gaps**: Messenger/Instagram cannot be started by the business and have no reopen template; Instagram carries photos only; WhatsApp video/location/etc. are refused.

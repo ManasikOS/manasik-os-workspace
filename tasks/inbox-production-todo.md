@@ -44,7 +44,7 @@ Inbox-only fast check: `npx vitest run app/inbox lib/inbox lib/access/inbox-acce
   - Accept: closing 2 or more chats requires an explicit confirm; the dialog states how many will be skipped; keyboard and screen-reader accessible; no change to server rules.
   - Verify: component test; extend `e2e/inbox-ownership-and-bulk.spec.ts`; lint, typecheck.
   - Depends: none · Files: `bulk-selection-bar.tsx`, spec, test
-- [ ] **T8 (M) Spam-marked chat versus the assistant.** Decide (open question 1) and implement the chosen rule in the reply gate, with a log line when suppressed.
+- [x] **T8 (M) Spam-marked chat versus the assistant.** Decide (open question 1) and implement the chosen rule in the reply gate, with a log line when suppressed.
   - Accept: per the decision; `docs/inbox/spam-state-contract.md` and tech doc §27 updated; tests cover spam then new message.
   - Verify: unit tests in `lib/inbox/reply/` and the contract test; lint, typecheck.
   - Depends: owner decision · Files: reply gate, tests, 2 docs
