@@ -90,7 +90,7 @@ Inbox-only fast check: `npx vitest run app/inbox lib/inbox lib/access/inbox-acce
 
 ## Phase 5: Finish the gate
 
-- [ ] **T16 (M) G9 disposable-agency check.** Creates a test agency, sends a signed event and a duplicate, runs the acceptance subset, tears down, proves zero leftover rows.
+- [~] **T16 (M) G9 disposable-agency check.** Creates a test agency, sends a signed event and a duplicate, runs the acceptance subset, tears down, proves zero leftover rows.
   - Accept: check returns PASS/FAIL; teardown verified.
   - Verify: gate unit tests (PASS, FAIL and PENDING paths); dress rehearsal on staging.
   - Depends: T12a–c · Files: `scripts/gate/*`, tests

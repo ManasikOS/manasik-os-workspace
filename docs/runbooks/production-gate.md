@@ -37,7 +37,8 @@ production-only comparisons can pass there, so the first production run holds no
 | G8 Webhook security | every webhook refuses forged and unsigned events and a wrong verify token, and answers its real handshake | a webhook accepts a forged event (usually no app secret configured) or its token is wrong | the real verify tokens are supplied |
 | G15 Schema matches the repository | every public-schema object (columns, constraints, indexes, triggers, policies, grants, functions, views) has the same hash as in a clean build of the repository (`supabase/schema-fingerprint.json`) | the database is not what the migrations build: a migration recorded as applied whose effect is missing, a hand-made object, or a change made outside migrations. The items name each object that differs, is missing, or is not in the repository | n/a |
 | G13 Rollback | at least two ready production deployments exist, so the previous one can be restored | there is nothing earlier to roll back to | a Vercel token and project are supplied |
-| G9, G10, G11, G12, G14 | not built yet (TASK-032 S7b and S8): disposable-agency acceptance, Sentry event received, Sentry alert rules, Meta live, alert delivery | | they are built; the gate cannot pass before then |
+| G9 Disposable-agency acceptance | a throwaway test agency receives a correctly signed WhatsApp event (200), the same event again is kept once ("duplicate"), a forged signature is refused (401), exactly one webhook event, conversation and customer message exist for it, and after removal no table or storage folder still names it | the signed path is broken (usually a wrong `GATE_META_APP_SECRET`), a duplicate was stored twice, or a table has no delete path for an agency and blocks the removal (the check names it) | `GATE_META_APP_SECRET` is supplied |
+| G10, G11, G12, G14 | not built yet (TASK-032 S8): Sentry event received, Sentry alert rules, Meta live, alert delivery | | they are built; the gate cannot pass before then |
 
 A check that cannot run is a FAIL with the reason, never a silent pass, and one failing check never stops the others.
 
@@ -45,13 +46,15 @@ A check that cannot run is a FAIL with the reason, never a silent pass, and one 
 
 - Reads: the public health endpoints, `/api/health/config` (with the cron secret), the worker's probes, and `public.gate_snapshot()`, a
   read-only database function that returns names and counts only and is executable by the service role only.
-- Writes: each run sends two forged-or-unsigned webhook posts per channel (six in all). The app refuses them and records a small audit stub
+- Writes (G9): one disposable test agency (`agencies.is_test = true`, slug `e2e-gate-…`) with a simulated WhatsApp number (`sim-gate-…`) is created, receives three posts (valid, duplicate, forged), and is removed again by `public.gate_delete_disposable_agency()`, which refuses any agency that is not a gate agency. `public.gate_disposable_agency_leftovers()` then proves nothing names it. Test agencies cannot reach a real provider (the send guard), and the simulator refuses any account id not starting `sim-`. A test agency left by a crashed run is removed by the next run once it is an hour old. Both functions come from migration `20270216090000_gate_disposable_agency_leftovers.sql`, which must be applied to the target first.
+- Writes (G8): each run sends two forged-or-unsigned webhook posts per channel (six in all). The app refuses them and records a small audit stub
   for each (no payload content is kept). It addresses only `sim-` accounts and signs with a fake secret, so it can never reach a real agency.
 - Never prints a secret, a configuration value (other than the environment name) or customer data.
 
 ## Settings that need your hands
 
 - `GATE_CRON_SECRET`, `GATE_SUPABASE_URL`, `GATE_SUPABASE_SECRET_KEY`: the target environment's own, from its host. Do not paste them into chat or commit them.
+- `GATE_META_APP_SECRET`: the deployment's platform Meta app secret (`META_APP_SECRET`), used only to sign G9's one webhook. It is never printed, logged or put in the report. Without it G9 stays PENDING.
 - `GATE_VERIFY_TOKEN_*`: the real webhook verify tokens, to prove each handshake works.
 - `GATE_VERCEL_TOKEN`, `GATE_VERCEL_PROJECT`, `GATE_VERCEL_TEAM`: a read-only Vercel token for G13.
 
