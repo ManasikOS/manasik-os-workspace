@@ -1,7 +1,7 @@
 {
   "description": "Fingerprint of the public schema of a database built from supabase/migrations (go-live gate G15). Regenerate with scripts/local/write-schema-fingerprint.sh after adding a migration.",
-  "lastMigration": "20270215090000_quick_chat_record_send",
-  "migrationCount": 255,
+  "lastMigration": "20270216090000_gate_disposable_agency_leftovers",
+  "migrationCount": 256,
   "objects": {
     "constraint:agencies": "fa5a6a1b32",
     "constraint:agency_email_delivery_profiles": "7542d30dd8",
@@ -306,6 +306,8 @@
     "function:fail_channel_job(p_id uuid, p_worker_id text, p_error text, p_backoff_seconds integer)": "6301d1306b",
     "function:find_orphan_staged_uploads(p_older_than_hours integer, p_limit integer)": "965f6b67de",
     "function:find_unreconciled_raw_events(p_source text, p_min_age_seconds integer, p_max_age_seconds integer, p_limit integer)": "13de5d5b5c",
+    "function:gate_delete_disposable_agency(p_agency_id uuid)": "da272e8aef",
+    "function:gate_disposable_agency_leftovers(p_agency_id uuid)": "b51a21737a",
     "function:gate_schema_fingerprint()": "c1b7fdf2d5",
     "function:gate_snapshot()": "d1115096e8",
     "function:guard_conversation_protected_columns()": "b30e93fc86",

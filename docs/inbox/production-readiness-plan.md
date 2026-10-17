@@ -121,7 +121,7 @@ For each migration: rolled-back proof first, apply, run its database test, re-ru
 
 ### F. Finish the go-live gate (can start now)
 
-- [~] **F1 [C] T16: gate check G9 (code done 2026-10-17; migration `20270216090000` still to apply, database test to run, fingerprint baseline to regenerate with Docker)** — disposable `is_test` agency, signed event and duplicate, acceptance subset, teardown, proof of zero leftover rows. Verify: gate tests cover PASS, FAIL and PENDING.
+- [~] **F1 [C] T16: gate check G9 (code done 2026-10-17; database test 13/13 and baseline regenerated locally; migration `20270216090000` still to apply to staging)** — disposable `is_test` agency, signed event and duplicate, acceptance subset, teardown, proof of zero leftover rows. Verify: gate tests cover PASS, FAIL and PENDING.
 - [ ] **F2 [C] T17: gate checks G10, G11, G12, G14** (Sentry received, Sentry rules, Meta live, alert delivery). Each is PENDING until its external setting exists; secrets are referenced by name only.
 - [ ] **F3 [C] T17: `production-gate.yml`** nightly and on demand, with the pinned "Production gate" issue. Exit codes 0 all pass, 1 failure, 2 only pending, 3 missing setting.
 - [ ] **F4 [C] T18: `docs/runbooks/production-go-live.md`** — owner steps in order, variable names (never values), how to read the gate, what each FAIL means.
@@ -207,5 +207,6 @@ The baseline is taken from the dress-rehearsal run (H1) and the pilot's first 24
 | Date | Item | Note |
 |---|---|---|
 | 2026-10-17 | T1, T7, T8, T9 | done; see section 3 |
-| 2026-10-17 | F1 / T16 (G9) | code and unit tests done; needs Docker for the baseline, then apply the migration |
+| 2026-10-17 | F1 / T16 (G9) | code, unit tests, local migration test and baseline done; migration still to apply to staging |
+| 2026-10-17 | C1 (partial) | 256 migrations built a fresh local database with no errors; fingerprint matched the old baseline apart from the two new functions. Not yet recorded as the formal C1/T5 proof against staging |
 | | | |
