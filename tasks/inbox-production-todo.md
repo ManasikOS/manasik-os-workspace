@@ -52,7 +52,7 @@ Inbox-only fast check: `npx vitest run app/inbox lib/inbox lib/access/inbox-acce
   - Accept: decision written; if changed, a role-matrix test proves the new scope.
   - Verify: `lib/access` test; `inbox-shortcuts-denied-and-unavailable` spec still passes.
   - Depends: owner decision · Files: access doc (+ repository, test if changed)
-- [~] **T10 (S) Colour contrast (spec A6).** Fix the failing token pairs found by the accessibility spec to WCAG 2.1 AA (4.5:1).
+- [-] **T10 (S) Colour contrast (spec A6). REVERTED 2026-10-17 at the owner's request; colours stay as the design system has them.** Fix the failing token pairs found by the accessibility spec to WCAG 2.1 AA (4.5:1).
   - Accept: `inbox-accessibility.spec.ts` contrast check passes in light and dark themes.
   - Verify: the spec; visual check in the browser pane.
   - Depends: none · Files: 1–2 style files, spec

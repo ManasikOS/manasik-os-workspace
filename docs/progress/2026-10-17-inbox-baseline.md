@@ -20,8 +20,6 @@ No critical or high audit findings, so no owner is needed for T1.
 message reopens the chat, chats with an open review stay open, and there is no undo. Spec B5 added to `e2e/inbox-ownership-and-bulk.spec.ts`
 (cancel changes nothing). **B5 has not been run.** An undo window was left out: the server has no reopen action for bulk, so it would need new server code.
 
-## T10 — contrast
-Scoped class `.inbox-aa-contrast` (in `app/globals.css`, applied on the Inbox `<main>` in `app/inbox/layout.tsx`) darkens `--primary` to `#047857`
-and `--muted-foreground` to `#6b6b6b` for the Inbox only; dark mode keeps its own values. Computed ratios: `#047857` on white 5.48, on the light green
-`#E8F9E5` 4.99, on `#f7f7f7` 5.12; `#6b6b6b` on `#f7f7f7` 4.97 (all pass 4.5:1). Side effect: Inbox primary buttons are darker green, white text on them is 5.48:1.
-Dialogs and popovers that render outside the Inbox `<main>` keep the global colours. **Spec A6 (axe) has not been run**; run it on the stack to confirm no other pair fails.
+## T10 — contrast (reverted)
+A scoped darker-green/grey token set was built (commit `931a5c6f`) and then reverted at the owner's request; the design-system colours are unchanged.
+Spec A6 (axe colour contrast) will keep failing on `text-primary` (about 2.3:1) and on muted text over the selected row (4.42:1) until the owner decides otherwise.
