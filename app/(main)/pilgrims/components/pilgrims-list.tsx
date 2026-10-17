@@ -54,6 +54,7 @@ import {
   whatsappLink,
   type PilgrimSort,
 } from "../utils";
+import { sendViaWhatsApp } from "@/lib/inbox/quick-chat/send-via-whatsapp";
 import { buildPilgrimColumns } from "../pilgrims-table/pilgrims-columns";
 import { downloadTextFile, pilgrimsToCsv, timestampedFilename } from "../csv";
 import AddPilgrimDialog from "./add-pilgrim-dialog";
@@ -142,7 +143,12 @@ const PilgrimsList = () => {
       buildPilgrimColumns(sort, (s) => setSort(s as PilgrimSort), {
         onOpen: (item) => router.push(`/pilgrims/${item.pilgrimId}`),
         onSendWhatsapp: (item) =>
-          window.open(whatsappLink(item.whatsappNumber), "_blank"),
+          sendViaWhatsApp({
+            channel: "WHATSAPP",
+            to: item.whatsappNumber,
+            contactName: item.fullName,
+            fallbackUrl: whatsappLink(item.whatsappNumber),
+          }),
         onSendPaymentReminder: async (item) => {
           await sendPaymentReminderAction({
             pilgrimId: item.pilgrimId,

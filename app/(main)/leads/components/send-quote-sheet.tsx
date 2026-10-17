@@ -14,7 +14,8 @@ import React, { useState } from "react";
 
 import { pricePerPerson, QUOTE_DEPOSIT_RATE } from "@/lib/data/leads";
 import type { LeadPackageRow } from "@/lib/types/leads";
-import { sendQuoteAction } from "../actions";
+import { markQuoteSentAction, sendQuoteAction } from "../actions";
+import { isQuickChatAvailable, openQuickChat } from "@/lib/inbox/quick-chat/open-quick-chat-event";
 import { useLeads } from "../leads-store";
 import type { LeadListItem } from "../types";
 import { formatExactLKR, ROOM_PREFERENCE_LABELS, whatsappLink } from "../utils";
@@ -79,11 +80,14 @@ function SendQuoteForm({
 
   const send = async (via: "WHATSAPP" | "EMAIL" | "PDF") => {
     setSending(via);
+    // With the Quick Chat popup available the quote is created now but only recorded as sent once the message has gone out.
+    const viaPopup = via === "WHATSAPP" && isQuickChatAvailable();
     // The server prices the quote itself; the price on screen is only sent so it can refuse if it is no longer the price on offer.
     const result = await sendQuoteAction({
       leadId: lead.id,
       sentVia: via,
       expectedRoomPricePerPerson: roomPricePerPerson,
+      ...(viaPopup ? { deferSend: true } : {}),
     });
     setSending(null);
 
@@ -93,15 +97,44 @@ function SendQuoteForm({
     }
 
     if (via === "WHATSAPP") {
-      const text = encodeURIComponent(
-        `Assalamu alaikum ${lead.name},\n\n${lead.packageName}\n${lead.adults} adult(s)${
-          lead.children > 0 ? `, ${lead.children} child(ren)` : ""
-        } · ${ROOM_PREFERENCE_LABELS[lead.roomPreference]}\nTotal: ${formatExactLKR(total)}\nDeposit due: ${formatExactLKR(deposit)}\nValid until: ${
-          result.validUntil
-            ? new Date(result.validUntil).toLocaleDateString()
-            : ""
-        }\n\nQuote ${result.reference}`,
-      );
+      const message = `Assalamu alaikum ${lead.name},
+
+${lead.packageName}
+${lead.adults} adult(s)${
+        lead.children > 0 ? `, ${lead.children} child(ren)` : ""
+      } · ${ROOM_PREFERENCE_LABELS[lead.roomPreference]}
+Total: ${formatExactLKR(total)}
+Deposit due: ${formatExactLKR(deposit)}
+Valid until: ${
+        result.validUntil ? new Date(result.validUntil).toLocaleDateString() : ""
+      }
+
+Quote ${result.reference}`;
+
+      if (viaPopup && result.reference) {
+        const reference = result.reference;
+        const opened = openQuickChat({
+          channel: "WHATSAPP",
+          to: `94${lead.mobileRaw}`,
+          contactName: lead.name,
+          draft: message,
+          onSent: async () => {
+            const recorded = await markQuoteSentAction({ leadId: lead.id, reference, sentVia: "WHATSAPP" });
+            if (!recorded.ok) {
+              toast.add({ title: `Quote ${reference} sent, but not recorded`, description: recorded.error });
+              return;
+            }
+            toast.add({ title: `Quote ${reference} sent`, description: `${lead.name} · ${formatExactLKR(total)}` });
+          },
+        });
+        if (opened) {
+          toast.add({ title: `Quote ${reference} is ready`, description: "Review the message in the chat and press send." });
+          onSent();
+          return;
+        }
+      }
+
+      const text = encodeURIComponent(message);
       window.open(
         `${whatsappLink(lead.mobileRaw)}?text=${text}`,
         "_blank",

@@ -215,7 +215,7 @@ const PackageDetail = ({
               <Button
                 variant="secondary"
                 onClick={() =>
-                  router.push(`/departure-groups?create=1&template=${pkg.id}`)
+                  router.push(`/departure-groups/new?template=${pkg.id}`)
                 }
               >
                 <Plus className="size-3.5" /> Create Departue Group
@@ -238,7 +238,7 @@ const PackageDetail = ({
                   <DropdownMenuItem
                     onClick={() =>
                       router.push(
-                        `/departure-groups?create=1&template=${pkg.id}`,
+                        `/departure-groups/new?template=${pkg.id}`,
                       )
                     }
                   >

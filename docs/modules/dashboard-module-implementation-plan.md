@@ -6,7 +6,10 @@ command surface** built on the same data, access and derivation architecture alr
 **Operations**, **Suppliers**, **Payments & Invoices**, **Reports** and the **Departure
 Operations Agent**.
 
-Status: **plan only. Nothing in here is implemented.**
+Status: **implemented (Phases 0-4).** The role -> block matrix, KPI sets and fetch rules have since
+moved to [dashboard-role-blocks-spec.md](dashboard-role-blocks-spec.md), which supersedes
+§4.2, §5.2, §7.3 and §8 below. Read this file for the *reasoning* (principles, panel specs, boundary
+with Reports), and that one for what is current.
 
 The product rule this plan enforces (already written down in
 [docs/reports-module-implementation-plan.md](docs/reports-module-implementation-plan.md) and

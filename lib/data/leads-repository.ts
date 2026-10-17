@@ -402,6 +402,23 @@ export async function loadLeadDashboardFacts(db: Db): Promise<DashboardLeadFacts
   return (data ?? []) as DashboardLeadFacts[];
 }
 
+/** The columns the dashboard's quote counts read - no price, customer or pricing snapshot. */
+export type QuoteDashboardFacts = Pick<LeadQuoteRow, "id" | "reference" | "status" | "valid_until" | "sent_at" | "created_at">;
+
+/**
+ * Narrow read for the dashboard's Quotes pending block and quote tiles.
+ * `loadLeadStore({ only: ["quotes"] })` selects every column of every quote,
+ * pricing snapshots included - the same cost `loadLeadDashboardFacts` was
+ * added to avoid for leads. Same table, same RLS; fewer columns, no view.
+ */
+export async function loadQuoteDashboardFacts(db: Db): Promise<QuoteDashboardFacts[]> {
+  const { data, error } = await db
+    .from("lead_quotes")
+    .select("id, reference, status, valid_until, sent_at, created_at");
+  if (error) throw new LeadPersistenceError("lead_quotes", "select", error);
+  return (data ?? []) as QuoteDashboardFacts[];
+}
+
 /** A point-in-time copy to diff against once the mutator has run. */
 export function snapshotLeadStore(store: LeadStore): LeadStore {
   return structuredClone(store);
