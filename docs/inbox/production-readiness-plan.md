@@ -208,5 +208,6 @@ The baseline is taken from the dress-rehearsal run (H1) and the pilot's first 24
 |---|---|---|
 | 2026-10-17 | T1, T7, T8, T9 | done; see section 3 |
 | 2026-10-17 | F1 / T16 (G9) | code, unit tests, local migration test and baseline done; migration still to apply to staging |
+| 2026-10-17 | G9 and Quick Chat migrations | applied to staging (Manasik OS) after rolled-back proofs; verified read-only; G9 itself still to be run with GATE_META_APP_SECRET |
 | 2026-10-17 | C1 (partial) | 256 migrations built a fresh local database with no errors; fingerprint matched the old baseline apart from the two new functions. Not yet recorded as the formal C1/T5 proof against staging |
 | | | |

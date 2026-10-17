@@ -21,3 +21,13 @@ Open transaction: none · the three functions present: 0 · pgTAP installed: no 
 ## Notes
 - `execute_sql` returns only the last row-producing result, so the pgTAP output is collected into a temporary table and returned as one JSON row. A first attempt that read pgTAP's internal results table failed with "relation does not exist", and the error rolled everything back (verified the same way).
 - Still to do, each waiting for the owner's yes: apply `quick_chat_record_send`, then `gate_disposable_agency_leftovers`, then the verification queries in `docs/runbooks/gate-g9-staging-apply.md`.
+
+## Applied (later the same day, after the owner's yes)
+`quick_chat_record_send` (version `20261017171511`) then `gate_disposable_agency_leftovers` (version `20261017171533`) were applied to Manasik OS one at a time with the Supabase MCP `apply_migration`; the repository files carry the `20270215…`/`20270216…` versions, and the gate compares names, so G2 is satisfied by name. Backup time: not recorded (the owner's message left the time blank).
+
+Verification, read-only:
+- Both gate functions: anon false, signed-in false, service role true, security definer, `search_path=""`.
+- `enqueue_record_text_message`: security definer, anon false, signed-in true, service role true.
+- `gate_disposable_agency_leftovers(random uuid)` returned `[]`.
+- `gate_delete_disposable_agency(random uuid)` raised `42501 refusing: … is not a disposable gate agency`.
+- Agencies: 4 (unchanged); `e2e-gate-%` agencies: 0.
