@@ -80,16 +80,16 @@ Principles (same spirit as the Cloudflare hybrid doc):
 3. **Every new piece degrades to the old path.** If the Worker or Node worker is down, the `pg_cron` → Vercel route still works, only slower.
 4. **Gate, don't poll.** A tick that has nothing to do must cost a single query, not a function boot.
 
-## 5. Decisions needed (record the answer here before building)
+## 5. Decisions (settled 2026-10-18)
 
-| ID | Decision | Options | Recommendation |
-|---|---|---|---|
-| D1 | Where the Node worker runs | Fly.io / Railway / small VPS in Singapore / Cloudflare Containers | A small always-on host in Singapore, two instances (the runbook requires near-database and two replicas). Containers only if it proves simpler |
-| D2 | Who fires the timers | Keep `pg_cron` → Vercel / `pg_cron` → worker HTTP / Cloudflare Cron Triggers with a gate | Cloudflare Cron Triggers with a gate for HTTP-style jobs; `pg_cron` direct SQL for DB-only sweeps |
-| D3 | Staging schedule | Same as production / on demand / every 15 min | On demand or 15 min; staging does not need a 1-minute loop |
-| D4 | Vercel plan | Stay on Hobby / Pro | Pro, for the licence reason, once usage is measured |
-| D5 | Domain layout | Whole site behind Cloudflare / DNS-only app + proxied `hooks.` and `api.` | DNS-only for the app domain (Vercel advises against a second CDN in front), proxied subdomains for webhooks |
-| D6 | Webhook host | Stay on Vercel / Cloudflare Worker | Stay on Vercel until phase 2 is stable, then move |
+| ID | Decision | Choice |
+|---|---|---|
+| D1 | Where the Node worker runs | A small always-on host in Singapore, two instances (the runbook requires near-database and two replicas). Cloudflare Containers only if that proves simpler |
+| D2 | Who fires the timers | Cloudflare Cron Triggers with a gate for HTTP-style jobs; `pg_cron` direct SQL for DB-only sweeps |
+| D3 | Staging schedule | On demand or every 15 min; staging does not need a 1-minute loop |
+| D4 | Vercel plan | Stay on Hobby for now; move to Pro when public usage starts. Hobby is non-commercial only and its 4h Active CPU limit already paused the team once, so phases 0 to 2 are needed to stay under it, and the Pro move is a launch gate, not optional |
+| D5 | Domain layout | DNS-only for the app domain (Vercel advises against a second CDN in front); proxied subdomains for webhooks (`hooks.`) |
+| D6 | Webhook host | Cloudflare Worker, built in phase 2 (slice 2.5), not deferred to phase 5 |
 
 ## 6. Phases
 
@@ -115,7 +115,7 @@ Exit: a measured top-10, which may reorder phases 1 to 4.
 | 1.3 | Set `INBOX_WORKER_ACTIVE=1` on Vercel | Webhook functions return immediately; no `after()` drain logs; reply latency unchanged | Unset the variable, redeploy |
 | 1.4 | Move the **email poll** into the worker (a timer calling `pollAgencyMailbox`; consider IMAP IDLE later). Pause the `inbox-email-poll` cron | Mail still arrives within 2 min; no `/api/cron/inbox-email-poll` calls | Un-pause the cron, stop the worker timer |
 
-### Phase 2: Gate the timers on Cloudflare (S1)
+### Phase 2: Gate the timers and take the webhooks on Cloudflare (S1, S3)
 
 | Slice | Change | Verify | Rollback |
 |---|---|---|---|
@@ -123,6 +123,7 @@ Exit: a measured top-10, which may reorder phases 1 to 4.
 | 2.2 | `cloudflare/gate/` Worker with `wrangler.jsonc` in the repo: every minute calls the RPC and invokes the matching Vercel route **only if the count is above zero**. Secrets in Cloudflare, not the repo | In staging: idle minute makes no Vercel call; adding a queued job triggers one within a minute | Disable the Cron Trigger |
 | 2.3 | Per job, in order `agent-jobs`, `inbox-lanes`, `inbox-sla`, `lead-followups`, `reply-window-sweep`: **pause the `pg_cron` entry as the Cloudflare trigger goes live** (never both) | `cron_route_calls` shows one caller per job; Vercel invocation count for `/api/cron/*` drops | Re-enable the `pg_cron` job, disable the trigger |
 | 2.4 | Convert SQL-only sweeps (`inbox-retention`, `release-seat-holds`, `ai-usage-rollup`) to direct `pg_cron` SQL where the handler is only queries | Same rows changed as before | Revert to `invoke_cron_route` |
+| 2.5 | **Webhook Worker (D6)** on `hooks.<domain>` (proxied): verify the Meta signature, insert the raw event and its job row into Supabase, return 200. Repoint Meta callback URLs one channel at a time (WhatsApp, Messenger, Instagram, data-deletion, deauthorize). The Vercel webhook routes stay deployed as the fallback for a week of clean soak | Meta test deliveries land as raw events; bad signatures are rejected; the raw-event reconciler finds nothing missing; no webhook calls reach Vercel | Repoint the callback URL back to the Vercel route |
 
 The allow-list in `invoke_cron_route` stays; the Worker adds its own bearer-secret check (`CRON_SECRET`) and no new public route.
 
@@ -146,8 +147,7 @@ The allow-list in `invoke_cron_route` stays; the Worker adds its own bearer-secr
 
 ### Phase 5: Optional edge (only if phases 0-4 are not enough)
 
-Move webhooks to a Cloudflare Worker on `hooks.<domain>` (verify signature, insert the raw event, return 200), and media and generated PDFs
-to R2 with short-lived signed URLs. This follows `cloudflare-hybrid-architecture.md` §3 and `inbox/architecture-10k-edge-realtime.md`.
+Move media and generated PDFs to R2 with short-lived signed URLs. This follows `cloudflare-hybrid-architecture.md` §3 and `inbox/architecture-10k-edge-realtime.md`.
 Moving the Next.js app itself to Workers (OpenNext) is a separate project: this app uses `@react-pdf/renderer`, `pdf-parse`, the Sentry Node
 integration and a Vercel-tuned CSP, so it needs its own plan.
 
@@ -178,6 +178,6 @@ integration and a Vercel-tuned CSP, so it needs its own plan.
 
 1. Is production live yet, or only staging? It sets how urgent phase 1 is.
 2. Which host for the worker (D1), and is a second instance affordable?
-3. Is moving to Vercel Pro already decided (D4)?
+3. What triggers the Pro move (D4)? Suggest the first real customer agency, since Hobby is non-commercial.
 4. Does the team accept losing some browser Sentry events to ad-blockers (slice 4.3)?
 5. After phase 4, should the Next.js app itself move off Vercel, or is Pro cheap enough?
