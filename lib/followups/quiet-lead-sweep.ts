@@ -126,6 +126,8 @@ export async function runQuietLeadSweep(db: Db, agencyId: string, options: { now
     .in("state", ["AI_ACTIVE", "AI_RESUMED"])
     .eq("ai_enabled", true)
     .not("lead_id", "is", null)
+    // A chat marked as spam is never nudged. lifecycle_status is nullable on older rows, so a bare neq would drop them.
+    .or("lifecycle_status.is.null,lifecycle_status.neq.SPAM")
     .lt("last_inbound_at", new Date(now.getTime() - MIN_SILENCE_MS).toISOString())
     .gte("last_inbound_at", new Date(now.getTime() - longestDelayMs - DAY_MS).toISOString())
     .order("last_inbound_at", { ascending: true })
@@ -235,8 +237,8 @@ async function actOnDecision(input: {
   if (!claim.claimed) return; // another run took this step
 
   // Checked again at send time: the customer may have written, or staff may have taken over, since selection.
-  const { data: fresh } = await db.from("conversations").select("state, ai_enabled, last_inbound_at").eq("id", conversation.id).eq("agency_id", agencyId).maybeSingle();
-  if (!fresh || !fresh.ai_enabled || !["AI_ACTIVE", "AI_RESUMED"].includes(fresh.state as string) || fresh.last_inbound_at !== conversation.last_inbound_at) {
+  const { data: fresh } = await db.from("conversations").select("state, ai_enabled, last_inbound_at, lifecycle_status").eq("id", conversation.id).eq("agency_id", agencyId).maybeSingle();
+  if (!fresh || fresh.lifecycle_status === "SPAM" || !fresh.ai_enabled || !["AI_ACTIVE", "AI_RESUMED"].includes(fresh.state as string) || fresh.last_inbound_at !== conversation.last_inbound_at) {
     await completeFollowup(db, claim.id, { status: "SKIPPED", skipReason: "CONVERSATION_CHANGED" });
     result.skipped += 1;
     return;

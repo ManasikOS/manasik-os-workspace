@@ -20,6 +20,7 @@ import {
   QUOTE_DEPOSIT_RATE,
   logContactInStore,
   markLeadBookedInStore,
+  markQuoteSentInStore,
   recordQuoteInStore,
   selectDepartureGroupInStore,
   setFollowUpInStore,
@@ -735,6 +736,11 @@ export interface SendQuoteInput {
    * still what is on offer; a mismatch is refused rather than silently sending a different number.
    */
   expectedRoomPricePerPerson: number;
+  /**
+   * Store the quote without recording it as sent (used when the message goes out through the Quick Chat popup). The caller then calls
+   * `markQuoteSentAction` once the channel has accepted the message, so a quote is never recorded as sent before it was.
+   */
+  deferSend?: boolean;
 }
 
 export interface SendQuoteResult extends MutationOutcome {
@@ -748,6 +754,7 @@ const sendQuoteInputSchema = z.object({
   leadId: z.uuid(),
   sentVia: z.enum(["WHATSAPP", "EMAIL", "PDF"]).nullable(),
   expectedRoomPricePerPerson: z.number().positive().max(100_000_000),
+  deferSend: z.boolean().optional(),
 });
 
 /** A quote the customer receives is priced here, from the lead and the live package / departure prices — never from the browser. */
@@ -829,6 +836,7 @@ export async function sendQuoteAction(input: SendQuoteInput): Promise<SendQuoteR
           {
             leadId: request.leadId,
             actorName: who.name,
+            deferSend: request.deferSend === true,
             quote: {
               reference,
               package_id: lead.desired_package_id,
@@ -840,10 +848,10 @@ export async function sendQuoteAction(input: SendQuoteInput): Promise<SendQuoteR
               total_lkr: totalLkr,
               deposit_lkr: depositLkr,
               valid_until: validUntil,
-              sent_via: request.sentVia,
-              sent_at: request.sentVia ? now : null,
+              sent_via: request.deferSend ? null : request.sentVia,
+              sent_at: request.sentVia && !request.deferSend ? now : null,
               created_by_name: who.name,
-              status: "SENT",
+              status: request.deferSend ? "DRAFT" : "SENT",
               occupancy_type: lead.room_preference === "UNDECIDED" ? null : lead.room_preference,
               infants: 0,
               price_per_person: roomPricePerPerson,
@@ -873,6 +881,43 @@ export async function sendQuoteAction(input: SendQuoteInput): Promise<SendQuoteR
       return { ok: true, reference, totalLkr, depositLkr, validUntil };
     },
     (error) => ({ ok: false, error }),
+  );
+}
+
+const markQuoteSentInputSchema = z.object({
+  leadId: z.uuid(),
+  reference: z.string().trim().min(1).max(40),
+  sentVia: z.enum(["WHATSAPP", "EMAIL", "PDF"]),
+});
+
+/**
+ * Records that a quote created with `deferSend` has gone out. Called after the message was accepted by the channel, never before.
+ * Same capability as sending a quote; safe to call twice.
+ */
+export async function markQuoteSentAction(input: {
+  leadId: string;
+  reference: string;
+  sentVia: "WHATSAPP" | "EMAIL" | "PDF";
+}): Promise<MutationOutcome> {
+  await requireUser();
+  const who = await getLeadActor();
+  if (!who.can.sendQuote) {
+    return { ok: false, error: "Your role cannot send quotes." };
+  }
+  const parsed = markQuoteSentInputSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: INVALID_REQUEST };
+  const request = parsed.data;
+
+  return changeLead(
+    "markQuoteSent",
+    request.leadId,
+    (store) =>
+      markQuoteSentInStore(
+        store,
+        { leadId: request.leadId, reference: request.reference, sentVia: request.sentVia, actorName: who.name },
+        new Date().toISOString(),
+      ),
+    { collections: ["quotes"] },
   );
 }
 

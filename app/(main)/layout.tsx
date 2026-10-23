@@ -16,6 +16,9 @@ import HeaderNotificationBell, {
   HeaderNotificationBellPlaceholder,
 } from "@/components/header-notification-bell";
 import { capabilitiesForInbox } from "@/lib/access/inbox-access";
+import { QuickChatProvider } from "@/components/quick-chat/quick-chat-provider";
+import { quickChatSendMode } from "@/lib/inbox/quick-chat/access";
+import { isQuickChatEnabled } from "@/lib/inbox/quick-chat/flag";
 import { listSearchablePagesForRole } from "@/lib/search/global-search-pages";
 import { needsAgencyProvisioning } from "@/lib/onboarding/onboarding-routing";
 
@@ -66,7 +69,7 @@ export default async function MainLayout({
   // already read, instead of selecting the row a second time.
   const [
     sessionUser,
-    { role, name, staffId, agencySuspended, memberships, activity },
+    { role, name, staffId, agencyId, agencySuspended, memberships, activity },
   ] = await Promise.all([getSessionUser(), getCurrentStaffRole()]);
   if (!sessionUser) redirect("/login");
   // A confirmed signup that never reached provisioning (D1 in docs/onboarding/plan.md)
@@ -104,7 +107,7 @@ export default async function MainLayout({
           name={name}
           staffId={staffId}
         />
-        <main className="custom-scroll flex-1 w-full flex flex-col h-full overflow-hidden ">
+        <main className="custom-scroll relative flex-1 w-full flex flex-col h-full overflow-hidden ">
           {/* `useSearchParams()` inside the bar needs its own boundary so it never blocks the page. */}
           <Suspense fallback={null}>
             <RouteProgressBar />
@@ -127,6 +130,12 @@ export default async function MainLayout({
               </div>
             </div>
           </Suspense>
+          {/* Anchored to this content area's bottom-left, so it follows the sidebar instead of covering it. */}
+          <QuickChatProvider
+            enabled={isQuickChatEnabled() && quickChatSendMode(role) !== null}
+            agencyId={agencyId}
+            sendMode={quickChatSendMode(role) ?? "INBOX"}
+          />
         </main>
       </div>
     </SidebarProvider>

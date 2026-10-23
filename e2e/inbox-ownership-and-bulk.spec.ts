@@ -173,6 +173,23 @@ test.describe("TASK-030 B: bulk actions", () => {
     }
   });
 
+  test("B5: closing selected conversations asks first, and cancelling changes nothing", async ({ browser }) => {
+    const session = await signInToInboxAt(browser, staffA1, inboxAddress({ view: "all" }));
+    try {
+      const { page } = session;
+      const openBefore = await viewTotal(page, "all");
+      const bar = await selectFirstRows(page, 2);
+      await bar.getByRole("button", { name: "Close", exact: true }).click();
+      const confirm = page.getByRole("dialog", { name: "Close 2 conversations?" });
+      await expect(confirm).toBeVisible();
+      await confirm.getByRole("button", { name: "Cancel" }).click();
+      await expect(confirm).toBeHidden();
+      expect(await viewTotal(page, "all")).toBe(openBefore);
+    } finally {
+      await session.context.close();
+    }
+  });
+
   test("B3: marking as spam asks first, cancelling changes nothing, confirming moves them to Spam, and Not spam restores them", async ({ browser }) => {
     const session = await signInToInboxAt(browser, staffA1, inboxAddress({ view: "all" }));
     try {

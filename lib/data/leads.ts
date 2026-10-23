@@ -901,6 +901,11 @@ export interface RecordQuoteInput {
   leadId: string;
   quote: Omit<LeadQuoteRow, "id" | "lead_id" | "created_at">;
   actorName: string;
+  /**
+   * Store the quote without saying it was sent: no "sent" timeline entry and no move to Proposal Sent. The Quick Chat popup uses this,
+   * then calls `markQuoteSentInStore` once the message has actually been accepted by the channel.
+   */
+  deferSend?: boolean;
 }
 
 /** Stores a sent quote and advances an early-stage lead to Proposal Sent. */
@@ -920,25 +925,52 @@ export function recordQuoteInStore(
   };
   store.quotes.push(row);
   lead.updated_at = nowIso;
+  if (input.deferSend) return { ok: true };
 
+  announceQuoteSent(store, lead, row, input.actorName, nowIso);
+  return { ok: true };
+}
+
+const EARLY_STAGES: LeadStage[] = ["NEW_LEAD", "CONTACTED", "QUALIFIED"];
+
+function announceQuoteSent(store: LeadStore, lead: LeadRow, quote: LeadQuoteRow, actorName: string, nowIso: string): void {
   pushActivity(
     store,
     lead.id,
     "QUOTE_SENT",
-    `Quote ${row.reference} sent${row.sent_via ? ` via ${row.sent_via.toLowerCase()}` : ""}.`,
-    input.actorName,
+    `Quote ${quote.reference} sent${quote.sent_via ? ` via ${quote.sent_via.toLowerCase()}` : ""}.`,
+    actorName,
     nowIso,
   );
-
-  const EARLY_STAGES: LeadStage[] = ["NEW_LEAD", "CONTACTED", "QUALIFIED"];
   if (EARLY_STAGES.includes(lead.stage)) {
-    changeLeadStageInStore(
-      store,
-      { leadId: lead.id, stage: "PROPOSAL_SENT", actorName: input.actorName },
-      nowIso,
-    );
+    changeLeadStageInStore(store, { leadId: lead.id, stage: "PROPOSAL_SENT", actorName }, nowIso);
   }
+}
 
+export interface MarkQuoteSentInput {
+  leadId: string;
+  reference: string;
+  sentVia: "WHATSAPP" | "EMAIL" | "PDF";
+  actorName: string;
+}
+
+/**
+ * Records that a quote stored with `deferSend` has now gone out. Idempotent: a quote that already has a sent time is left as it is, so a
+ * repeated call (a retry, a second tab) cannot add a second timeline entry. Only a DRAFT quote can be marked sent this way.
+ */
+export function markQuoteSentInStore(store: LeadStore, input: MarkQuoteSentInput, nowIso: string): MutationOutcome {
+  const lead = findLead(store, input.leadId);
+  if (!lead) return { ok: false, error: "That lead no longer exists." };
+  const quote = store.quotes.find((entry) => entry.lead_id === lead.id && entry.reference === input.reference);
+  if (!quote) return { ok: false, error: "That quote no longer exists." };
+  if (quote.sent_at) return { ok: true };
+  if (quote.status !== "DRAFT") return { ok: false, error: "This quote cannot be marked as sent." };
+
+  quote.status = "SENT";
+  quote.sent_via = input.sentVia;
+  quote.sent_at = nowIso;
+  lead.updated_at = nowIso;
+  announceQuoteSent(store, lead, quote, input.actorName, nowIso);
   return { ok: true };
 }
 

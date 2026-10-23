@@ -120,6 +120,14 @@ describe("sendQuoteAction", () => {
     expect(written[0]).toMatchObject({ total_lkr: 1_350_000, adults: 2 });
   });
 
+  it("with deferSend, stores the quote as a draft that is not yet recorded as sent", async () => {
+    const result = await sendQuoteAction({ leadId: LEAD_ID, sentVia: "WHATSAPP", expectedRoomPricePerPerson: 450_000, deferSend: true });
+
+    expect(result).toMatchObject({ ok: true, reference: "QT-2030-0001" });
+    expect(written[0]).toMatchObject({ status: "DRAFT", sent_via: null, sent_at: null });
+    expect(lead.stage).toBe("QUALIFIED");
+  });
+
   it("refuses an invalid request", async () => {
     expect((await sendQuoteAction({ leadId: "nope", sentVia: null, expectedRoomPricePerPerson: 450_000 })).ok).toBe(false);
     expect((await sendQuoteAction({ leadId: LEAD_ID, sentVia: "CARRIER_PIGEON" as never, expectedRoomPricePerPerson: 450_000 })).ok).toBe(false);

@@ -29,7 +29,7 @@ const NO_OWNER = "no-owner";
 
 /**
  * The bar shown while chats are being selected: how many are chosen, an owner to give them to, Close, Mark as spam (or Not spam,
- * in the Spam view) and Cancel. Spam changes ask first. It only sends the ids and the choice; the server checks each
+ * in the Spam view) and Cancel. Close and spam changes ask first, because a bulk change has no undo. It only sends the ids and the choice; the server checks each
  * conversation, skips the ones that cannot change, and says how many did. There is no bulk send, payment, or review action.
  */
 export function BulkSelectionBar({
@@ -53,7 +53,7 @@ export function BulkSelectionBar({
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState<
-    "MARK_SPAM" | "UNMARK_SPAM" | null
+    "CLOSE" | "MARK_SPAM" | "UNMARK_SPAM" | null
   >(null);
   const refreshInbox = useInboxRefresh();
   const count = selectedIds.length;
@@ -131,7 +131,7 @@ export function BulkSelectionBar({
           size="sm"
           variant="secondary"
           disabled={isPending || count === 0 || overLimit}
-          onClick={() => run({ kind: "CLOSE" })}
+          onClick={() => setConfirming("CLOSE")}
         >
           Close
         </Button>
@@ -166,12 +166,16 @@ export function BulkSelectionBar({
         <DialogContent className="max-w-md! gap-4">
           <DialogHeader className="gap-2">
             <DialogTitle>
-              {confirming === "UNMARK_SPAM"
-                ? `Restore ${count} conversation${count === 1 ? "" : "s"} from spam?`
-                : `Mark ${count} conversation${count === 1 ? "" : "s"} as spam?`}
+              {confirming === "CLOSE"
+                ? `Close ${count} conversation${count === 1 ? "" : "s"}?`
+                : confirming === "UNMARK_SPAM"
+                  ? `Restore ${count} conversation${count === 1 ? "" : "s"} from spam?`
+                  : `Mark ${count} conversation${count === 1 ? "" : "s"} as spam?`}
             </DialogTitle>
             <DialogDescription>
-              {confirming === "UNMARK_SPAM"
+              {confirming === "CLOSE"
+                ? "They move to Closed. Nothing is sent to the customers, and a new message from a customer reopens the chat. Chats with an open review are left open. There is no undo for this, so check the selection first."
+                : confirming === "UNMARK_SPAM"
                 ? "They go back to the lists they were in before. Nothing is sent. A chat whose lead is marked as spam stays in Spam until the lead's stage is changed."
                 : "They leave the working lists and move to the Spam view, and Copilot stops reading them. Nothing is deleted or sent. Chats with a booking or an open review are left alone, and you can restore these from the Spam view."}
             </DialogDescription>
@@ -187,7 +191,7 @@ export function BulkSelectionBar({
             </Button>
             <Button
               type="button"
-              variant={confirming === "MARK_SPAM" ? "destructive" : "default"}
+              variant={confirming === "UNMARK_SPAM" ? "default" : "destructive"}
               disabled={isPending}
               onClick={() => {
                 const kind = confirming;
@@ -195,7 +199,11 @@ export function BulkSelectionBar({
                 if (kind) run({ kind });
               }}
             >
-              {confirming === "UNMARK_SPAM" ? "Restore" : "Mark as spam"}
+              {confirming === "CLOSE"
+                ? "Close conversations"
+                : confirming === "UNMARK_SPAM"
+                  ? "Restore"
+                  : "Mark as spam"}
             </Button>
           </DialogFooter>
         </DialogContent>
