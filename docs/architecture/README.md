@@ -102,6 +102,7 @@ needs it. See [`docs/security/security-guidelines.md`](../security/security-guid
 | Cross-module roadmap | [remaining-modules-master-plan.md](remaining-modules-master-plan.md) |
 | Production readiness checklist | [production-readiness-plan.md](production-readiness-plan.md) |
 | Cutting Vercel Fluid Active CPU (worker, Cloudflare gate, caching) | [vercel-usage-reduction-plan.md](vercel-usage-reduction-plan.md) |
+| Vercel CPU: step-by-step implementation plan (slices, tests, rollback) | [vercel-usage-implementation-plan.md](vercel-usage-implementation-plan.md) |
 | Security rules | [../security/security-guidelines.md](../security/security-guidelines.md) |
 | Access control model | [../security/access-control.md](../security/access-control.md) |
 | Engineering standards | [../standards/engineering-standards.md](../standards/engineering-standards.md) |
