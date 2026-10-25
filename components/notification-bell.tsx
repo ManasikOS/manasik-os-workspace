@@ -136,7 +136,7 @@ export default function NotificationBell({
                   {rowContent}
                 </button>
               ) : (
-                <Link key={n.id} href={notificationHref(n)} onClick={() => markOneRead(n.id)} className={rowClassName}>
+                <Link key={n.id} href={notificationHref(n)} prefetch={false} onClick={() => markOneRead(n.id)} className={rowClassName}>
                   {rowContent}
                 </Link>
               );

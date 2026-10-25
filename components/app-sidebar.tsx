@@ -519,6 +519,8 @@ function NavItem({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
       render={
         <Link
           href={item.url}
+          // Pages are force-dynamic, so a viewport prefetch would render each destination's layout on every page view.
+          prefetch={false}
           className={cn(
             "flex w-full flex-row items-center justify-between gap-3 text-lg",
             isActive ? "text-primary" : "",
