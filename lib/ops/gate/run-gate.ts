@@ -1,10 +1,10 @@
 import { checkCron, checkIsolation, checkMigrations, checkSchemaFingerprint, checkStorage } from "./evaluate";
+import { checkDisposableAgency } from "./disposable-agency";
 import { checkConfiguration, checkLiveness, checkRollback, checkWebhookSecurity, checkWorker } from "./http-checks";
 import type { GateCheckResult, GateContext, GateSnapshot } from "./types";
 
 /** Checks the gate lists but does not perform yet. Each is PENDING with its reason, so the gate can never pass while one is unbuilt. */
 export const NOT_BUILT_YET: GateCheckResult[] = [
-  { id: "G9", title: "Disposable-agency acceptance", status: "PENDING", detail: "Not built yet (TASK-032 S7b, after the browser specs of S6): a test agency receives a signed webhook, keeps one copy of a duplicate, and is removed with nothing left behind." },
   { id: "G10", title: "Sentry received", status: "PENDING", detail: "Not built yet (TASK-032 S8): a gate test event must reach Sentry tagged for this environment." },
   { id: "G11", title: "Sentry alerts", status: "PENDING", detail: "Not built yet (TASK-032 S8): the five alert rules and the inbox-health cron monitor must exist and be enabled." },
   { id: "G12", title: "Meta live", status: "PENDING", detail: "Not built yet (TASK-032 S8): the Meta app must be live with the permissions each channel needs." },
@@ -58,6 +58,7 @@ export async function runGate(context: GateContext): Promise<GateCheckResult[]> 
     guarded("G7", "Worker", () => checkWorker(context)),
     guarded("G8", "Webhook security", () => checkWebhookSecurity(context)),
     guarded("G13", "Rollback", () => checkRollback(context)),
+    guarded("G9", "Disposable-agency acceptance", () => checkDisposableAgency(context)),
   ]);
 
   return [...results, ...NOT_BUILT_YET].sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));

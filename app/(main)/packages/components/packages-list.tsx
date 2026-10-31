@@ -210,7 +210,7 @@ const PackagesList = ({
     onOpen: (p: PackageListItem) => router.push(`/packages/${p.id}`),
     onEdit: (p: PackageListItem) => router.push(`/packages/${p.id}/edit`),
     onCreateGroup: (p: PackageListItem) =>
-      router.push(`/departure-groups?create=1&template=${p.id}`),
+      router.push(`/departure-groups/new?template=${p.id}`),
   };
 
   const columns = useMemo(

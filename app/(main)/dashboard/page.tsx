@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import PageHeader from "@/components/page-header";
+import { Card } from "@/components/ui/card";
 import DashboardMetrics from "./components/metrics";
 import MyDay from "./components/my-day";
 import UpcomingDepartures from "./components/upcoming-departures";
@@ -11,6 +12,12 @@ import ReceivablesAgingCard from "./components/receivables-aging";
 import ReadinessHeatmap from "./components/readiness-heatmap";
 import SeatFillPace from "./components/seat-fill-pace";
 import Pipeline from "./components/pipeline";
+import VisaQueue from "./components/visa-queue";
+import DocumentReview from "./components/document-review";
+import SupplierPayables from "./components/supplier-payables";
+import QuotesPending from "./components/quotes-pending";
+import CampaignPulse from "./components/campaign-pulse";
+import InboxSla from "./components/inbox-sla";
 import TeamPerformance from "./components/team-performance";
 import CollectionsAttention from "./components/collections-attention";
 import RecentActivity from "./components/recent-activity";
@@ -18,6 +25,7 @@ import AiBriefing from "./components/ai-briefing";
 import SetupGuideCard from "./components/setup-guide-card";
 import PeriodSelector from "./components/period-selector";
 import { getCurrentStaffRole } from "@/lib/data/departure-groups";
+import { getCurrentDashboardCapabilities } from "@/lib/data/dashboard-capabilities";
 import {
   loadDashboardData,
   loadInboxOwnerIntelligence,
@@ -25,12 +33,22 @@ import {
 import { withTiming } from "@/lib/timing";
 import { resolveDashboardPeriod } from "@/lib/data/dashboard";
 import {
+  emptyDashboardMessage,
   resolveDashboardLayout,
+  splitDashboardBlocks,
+  type DashboardBannerBlockId,
+  type DashboardGridPanelId,
   type DashboardPanelId,
 } from "@/lib/data/dashboard-layout";
+import { visibleBlocks } from "@/lib/access/dashboard-access";
+import { reportHandledError } from "@/lib/observability/report-error";
+import BlockBoundary, { BlockErrorCard } from "./components/block-boundary";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import type { DashboardData } from "@/lib/types/dashboard";
-import { InboxIntelligencePanel } from "./components/inbox-intelligence-panel";
+import {
+  InboxIntelligencePanel,
+} from "./components/inbox-intelligence-panel";
+import type { InboxOwnerIntelligence } from "@/lib/data/dashboard-repository";
 
 /**
  * Dashboard — the landing route (`/` redirects here). A Server Component so
@@ -38,9 +56,11 @@ import { InboxIntelligencePanel } from "./components/inbox-intelligence-panel";
  * clock and fetched once per render, same reasoning as
  * `app/(main)/documents/page.tsx`. See `lib/data/dashboard-repository.ts` for
  * how each section is assembled and role-gated, and
- * `lib/data/dashboard-layout.ts` for which panels a role sees below the
- * status line and KPI row, and in what order
- * (docs/modules/dashboard-module-implementation-plan.md §4.2).
+ * `lib/data/dashboard-layout.ts` for which blocks a role's page prefers and
+ * in what order, and `lib/access/dashboard-access.ts` for which of those the
+ * signed-in person may actually see
+ * (docs/modules/dashboard-role-blocks-spec.md). Everything below the header
+ * and the setup guide is rendered from that one resolved list.
  */
 export const dynamic = "force-dynamic";
 
@@ -55,7 +75,7 @@ export const dynamic = "force-dynamic";
  * visible without a click. `grid-flow-row-dense` (set on the container)
  * backfills any gap a role's shorter panel list would otherwise leave.
  */
-const PANEL_SPAN: Record<DashboardPanelId, string> = {
+const PANEL_SPAN: Record<DashboardGridPanelId, string> = {
   pipeline: "lg:col-span-6",
   "my-day": "lg:col-span-6",
   "attention-rail": "lg:col-span-5",
@@ -67,16 +87,54 @@ const PANEL_SPAN: Record<DashboardPanelId, string> = {
   "team-performance": "lg:col-span-4",
   collections: "lg:col-span-6",
   "recent-activity": "lg:col-span-6",
+  "visa-queue": "lg:col-span-6",
+  "document-review": "lg:col-span-6",
+  "supplier-payables": "lg:col-span-6",
+  "quotes-pending": "lg:col-span-6",
+  "campaign-pulse": "lg:col-span-6",
+  "inbox-sla": "lg:col-span-6",
+};
+
+/**
+ * What each block is called in an error card. A `Record` over every panel id
+ * so a new block cannot ship without a name.
+ */
+const BLOCK_LABEL: Record<DashboardPanelId, string> = {
+  "ai-briefing": "Briefing",
+  kpis: "Key figures",
+  "inbox-owner": "Inbox intelligence",
+  pipeline: "Pipeline",
+  "my-day": "My Day",
+  "upcoming-departures": "Upcoming departures",
+  "attention-rail": "Needs attention",
+  approvals: "Agent approvals",
+  "seat-fill-pace": "Seat fill pace",
+  "revenue-trend": "Revenue and receivables",
+  "readiness-heatmap": "Readiness",
+  collections: "Collections",
+  "team-performance": "Team performance",
+  "recent-activity": "Recent activity",
+  "visa-queue": "Visa queue",
+  "document-review": "Document review",
+  "supplier-payables": "Supplier payables",
+  "quotes-pending": "Quotes pending",
+  "campaign-pulse": "Campaign pulse",
+  "inbox-sla": "Inbox",
 };
 
 function renderDashboardPanels(
-  layout: DashboardPanelId[],
+  layout: DashboardGridPanelId[],
   data: DashboardData,
   role: StaffRole,
 ) {
-  const panels: { id: DashboardPanelId; node: ReactNode }[] = [];
+  const panels: { id: DashboardGridPanelId; node: ReactNode }[] = [];
 
   for (const id of layout) {
+    // A failed read is not "nothing to show": say so, in the block's place.
+    if (data.blockErrors[id]) {
+      panels.push({ id, node: <BlockErrorCard label={BLOCK_LABEL[id]} /> });
+      continue;
+    }
     switch (id) {
       case "pipeline":
         if (data.pipeline)
@@ -145,6 +203,24 @@ function renderDashboardPanels(
             node: <CollectionsAttention collections={data.collections} />,
           });
         break;
+      case "visa-queue":
+        if (data.visaQueue) panels.push({ id, node: <VisaQueue data={data.visaQueue} /> });
+        break;
+      case "inbox-sla":
+        if (data.inboxSla) panels.push({ id, node: <InboxSla data={data.inboxSla} /> });
+        break;
+      case "campaign-pulse":
+        if (data.campaignPulse) panels.push({ id, node: <CampaignPulse data={data.campaignPulse} /> });
+        break;
+      case "quotes-pending":
+        if (data.quotePipeline) panels.push({ id, node: <QuotesPending data={data.quotePipeline} /> });
+        break;
+      case "supplier-payables":
+        if (data.supplierPayables) panels.push({ id, node: <SupplierPayables data={data.supplierPayables} /> });
+        break;
+      case "document-review":
+        if (data.documentReview) panels.push({ id, node: <DocumentReview data={data.documentReview} /> });
+        break;
       case "recent-activity":
         panels.push({
           id,
@@ -157,12 +233,60 @@ function renderDashboardPanels(
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-flow-row-dense gap-6">
       {panels.map(({ id, node }) => (
-        <div key={id} className={PANEL_SPAN[id]}>
-          {node}
+        <div key={id} className={PANEL_SPAN[id]} data-dashboard-block={id}>
+          <BlockBoundary label={BLOCK_LABEL[id]}>{node}</BlockBoundary>
         </div>
       ))}
     </div>
   );
+}
+
+/** The full-width blocks above the grid — each a registry id, rendered in preset order. */
+function renderDashboardBanner(
+  id: DashboardBannerBlockId,
+  data: DashboardData,
+  role: StaffRole,
+  name: string | null,
+  inboxIntelligence: InboxOwnerIntelligence | null | "error",
+): ReactNode {
+  const body = renderBannerBody(id, data, role, name, inboxIntelligence);
+  if (body === null) return null;
+  return (
+    <div key={id} data-dashboard-block={id}>
+      <BlockBoundary label={BLOCK_LABEL[id]}>{body}</BlockBoundary>
+    </div>
+  );
+}
+
+function renderBannerBody(
+  id: DashboardBannerBlockId,
+  data: DashboardData,
+  role: StaffRole,
+  name: string | null,
+  inboxIntelligence: InboxOwnerIntelligence | null | "error",
+): ReactNode {
+  switch (id) {
+    case "ai-briefing":
+      return (
+        <AiBriefing
+          staffName={name}
+          role={role}
+          status={data.statusLine}
+          attentionRail={data.attentionRail}
+          approvals={data.approvals}
+          daily={data.copilotToday}
+        />
+      );
+    case "kpis":
+      return <DashboardMetrics kpis={data.kpis} />;
+    case "inbox-owner":
+      if (inboxIntelligence === "error") {
+        return <BlockErrorCard label={BLOCK_LABEL[id]} />;
+      }
+      return inboxIntelligence ? (
+        <InboxIntelligencePanel data={inboxIntelligence} />
+      ) : null;
+  }
 }
 
 export default async function DashboardPage({
@@ -174,13 +298,48 @@ export default async function DashboardPage({
   const resolvedSearchParams = await searchParams;
   const period = resolveDashboardPeriod(resolvedSearchParams.period);
 
+  // Base role + custom-role overrides; decides what is fetched, not just shown.
+  const caps = await getCurrentDashboardCapabilities();
+
+  // The role's preset pruned to what this person's capabilities allow — the
+  // single list everything below renders from, and the input that decides
+  // which extra loaders run.
+  const blocks = visibleBlocks(resolveDashboardLayout(role), caps);
+  const { banners, panels } = splitDashboardBlocks(blocks);
+
+  // Nothing to render: say so, and read nothing.
+  if (blocks.length === 0) {
+    return (
+      <div className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto pb-10">
+        <PageHeader
+          title="Dashboard"
+          breadcrumb={[
+            { title: "Home", link: "/dashboard" },
+            { title: "Dashboard", link: "/dashboard" },
+          ]}
+          action={<PeriodSelector period={period} />}
+        />
+        <Card className="p-6 text-sm text-muted-foreground" role="status">
+          {emptyDashboardMessage(role)}
+        </Card>
+      </div>
+    );
+  }
+
   const [data, inboxIntelligence] = await Promise.all([
     withTiming("dashboard.loadData", () =>
-      loadDashboardData(role, staffId, agencyId, period),
+      loadDashboardData(role, staffId, agencyId, period, caps, blocks),
     ),
-    loadInboxOwnerIntelligence(role, agencyId),
+    // Optional like every other read: a failure here is an error card, not a
+    // failed page.
+    banners.includes("inbox-owner")
+      ? loadInboxOwnerIntelligence(role, agencyId).catch((error: unknown) => {
+          console.error("[dashboard] the inbox owner panel read failed:", error);
+          reportHandledError("dashboard.inboxOwner", error, { agencyId: agencyId ?? undefined });
+          return "error" as const;
+        })
+      : Promise.resolve(null),
   ]);
-  const layout = resolveDashboardLayout(role);
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-[1600px] mx-auto pb-10">
@@ -195,20 +354,11 @@ export default async function DashboardPage({
 
       <SetupGuideCard />
 
-      <AiBriefing
-        staffName={name}
-        role={role}
-        status={data.statusLine}
-        attentionRail={data.attentionRail}
-        approvals={data.approvals}
-        daily={data.copilotToday}
-      />
+      {banners.map((id) =>
+        renderDashboardBanner(id, data, role, name, inboxIntelligence),
+      )}
 
-      <DashboardMetrics kpis={data.kpis} />
-
-      {inboxIntelligence && <InboxIntelligencePanel data={inboxIntelligence} />}
-
-      {renderDashboardPanels(layout, data, role)}
+      {renderDashboardPanels(panels, data, role)}
     </div>
   );
 }

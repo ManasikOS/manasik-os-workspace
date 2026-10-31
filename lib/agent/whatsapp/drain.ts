@@ -21,6 +21,8 @@ import { deliverAgentReply, type DeliverReplyResult } from "@/lib/agent/whatsapp
 import type { QuickReply } from "@/lib/agent/whatsapp/quick-replies";
 import { assignOwner } from "@/lib/agent/whatsapp/tools/handoff";
 import { runAgentTurn } from "@/lib/agent/whatsapp/runtime";
+import { isSpamConversation } from "@/lib/agent/whatsapp/spam-suppression";
+import type { Db } from "@/lib/ai/db";
 import { recordAgentRun, recordAgentToolCalls } from "@/lib/agent/kernel/telemetry";
 import { getChannelAdapter } from "@/lib/channels/registry";
 import { getChannelAdapterForAgency } from "@/lib/inbox/simulator/adapter-for-agency";
@@ -216,6 +218,21 @@ async function handOffFailedTurn(context: AgentContext, outcome: Parameters<type
   }
 }
 
+async function isSpamChat(db: Db, conversation: ConversationRow & { lifecycle_status?: string | null }): Promise<boolean> {
+  let leadStage: string | null = null;
+  if (conversation.lead_id && conversation.lifecycle_status !== "SPAM") {
+    const { data, error } = await db
+      .from("leads")
+      .select("stage")
+      .eq("id", conversation.lead_id)
+      .eq("agency_id", conversation.agency_id)
+      .maybeSingle();
+    if (error) throw new Error(`Could not check whether the chat is spam: ${error.message}`);
+    leadStage = (data as { stage: string } | null)?.stage ?? null;
+  }
+  return isSpamConversation({ lifecycleStatus: conversation.lifecycle_status, leadStage });
+}
+
 async function runProcessInbound(job: AgentJobRow): Promise<void> {
   const payload = job.payload as { conversationId?: string; messageId?: string };
   if (!payload.conversationId) throw new Error("PROCESS_INBOUND job is missing conversationId");
@@ -263,6 +280,12 @@ export async function runAssistantTurn(
   // §6.1 step 8 restated defensively: state can have changed between
   // enqueue and claim (a staff member took over in the meantime).
   if (conversation.state === "HUMAN_ACTIVE" || !conversation.ai_enabled) return;
+
+  // A spam chat gets no automatic reply (docs/inbox/spam-state-contract.md). A read that fails throws, so the job retries and nothing is sent.
+  if (await isSpamChat(context.db, conversation)) {
+    console.info(JSON.stringify({ event: "assistant_reply_suppressed", reason: "spam", conversationId: conversation.id, agencyId: conversation.agency_id }));
+    return;
+  }
 
   // Resolved before the model runs: a channel with no adapter fails the job here instead of after a paid turn.
   const adapter = await getChannelAdapterForAgency(context.db, context.agencyId, conversation.channel);

@@ -20,3 +20,27 @@ describe("capabilitiesForInbox — deleteConversation", () => {
     expect(STAFF_ROLES.filter((role) => capabilitiesForInbox(role).deleteConversation)).toEqual(["ADMIN"]);
   });
 });
+
+describe("capabilitiesForInbox — read-only roles (decision 2026-10-17)", () => {
+  const WRITE_CAPABILITIES = [
+    "takeControl",
+    "releaseToAi",
+    "sendMessage",
+    "closeConversation",
+    "deleteConversation",
+    "assignConversation",
+    "retryFailedJob",
+    "convertConversation",
+    "manageSavedReplies",
+  ] as const;
+
+  it.each(["CEO", "FINANCE", "VISA"] as const)("%s may open the Inbox and read every conversation, but change nothing", (role) => {
+    const capabilities = capabilitiesForInbox(role);
+    expect(capabilities.viewModule).toBe(true);
+    for (const key of WRITE_CAPABILITIES) expect(capabilities[key], key).toBe(false);
+  });
+
+  it("GUIDE cannot open the Inbox", () => {
+    expect(capabilitiesForInbox("GUIDE").viewModule).toBe(false);
+  });
+});

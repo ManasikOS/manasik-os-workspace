@@ -30,6 +30,7 @@ import {
   waivePilgrimDocumentAction,
 } from "../../../actions";
 import { whatsappLink } from "../../../utils";
+import { sendViaWhatsApp } from "@/lib/inbox/quick-chat/send-via-whatsapp";
 
 const STATUS_LABELS: Record<string, string> = {
   NOT_SUBMITTED: "Missing",
@@ -94,12 +95,24 @@ export default function DocumentsTab({
   const refresh = () => router.refresh();
 
   const requestViaWhatsapp = async (doc: DepartureGroupPilgrimDocumentRow) => {
-    window.open(whatsappLink(profile.person.whatsapp_number), "_blank");
-    await requestDocumentAction({
-      pilgrimId: profile.person.id,
-      departureGroupId: journey.departure_group_id,
-      documentName: doc.name,
+    const logRequest = () =>
+      requestDocumentAction({
+        pilgrimId: profile.person.id,
+        departureGroupId: journey.departure_group_id,
+        documentName: doc.name,
+      });
+    // With the popup the request is logged once the message has gone out; with the link, as before, straight away.
+    const route = sendViaWhatsApp({
+      channel: "WHATSAPP",
+      to: profile.person.whatsapp_number,
+      contactName: profile.person.full_name,
+      draft: `Assalamu Alaikum ${profile.person.full_name}. Please upload your ${doc.name}.`,
+      onSent: async () => {
+        await logRequest();
+      },
+      fallbackUrl: whatsappLink(profile.person.whatsapp_number),
     });
+    if (route === "LINK") await logRequest();
     toast.add({ title: "Request logged" });
     refresh();
   };

@@ -35,6 +35,7 @@ import {
   QUOTE_STATUS_TONE as STATUS_TONE,
   OPEN_QUOTE_STATUSES,
 } from "@/lib/quotes/status";
+import { isQuoteExpiringSoon } from "@/lib/quotes/pipeline";
 import { TONE_TEXT } from "@/lib/ui/tone";
 
 export interface QuoteListRow {
@@ -73,10 +74,7 @@ export default function QuotesListView({
   const [status, setStatus] = useState<StatusFilter>("OPEN");
   const [now] = useState(() => Date.now());
 
-  const isExpiringSoon = (q: QuoteListRow) =>
-    (q.status === "SENT" || q.status === "VIEWED") &&
-    Date.parse(q.validUntil) - now <= 2 * 24 * 60 * 60 * 1000 &&
-    Date.parse(q.validUntil) >= now;
+  const isExpiringSoon = (q: QuoteListRow) => isQuoteExpiringSoon(q, now);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();

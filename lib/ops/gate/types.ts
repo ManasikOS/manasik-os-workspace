@@ -1,3 +1,5 @@
+import type { DisposableAgencyPort } from "./disposable-agency";
+
 /**
  * The production go-live gate (TASK-032 S7). Every check answers PASS, FAIL or PENDING:
  *  - PASS: the thing was checked and is as it should be.
@@ -76,6 +78,10 @@ export interface GateContext {
   workerUrl?: string;
   verifyTokens: Partial<Record<VerifyTokenChannel, string>>;
   vercel?: { token: string; projectId: string; teamId?: string };
+  /** The deployment's platform Meta app secret, used only to sign the disposable-agency webhook (G9). Never printed. */
+  metaAppSecret?: string;
+  /** What G9 uses to create and remove its test agency. Without it G9 stays pending. */
+  disposableAgency?: DisposableAgencyPort;
   fetchImpl?: typeof fetch;
   now?: Date;
 }

@@ -34,6 +34,7 @@ import {
   toInvoiceLineItemInputs,
 } from "../../booking-invoice";
 import { buildInvoicePdf } from "../../invoice-pdf";
+import { sendViaWhatsApp } from "@/lib/inbox/quick-chat/send-via-whatsapp";
 import type {
   DepartureGroupAccommodation,
   DepartureGroupBooking,
@@ -109,6 +110,8 @@ const InvoicePreviewDialog = ({
   const [generated, setGenerated] = useState<{
     id: string;
     number: string;
+    /** The PDF that was built and downloaded, kept so the Quick Chat popup can attach the same file. */
+    pdf: Blob | null;
   } | null>(null);
 
   useResetOnOpen(open, booking?.id ?? "", () => {
@@ -180,6 +183,7 @@ const InvoicePreviewDialog = ({
         return;
       }
 
+      let builtPdf: Blob | null = null;
       try {
         const pdfBlob = await buildInvoicePdf({
           letterhead,
@@ -196,6 +200,7 @@ const InvoicePreviewDialog = ({
           lineItems,
           amountPaid: booking.amountPaid,
         });
+        builtPdf = pdfBlob;
         downloadBlob(
           pdfBlob,
           timestampedFilename(createResult.invoiceNumber, "pdf"),
@@ -214,6 +219,7 @@ const InvoicePreviewDialog = ({
       setGenerated({
         id: createResult.invoiceId,
         number: createResult.invoiceNumber,
+        pdf: builtPdf,
       });
       router.refresh();
     });
@@ -222,7 +228,7 @@ const InvoicePreviewDialog = ({
   const sendWhatsapp = () => {
     if (!booking || !generated) return;
     const digits = whatsappDigits(booking.primaryContactPhone);
-    startTransition(async () => {
+    const recordSent = async () => {
       const result = await sendInvoiceAction({
         invoiceId: generated.id,
         channel: "WHATSAPP",
@@ -232,19 +238,35 @@ const InvoicePreviewDialog = ({
           title: "Could not record as sent",
           description: result.error,
         });
-        return;
-      }
-      if (digits) {
-        const text = encodeURIComponent(
-          `Invoice ${generated.number} for ${group.groupName} — ${formatExactCurrency(subtotal, currency)}. The PDF is attached separately.`,
-        );
-        window.open(
-          `https://wa.me/${digits}?text=${text}`,
-          "_blank",
-          "noopener,noreferrer",
-        );
+        return false;
       }
       toast.add({ title: "Marked as sent via WhatsApp" });
+      return true;
+    };
+
+    if (digits) {
+      const summary = `Invoice ${generated.number} for ${group.groupName} — ${formatExactCurrency(subtotal, currency)}.`;
+      // With the popup the invoice is recorded as sent only once the message has gone out, and the PDF travels with it.
+      const route = sendViaWhatsApp({
+        channel: "WHATSAPP",
+        to: digits,
+        contactName: booking.primaryContactName,
+        draft: summary,
+        attachment: generated.pdf
+          ? { file: generated.pdf, filename: timestampedFilename(generated.number, "pdf") }
+          : undefined,
+        onSent: async () => {
+          await recordSent();
+        },
+        fallbackUrl: `https://wa.me/${digits}?text=${encodeURIComponent(`${summary} The PDF is attached separately.`)}`,
+        onOpened: onClose,
+      });
+      if (route === "POPUP") return;
+    }
+
+    // The link cannot tell what the person did in WhatsApp, so the invoice is recorded straight away, as before.
+    startTransition(async () => {
+      await recordSent();
     });
   };
 

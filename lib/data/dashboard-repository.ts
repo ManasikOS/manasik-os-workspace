@@ -20,42 +20,67 @@ import "server-only";
 
 import { cookies } from "next/headers";
 
-import { capabilitiesForFinance } from "@/lib/access/finance-access";
-import { capabilitiesForLeads } from "@/lib/access/leads-access";
-import { capabilitiesForOperations } from "@/lib/access/operations-access";
-import { capabilitiesForReports } from "@/lib/access/reports-access";
+import type { DashboardCapabilities } from "@/lib/access/dashboard-access";
 import type { StaffRole } from "@/lib/access/departure-groups-access";
 import { buildOperationsSnapshot } from "@/lib/data/operations-repository";
 import { computeOperationsKpis } from "@/lib/data/operations";
 import { loadAssignedGroupIds, loadTasksForStaff, type StaffTaskWithGroup } from "@/lib/data/team-repository";
-import { loadLeadDashboardFacts, type DashboardLeadFacts } from "@/lib/data/leads-repository";
+import { loadLeadDashboardFacts, loadQuoteDashboardFacts, type DashboardLeadFacts } from "@/lib/data/leads-repository";
 import { getCopilotDailySummary, listAgencyOpenProposals } from "@/lib/data/departure-groups-agent";
 import {
   loadFinancePayments,
   loadFinanceReceivables,
   loadRefundsPendingSummary,
 } from "@/lib/data/finance-repository";
-import { loadReportsFinanceSnapshot, loadReportsSalesSnapshot } from "@/lib/data/reports-repository";
-import { buildRevenueTrend } from "@/lib/data/reports";
+import {
+  loadReportsFinanceSnapshot,
+  loadReportsOverviewSnapshot,
+  loadReportsSalesSnapshot,
+} from "@/lib/data/reports-repository";
+import { buildRevenueTrend, computeExecutiveSummary } from "@/lib/data/reports";
 import { buildCollectionsSummary, buildReceivablesAging, buildPackageProfitability } from "@/lib/data/reports-finance";
 import { buildLeadFunnel, buildLeadSourcePerformance, buildSalesTeamPerformance } from "@/lib/data/reports-sales";
 import {
   dashboardPeriodLabel,
-  formatKpiDelta,
   buildStatusLine,
+  selectKpis,
+  activityTypeFor,
+  buildKpiCandidates,
+  formatCurrencyLKR,
+  type PeriodCount,
   toReportPeriod,
   trendGranularityFor,
   type DashboardPeriod,
 } from "@/lib/data/dashboard";
 import { rankAttentionRows } from "@/lib/data/dashboard-attention";
+import { planDashboardFetch } from "@/lib/data/dashboard-fetch-plan";
+import {
+  DASHBOARD_KPI_CAP,
+  resolveDashboardKpiOrder,
+  type DashboardPanelId,
+} from "@/lib/data/dashboard-layout";
 import { buildSeatPacePoints } from "@/lib/data/dashboard-pace";
 import { resolveComparison, resolvePeriod } from "@/lib/data/reports-period";
 import { DEFAULT_REPORT_FILTERS, type ReportFilters } from "@/app/(main)/reports/types";
 import type { OperationsFlightItem, OperationsGroupSummary } from "@/lib/types/operations";
+import { buildDocumentReview } from "@/lib/data/dashboard-documents";
+import { buildCampaignPulse } from "@/lib/data/dashboard-campaigns";
+import { buildInboxSla } from "@/lib/data/dashboard-inbox";
+import { loadQueueCounts } from "@/lib/data/inbox-queue-repository";
+import { listCampaignsWithMetrics } from "@/lib/data/campaigns-repository";
+import { buildQuotePipeline } from "@/lib/data/dashboard-quotes";
+import { buildSupplierPayables } from "@/lib/data/dashboard-suppliers";
+import { toSupplierListItems } from "@/lib/data/suppliers";
+import { loadSupplierDirectory } from "@/lib/data/suppliers-repository";
+import { buildVisaQueue } from "@/lib/data/dashboard-visa";
+import { toDocumentListItems } from "@/lib/data/documents";
+import { loadDocumentQueue } from "@/lib/data/documents-repository";
+import { toVisaListItems } from "@/lib/data/visa";
+import { loadVisaQueue } from "@/lib/data/visa-repository";
+import { reportHandledError } from "@/lib/observability/report-error";
 import { createClient } from "@/utils/supabase/server";
 
 import type {
-  AdminKpi,
   ApprovalsSummary,
   AttentionRow,
   BusinessHealthData,
@@ -110,18 +135,6 @@ export async function loadInboxOwnerIntelligence(role: StaffRole, agencyId: stri
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-/** `5_200_000` → `LKR 5.2M`. Same shape as every other module's money KPI. */
-function formatCurrencyLKR(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "LKR 0";
-  if (value >= 1_000_000) {
-    return `LKR ${(value / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-  }
-  if (value >= 1_000) {
-    return `LKR ${(value / 1_000).toFixed(0)}K`;
-  }
-  return `LKR ${numberFormatter.format(value)}`;
-}
-
 function formatExactLKR(value: number): string {
   return `LKR ${numberFormatter.format(Math.round(value))}`;
 }
@@ -155,84 +168,6 @@ function isWithinIso(iso: string, fromIso: string, toIso: string): boolean {
 /* ── KPIs ─────────────────────────────────────────────────────────────────── */
 
 /** `previous` is `null` whenever the underlying data isn't a periodic figure (no delta to show). */
-interface PeriodCount {
-  current: number;
-  previous: number;
-}
-
-function buildKpis(input: {
-  groups: OperationsGroupSummary[];
-  outstandingBalance: number;
-  periodLabel: string;
-  newInquiries: PeriodCount | null;
-  collections: PeriodCount | null;
-}): AdminKpi[] {
-  const kpis: AdminKpi[] = [];
-  const activeGroups = input.groups.filter((g) => g.groupStatus !== "COMPLETED" && g.groupStatus !== "CLOSED" && g.groupStatus !== "CANCELLED");
-
-  if (input.newInquiries) {
-    const trend = formatKpiDelta(input.newInquiries.current, input.newInquiries.previous, "previous period");
-    kpis.push({
-      id: "new-inquiries",
-      title: "New Inquiries",
-      value: String(input.newInquiries.current),
-      supportingText: input.periodLabel,
-      trend: trend?.trend,
-      trendType: trend?.trendType,
-      destination: "/leads",
-    });
-  }
-
-  kpis.push({
-    id: "active-pilgrims",
-    title: "Active Pilgrims",
-    value: String(activeGroups.reduce((sum, g) => sum + g.pilgrimCount, 0)),
-    supportingText: `Across ${activeGroups.length} active group${activeGroups.length === 1 ? "" : "s"}`,
-    destination: "/pilgrims",
-  });
-
-  const departingSoon = activeGroups.filter((g) => g.daysUntilDeparture >= 0 && g.daysUntilDeparture <= 30);
-  kpis.push({
-    id: "departing-30",
-    title: "Departing in 30 Days",
-    value: String(departingSoon.reduce((sum, g) => sum + g.pilgrimCount, 0)),
-    supportingText: `Across ${departingSoon.length} departure group${departingSoon.length === 1 ? "" : "s"}`,
-    destination: "/departure-groups",
-  });
-
-  if (input.collections) {
-    const trend = formatKpiDelta(input.collections.current, input.collections.previous, "previous period");
-    kpis.push({
-      id: "collections-period",
-      title: `Collections (${input.periodLabel})`,
-      value: formatCurrencyLKR(input.collections.current),
-      trend: trend?.trend,
-      trendType: trend?.trendType,
-      destination: "/finance?view=receivables&subview=payments",
-    });
-    kpis.push({
-      id: "outstanding-balance",
-      title: "Outstanding Balance",
-      value: formatCurrencyLKR(input.outstandingBalance),
-      // Point-in-time balance — no historical snapshot to diff against, so
-      // no delta rather than a fabricated one (open question in
-      // docs/modules/dashboard-module-implementation-plan.md §13.4).
-      destination: "/finance?view=receivables&subview=balances",
-    });
-  }
-
-  const readyCount = activeGroups.filter((g) => g.readinessStatus === "READY").length;
-  kpis.push({
-    id: "group-readiness",
-    title: "Group Readiness",
-    value: `${readyCount} Ready`,
-    supportingText: "Next 30 days departures",
-    destination: "/departure-groups",
-  });
-
-  return kpis;
-}
-
 /* ── My Day ───────────────────────────────────────────────────────────────── */
 
 /**
@@ -499,11 +434,43 @@ function buildLeadAttention(leads: DashboardLeadFacts[], nowMs: number) {
 
 /* ── Main entry point ─────────────────────────────────────────────────────── */
 
+/** The optional reads a Dashboard render can make; each can fail without taking the page down. */
+type DashboardRead =
+  | "leads"
+  | "receivables"
+  | "payments"
+  | "refunds"
+  | "myTasks"
+  | "proposals"
+  | "copilot"
+  | "financeReport"
+  | "salesReport"
+  | "overview"
+  | "visaQueue"
+  | "documentQueue"
+  | "supplierDirectory"
+  | "quotes"
+  | "campaigns"
+  | "inboxQueues";
+
 export async function loadDashboardData(
   role: StaffRole,
   staffId: string | null,
   agencyId: string | null,
-  period: DashboardPeriod = "THIS_QUARTER",
+  period: DashboardPeriod,
+  /**
+   * The signed-in person's resolved capabilities — base role plus any
+   * custom-role overrides (`getCurrentDashboardCapabilities()`). Taken as an
+   * argument rather than derived from `role` so a custom role's restrictions
+   * decide what is *fetched*, not just what is shown.
+   */
+  caps: DashboardCapabilities,
+  /**
+   * The blocks this person's page will actually render
+   * (`visibleBlocks(resolveDashboardLayout(role), caps)`). A read no visible
+   * block consumes is not made — see `planDashboardFetch`.
+   */
+  blocks: readonly DashboardPanelId[],
 ): Promise<DashboardData> {
   const supabase = await db();
   const nowMs = Date.now();
@@ -522,34 +489,87 @@ export async function loadDashboardData(
   // has no branch/journey/package/group filters of its own to set.
   const reportFilters: ReportFilters = { ...DEFAULT_REPORT_FILTERS, period: toReportPeriod(period) };
 
-  const financeCan = capabilitiesForFinance(role);
-  const leadsCan = capabilitiesForLeads(role);
-  const opsCan = capabilitiesForOperations(role);
-  const reportsCan = capabilitiesForReports(role);
+  const financeCan = caps.finance;
+  const reportsCan = caps.reports;
 
   // `staff_group_assignments` scoping, not a name match — see the comment on
   // `loadActiveStore()` in `lib/data/operations-repository.ts`.
   const assignedGroupIds =
     role === "GUIDE" && staffId ? await loadAssignedGroupIds(supabase, staffId) : [];
 
-  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasks, openProposals, copilotToday, financeReport, salesReport] =
+  // Which optional reads a visible block actually consumes. A skipped read
+  // resolves `null` ("not asked for"), and every figure derived from it below
+  // keys off that `null` — not off the capability — so a skipped read can
+  // never be mistaken for a real zero.
+  const plan = planDashboardFetch(blocks, caps, { staffId, agencyId }, resolveDashboardKpiOrder(role));
+
+  // One failed optional read must not blank the landing page. A failure is
+  // logged and reported, the read resolves `null` ("unknown", exactly like a
+  // skipped read), and the blocks that depend on it are marked in
+  // `blockErrors` below. The Operations snapshot is deliberately NOT
+  // wrapped: every block and the status line build on it, so without it
+  // there is nothing honest to show and the route's own error boundary
+  // takes over.
+  const failed = new Set<DashboardRead>();
+  const read = async <T>(name: DashboardRead, wanted: boolean, run: () => Promise<T>): Promise<T | null> => {
+    if (!wanted) return null;
+    try {
+      return await run();
+    } catch (error) {
+      failed.add(name);
+      console.error(`[dashboard] the "${name}" read failed; the blocks that need it degrade and the page still renders:`, error);
+      reportHandledError(`dashboard.${name}`, error, { agencyId: agencyId ?? undefined });
+      return null;
+    }
+  };
+
+  const [snapshot, leadFacts, receivables, payments, refundsPending, myTasksRead, openProposals, copilotToday, financeReport, salesReport, overview, visaQueue, documentReview, supplierPayables, quotePipeline, campaignPulse, inboxSla] =
     await Promise.all([
       buildOperationsSnapshot(supabase, role, assignedGroupIds),
-      leadsCan.viewModule ? loadLeadDashboardFacts(supabase) : Promise.resolve(null),
-      financeCan.viewLedger ? loadFinanceReceivables(supabase, financeCan) : Promise.resolve(null),
-      financeCan.viewLedger ? loadFinancePayments(supabase) : Promise.resolve(null),
-      financeCan.viewLedger ? loadRefundsPendingSummary(supabase) : Promise.resolve(null),
-      staffId ? loadTasksForStaff(supabase, staffId) : Promise.resolve([]),
-      opsCan.viewModule && agencyId ? listAgencyOpenProposals(agencyId, supabase) : Promise.resolve(null),
-      opsCan.viewModule && agencyId ? getCopilotDailySummary(agencyId, supabase) : Promise.resolve(null),
-      // Business Health (§5.8) — gated on `viewFinance` alone since every
+      read("leads", plan.leads, () => loadLeadDashboardFacts(supabase)),
+      read("receivables", plan.receivables, () => loadFinanceReceivables(supabase, financeCan)),
+      read("payments", plan.payments, () => loadFinancePayments(supabase)),
+      read("refunds", plan.refunds, () => loadRefundsPendingSummary(supabase)),
+      staffId ? read("myTasks", plan.myTasks, () => loadTasksForStaff(supabase, staffId)) : Promise.resolve(null),
+      agencyId ? read("proposals", plan.proposals, () => listAgencyOpenProposals(agencyId, supabase)) : Promise.resolve(null),
+      agencyId ? read("copilot", plan.proposals, () => getCopilotDailySummary(agencyId, supabase)) : Promise.resolve(null),
+      // Business Health (§5.8) - gated on `viewFinance` alone since every
       // figure it shows (revenue, bookings, collections, receivables,
       // margin) is finance-flavoured; `viewCostAndMargin` narrows the
       // margin tab specifically, below.
-      reportsCan.viewFinance ? loadReportsFinanceSnapshot(supabase, reportFilters, nowIso, reportsCan) : Promise.resolve(null),
+      read("financeReport", plan.financeReport, () => loadReportsFinanceSnapshot(supabase, reportFilters, nowIso, reportsCan)),
       // Pipeline (§5.9) and Team Performance (§5.10) share one fact set.
-      reportsCan.viewSales ? loadReportsSalesSnapshot(supabase, reportFilters, nowIso) : Promise.resolve(null),
+      read("salesReport", plan.salesReport, () => loadReportsSalesSnapshot(supabase, reportFilters, nowIso)),
+      // Revenue / Gross Margin tiles - Reports' own executive summary, never a re-derivation.
+      read("overview", plan.overview, () => loadReportsOverviewSnapshot(supabase, reportFilters, nowIso, reportsCan)),
+      // Visa queue - the visa module's own rows and derivations, trimmed to group-level counts.
+      read("visaQueue", plan.visaQueue, async () => buildVisaQueue(toVisaListItems(await loadVisaQueue(supabase), nowIso))),
+      // Document review - the Documents module's own rows and derivations, trimmed to group-level counts.
+      read("documentQueue", plan.documents, async () =>
+        buildDocumentReview(toDocumentListItems(await loadDocumentQueue(supabase), nowIso)),
+      ),
+      // Supplier payables - the directory view, with the person's own capabilities
+      // so the loader itself strips amounts they may not see.
+      read("supplierDirectory", plan.suppliers, async () =>
+        buildSupplierPayables(toSupplierListItems(await loadSupplierDirectory(supabase, caps.suppliers)), nowIso),
+      ),
+      // Quotes pending - a column-limited read of lead_quotes, counted with the Quotes page's own rules.
+      read("quotes", plan.quotes, async () => buildQuotePipeline(await loadQuoteDashboardFacts(supabase), nowIso)),
+      // Campaign pulse - the Campaigns module's own per-campaign metrics (its heaviest read; budgeted in T17).
+      read("campaigns", plan.campaigns, async () => buildCampaignPulse(await listCampaignsWithMetrics(supabase), nowIso)),
+      // Inbox - the rail's own queue counts (one RPC), with the plan's SLA entitlement
+      // deciding whether the two SLA figures exist at all.
+      read("inboxQueues", plan.inboxSla, async () => {
+        const [counts, entitlements] = await Promise.all([
+          loadQueueCounts(supabase, staffId),
+          agencyId ? resolveEntitlements(supabase, agencyId) : Promise.resolve(null),
+        ]);
+        const availability = resolveInboxFeatureAvailability({ entitlements, inboxQueuesV2: false });
+        return buildInboxSla(counts, availability.sla);
+      }),
     ]);
+
+  const myTasks = myTasksRead ?? [];
 
   const leads = leadFacts ?? [];
 
@@ -566,7 +586,7 @@ export async function loadDashboardData(
       .reduce((sum, p) => sum + p.amount, 0) ?? 0;
 
   const collectionsKpi: PeriodCount | null =
-    financeCan.viewLedger && payments && comparisonPeriod
+    payments && comparisonPeriod
       ? {
           current: sumCompletedPayments(resolvedPeriod.fromIso, resolvedPeriod.toIso),
           previous: sumCompletedPayments(comparisonPeriod.fromIso, comparisonPeriod.toIso),
@@ -574,14 +594,14 @@ export async function loadDashboardData(
       : null;
 
   const newInquiriesKpi: PeriodCount | null =
-    leadsCan.viewModule && comparisonPeriod
+    leadFacts && comparisonPeriod
       ? {
           current: leads.filter((l) => isWithinIso(l.created_at, resolvedPeriod.fromIso, resolvedPeriod.toIso)).length,
           previous: leads.filter((l) => isWithinIso(l.created_at, comparisonPeriod.fromIso, comparisonPeriod.toIso)).length,
         }
       : null;
 
-  const collections = financeCan.viewLedger && receivables
+  const collections = blocks.includes("collections") && receivables && payments && !failed.has("refunds")
     ? {
         thisMonth: formatCurrencyLKR(collectedThisMonth),
         due7Days: formatCurrencyLKR(
@@ -611,15 +631,27 @@ export async function loadDashboardData(
       }
     : null;
 
-  const activity = snapshot.activity.slice(0, 8).map((a) => ({
-    id: a.id,
-    actor: a.isSystem ? "System" : a.actorName,
-    action: a.message,
-    target: a.groupName,
-    timeAgo: timeAgo(a.createdAt, nowMs),
-    avatarInitials: a.isSystem ? "SY" : initials(a.actorName),
-    type: "operations" as const,
-  }));
+  // The group activity log, already scoped by `buildOperationsSnapshot` (a
+  // GUIDE sees only their assigned groups). Not `loadMergedActivityFeed`:
+  // that is one person's own log plus their account-security events, which
+  // would show an admin only their own actions on the landing page.
+  //
+  // Payment lines can carry amounts, and every role other than GUIDE reads
+  // every group's log, so they are shown only to a role that may see the
+  // ledger. Filtered *before* the cap so the feed still fills.
+  const activity = snapshot.activity
+    .filter((a) => a.entityType !== "PAYMENT" || financeCan.viewLedger)
+    .slice(0, 8)
+    .map((a) => ({
+      id: a.id,
+      actor: a.isSystem ? "System" : a.actorName,
+      action: a.message,
+      target: a.groupName,
+      timeAgo: timeAgo(a.createdAt, nowMs),
+      avatarInitials: a.isSystem ? "SY" : initials(a.actorName),
+      type: activityTypeFor(a.entityType),
+      destination: `/departure-groups/${a.groupId}`,
+    }));
 
   // `computeOperationsKpis()` is Operations' own derivation — reused here
   // rather than re-defining "at risk" or "supplier confirmations pending" a
@@ -636,11 +668,14 @@ export async function loadDashboardData(
     groupsAtRiskCount: opsKpis.groupsAtRisk,
     groupsBlockedCount: activeGroupsForStatus.filter((g) => g.readinessStatus === "BLOCKED").length,
     overdueTaskCount,
-    overdueBalanceLabel: financeCan.viewLedger ? formatCurrencyLKR(overdueBalanceAmount) : null,
-    overdueBalanceAmount: financeCan.viewLedger ? overdueBalanceAmount : 0,
+    overdueBalanceLabel: receivables ? formatCurrencyLKR(overdueBalanceAmount) : null,
+    overdueBalanceAmount: receivables ? overdueBalanceAmount : 0,
+    figuresUnavailable: (
+      ["leads", "receivables", "payments", "refunds", "myTasks", "overview", "visaQueue", "documentQueue", "supplierDirectory", "quotes"] as const
+    ).some((name) => failed.has(name)),
   });
 
-  const leadAttention = leadsCan.viewModule ? buildLeadAttention(leads, nowMs) : { items: [] as LeadAttentionMetric[] };
+  const leadAttention = leadFacts ? buildLeadAttention(leads, nowMs) : { items: [] as LeadAttentionMetric[] };
 
   const groupDaysById = new Map(snapshot.groups.map((g) => [g.id, g.daysUntilDeparture]));
   const myDay = buildMyDay({
@@ -658,7 +693,7 @@ export async function loadDashboardData(
       supplierConfirmationsPending: opsKpis.supplierConfirmationsPending,
       minSupplierDays: minDays(pendingSupplierRows),
       leadItems: leadAttention.items,
-      refundsPendingCount: financeCan.viewLedger ? (refundsPending?.count ?? 0) : null,
+      refundsPendingCount: refundsPending ? refundsPending.count : null,
     }),
   );
 
@@ -702,15 +737,65 @@ export async function loadDashboardData(
   // too, with no extra gating needed.
   const seatPace = buildSeatPacePoints(activeGroupsForStatus);
 
+  const blockErrors: DashboardData["blockErrors"] = {};
+  const markFailed = (id: DashboardPanelId, ...reads: DashboardRead[]) => {
+    if (blocks.includes(id) && reads.some((name) => failed.has(name))) blockErrors[id] = true;
+  };
+  markFailed("collections", "receivables", "payments", "refunds");
+  markFailed("approvals", "proposals");
+  markFailed("revenue-trend", "financeReport");
+  markFailed("pipeline", "salesReport");
+  markFailed("team-performance", "salesReport");
+  markFailed("my-day", "myTasks");
+  markFailed("visa-queue", "visaQueue");
+  markFailed("document-review", "documentQueue");
+  markFailed("supplier-payables", "supplierDirectory");
+  markFailed("quotes-pending", "quotes");
+  markFailed("campaign-pulse", "campaigns");
+  markFailed("inbox-sla", "inboxQueues");
+
   return {
     statusLine,
-    kpis: buildKpis({
-      groups: snapshot.groups,
-      outstandingBalance,
-      periodLabel,
-      newInquiries: newInquiriesKpi,
-      collections: collectionsKpi,
-    }),
+    blockErrors,
+    kpis: selectKpis(
+      resolveDashboardKpiOrder(role),
+      buildKpiCandidates({
+        groups: snapshot.groups,
+        outstandingBalance,
+        periodLabel,
+        newInquiries: newInquiriesKpi,
+        collections: collectionsKpi,
+        groupsAtRisk: opsKpis.groupsAtRisk,
+        supplierConfirmationsPending: opsKpis.supplierConfirmationsPending,
+        openTaskCount: snapshot.tasks.filter((t) => t.status !== "COMPLETE").length,
+        myOpenTaskCount: plan.myTasks && !failed.has("myTasks") ? myTasks.length : null,
+        overdueBalance: receivables ? overdueBalanceAmount : null,
+        refundsPending: refundsPending ? refundsPending.count : null,
+        visaQueue: visaQueue ? visaQueue.counts : null,
+        quotePipeline: quotePipeline
+          ? {
+              open: quotePipeline.open,
+              expiringSoon: quotePipeline.counts.expiringSoon,
+              accepted: quotePipeline.counts.accepted,
+              total: quotePipeline.total,
+              acceptRatePercent: quotePipeline.acceptRatePercent,
+            }
+          : null,
+        supplierPayables: supplierPayables
+          ? { paymentsDueByCurrency: supplierPayables.paymentsDueByCurrency }
+          : null,
+        documentReview: documentReview
+          ? { awaitingReview: documentReview.counts.awaitingReview, missingDocuments: documentReview.counts.missingDocuments }
+          : null,
+        executive: overview
+          ? {
+              summary: computeExecutiveSummary(overview.bookingsCurrent, overview.bookingsPrevious, overview.groups),
+              showMargin: reportsCan.viewCostAndMargin,
+            }
+          : null,
+      }),
+      DASHBOARD_KPI_CAP,
+    ),
     myDay,
     departureGroups: buildDepartureGroups(snapshot.groups),
     attentionRail,
@@ -718,6 +803,12 @@ export async function loadDashboardData(
     copilotToday,
     businessHealth,
     pipeline,
+    visaQueue,
+    documentReview,
+    supplierPayables,
+    quotePipeline,
+    campaignPulse,
+    inboxSla,
     teamPerformance,
     seatPace,
     leadAttention,

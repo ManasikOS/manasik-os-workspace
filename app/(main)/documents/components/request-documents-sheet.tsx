@@ -23,6 +23,7 @@ import { toast } from "@/components/ui/toast";
 import { sendBulkReminderAction } from "../actions";
 import type { DocumentListItem } from "../types";
 import { whatsappLink } from "../utils";
+import { sendViaWhatsApp } from "@/lib/inbox/quick-chat/send-via-whatsapp";
 
 interface RequestDocumentsSheetProps {
   documents: DocumentListItem[];
@@ -43,14 +44,24 @@ const RequestDocumentsSheet = ({ documents, open, onClose }: RequestDocumentsShe
   }, [documents, search]);
 
   const send = async (item: DocumentListItem) => {
-    window.open(
-      whatsappLink(item.whatsappNumber, `Assalamu Alaikum ${item.fullName}. Please upload your ${item.name} for ${item.groupName}.`),
-      "_blank",
-    );
-    const result = await sendBulkReminderAction({ documentIds: [item.documentId] });
-    if (result.ok) {
-      toast.add({ title: "Reminder logged", description: item.fullName });
-    }
+    const text = `Assalamu Alaikum ${item.fullName}. Please upload your ${item.name} for ${item.groupName}.`;
+    const logReminder = async () => {
+      const result = await sendBulkReminderAction({ documentIds: [item.documentId] });
+      if (result.ok) {
+        toast.add({ title: "Reminder logged", description: item.fullName });
+      }
+    };
+    // With the popup the reminder is logged once the message has gone out; with the link, as before, straight away.
+    const route = sendViaWhatsApp({
+      channel: "WHATSAPP",
+      to: item.whatsappNumber,
+      contactName: item.fullName,
+      draft: text,
+      onSent: logReminder,
+      fallbackUrl: whatsappLink(item.whatsappNumber, text),
+      onOpened: onClose,
+    });
+    if (route === "LINK") await logReminder();
   };
 
   return (

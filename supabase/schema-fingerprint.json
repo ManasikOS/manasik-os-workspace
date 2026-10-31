@@ -1,7 +1,7 @@
 {
   "description": "Fingerprint of the public schema of a database built from supabase/migrations (go-live gate G15). Regenerate with scripts/local/write-schema-fingerprint.sh after adding a migration.",
-  "lastMigration": "20270208090000_leads_abuse_limits_and_export_audit",
-  "migrationCount": 254,
+  "lastMigration": "20270216090000_gate_disposable_agency_leftovers",
+  "migrationCount": 256,
   "objects": {
     "constraint:agencies": "fa5a6a1b32",
     "constraint:agency_email_delivery_profiles": "7542d30dd8",
@@ -302,9 +302,12 @@
     "function:enqueue_channel_job(p_agency_id uuid, p_lane text, p_kind text, p_coalesce_key text, p_payload jsonb, p_priority integer, p_delay_seconds integer, p_max_attempts integer)": "c07d8a900f",
     "function:enqueue_inbox_media_message(p_conversation_id uuid, p_caption text, p_client_idempotency_key uuid, p_storage_path text, p_filename text, p_mime_type text, p_byte_size bigint, p_checksum_sha256 text, p_subject text, p_cc text[], p_bcc text[])": "c8aae3f99a",
     "function:enqueue_inbox_text_message(p_conversation_id uuid, p_body text, p_client_idempotency_key uuid, p_subject text, p_cc text[], p_bcc text[])": "55094383e2",
+    "function:enqueue_record_text_message(p_conversation_id uuid, p_body text, p_client_idempotency_key uuid)": "79bdd74473",
     "function:fail_channel_job(p_id uuid, p_worker_id text, p_error text, p_backoff_seconds integer)": "6301d1306b",
     "function:find_orphan_staged_uploads(p_older_than_hours integer, p_limit integer)": "965f6b67de",
     "function:find_unreconciled_raw_events(p_source text, p_min_age_seconds integer, p_max_age_seconds integer, p_limit integer)": "13de5d5b5c",
+    "function:gate_delete_disposable_agency(p_agency_id uuid)": "da272e8aef",
+    "function:gate_disposable_agency_leftovers(p_agency_id uuid)": "b51a21737a",
     "function:gate_schema_fingerprint()": "c1b7fdf2d5",
     "function:gate_snapshot()": "d1115096e8",
     "function:guard_conversation_protected_columns()": "b30e93fc86",

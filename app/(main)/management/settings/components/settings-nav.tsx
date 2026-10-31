@@ -28,6 +28,7 @@ export function SettingsNav({ sections }: { sections: SettingsSectionId[] }) {
           <Link
             key={id}
             href={href}
+            prefetch={false}
             className={cn(
               "shrink-0 rounded-sm px-3 py-2 text-sm transition-colors whitespace-nowrap",
               isActive
